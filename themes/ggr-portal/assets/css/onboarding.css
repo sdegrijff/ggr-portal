@@ -44,7 +44,10 @@ body {
     width: 100%;
     max-width: 1100px;
     border-radius: 16px;
-    padding: 12px;
+    padding: 16px;
+    background: #ffffff;
+    border: 1px solid var(--ggr-border-soft);
+    box-shadow: 0 20px 60px rgba(17, 24, 39, 0.08);
 }
 
 /* Header met logo + titel – in lijn met Dashboard */
@@ -102,6 +105,16 @@ body {
     color: var(--ggr-text-muted);
 }
 
+.ggr-onboarding-hero .ggr-onboarding-status-badge {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.ggr-onboarding-hero .ggr-onboarding-status-meta {
+    color: rgba(255, 255, 255, 0.8);
+}
+
 /* ===============================
    Layout binnen de card
    =============================== */
@@ -124,39 +137,80 @@ body {
     padding-right: 0;
     background: #fff;
     padding: 20px;
-    height: 95vh;
     border-radius: 12px;
     border: 1px solid var(--ggr-border-soft);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
     position: sticky;
     top: 24px;
+    min-height: calc(100vh - 120px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ggr-onboarding-steps-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
 }
 
 .ggr-onboarding-steps h2 {
-    font-size: 15px;
-    font-weight: 600;
-    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 700;
+    margin: 4px 0;
     color: var(--ggr-text-main);
 }
 
+.ggr-onboarding-muted,
 .ggr-onboarding-steps p {
     margin: 0 0 10px 0;
     font-size: 13px;
     color: var(--ggr-text-muted);
 }
 
+.ggr-onboarding-progress {
+    position: relative;
+    min-width: 170px;
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: #f8fafc;
+    border: 1px solid var(--ggr-border-soft);
+    font-size: 12px;
+    color: var(--ggr-text-muted);
+    overflow: hidden;
+    text-align: right;
+}
+
+.ggr-onboarding-progress-bar {
+    position: absolute;
+    inset: 4px;
+    height: auto;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
+    opacity: 0.14;
+    pointer-events: none;
+}
+
+
 .ggr-onboarding-step-list {
     list-style: none;
     margin: 0;
     padding: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .ggr-onboarding-step {
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--ggr-border-soft);
+    padding: 12px;
+    border: 1px solid var(--ggr-border-soft);
+    border-radius: 12px;
+    background: #fbfdff;
 }
 
 .ggr-onboarding-step:last-child {
@@ -191,8 +245,8 @@ body {
 
 .ggr-onboarding-step-content h3 {
     margin: 0 0 4px 0;
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 15px;
+    font-weight: 600;
     color: var(--ggr-text-main);
 }
 
@@ -202,16 +256,41 @@ body {
     color: var(--ggr-text-muted);
 }
 
+.ggr-onboarding-step-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+}
+
 .ggr-onboarding-chip {
     display: inline-flex;
     align-items: center;
     padding: 2px 8px;
     border-radius: 999px;
-    background: #f0f9ff;
-    color: #0b4f9a;
+    background: #e0ecff;
+    color: #0f3e8a;
     font-size: 11px;
-    border: 1px solid #dbeafe;
-    margin-top: 6px;
+    border: 1px solid #c7d7ff;
+    margin: 0;
+}
+
+.ggr-onboarding-steps-footer {
+    border-top: 1px dashed var(--ggr-border-soft);
+    padding-top: 12px;
+}
+
+.ggr-onboarding-logout {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    color: #0f3e8a;
+    text-decoration: none;
+}
+
+.ggr-onboarding-logout:hover {
+    text-decoration: underline;
 }
 
 
@@ -362,6 +441,10 @@ body {
     font-weight: 600;
 }
 
+.ggr-onboarding-hero .ggr-onboarding-kicker {
+    color: rgba(255, 255, 255, 0.9);
+}
+
 .ggr-onboarding-highlight h2 {
     margin: 0 0 6px 0;
     font-size: 16px;
@@ -415,9 +498,11 @@ body {
 /* Rechter kolom: gegevens + acties */
 
 .ggr-onboarding-side {
-    border-left: 1px solid var(--ggr-border-soft);
-    padding-left: 24px;
+    padding-left: 0;
     min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
 .ggr-onboarding-side h2 {
@@ -425,6 +510,25 @@ body {
     font-weight: 600;
     margin: 0 0 10px 0;
     color: var(--ggr-text-main);
+}
+
+.ggr-onboarding-hero {
+    padding: 22px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #0f3e8a, #0ea5e9);
+    color: #fff;
+    box-shadow: 0 20px 50px rgba(14, 165, 233, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ggr-onboarding-hero h1 {
+    margin: 4px 0 8px;
+    font-size: 22px;
+    color: #fff;
+}
+
+.ggr-onboarding-hero .ggr-onboarding-muted {
+    color: rgba(255, 255, 255, 0.85);
 }
 
 .ggr-onboarding-meta {
