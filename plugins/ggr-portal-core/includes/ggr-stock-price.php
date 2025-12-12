@@ -1,0 +1,885 @@
+<?php
+/**
+ * GGR Stock Price – Dagelijkse waarde per 1 participatie
+ *
+ * - Database tabel voor dagelijkse GGR prijs
+ * - Admin pagina voor handmatige invoer + import/export
+ * - Helper functies voor ophalen prijs per datum of periode
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+/* ============================================================================
+ * 1. DATABASE TABEL
+ * ============================================================================
+ *
+ * LET OP:
+ * Aanroepen in je hoofdplugin bij activatie:
+ *
+ * if ( function_exists( 'ggr_create_ggr_stock_price_table' ) ) {
+ *     ggr_create_ggr_stock_price_table();
+ * }
+ */
+function ggr_create_ggr_stock_price_table() {
+    global $wpdb;
+
+    $table_name      = $wpdb->prefix . 'ggr_stock_prices';
+    $charset_collate = $wpdb->get_charset_collate();
+
+    $sql = "
+        CREATE TABLE {$table_name} (
+            id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            price_date DATE NOT NULL,
+            price_value DECIMAL(15,6) NOT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY unique_price_date (price_date)
+        ) {$charset_collate};
+    ";
+
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta( $sql );
+}
+
+/* ============================================================================
+ * 2. ADMIN MENU (top-level item)
+ * ============================================================================
+ */
+
+add_action( 'admin_menu', 'ggr_register_stock_price_menu' );
+
+function ggr_register_stock_price_menu() {
+    add_menu_page(
+        'GGR Stock Price',              // Pagina titel
+        'GGR Stock Price',              // Menu titel in sidebar
+        'manage_options',               // Capability
+        'ggr-stock-price',              // Menu slug (?page=ggr-stock-price)
+        'ggr_render_stock_price_page',  // Callback
+        'dashicons-chart-line',         // Icoon
+        26                              // Positie
+    );
+}
+
+/* ============================================================================
+ * 3. ACTIE-AFHANDELING (VOOR OUTPUT) – export / delete / delete_all
+ * ============================================================================
+ */
+
+add_action( 'admin_init', 'ggr_handle_stock_price_actions' );
+
+function ggr_handle_stock_price_actions() {
+    if ( ! is_admin() ) {
+        return;
+    }
+
+    if ( ! isset( $_GET['page'] ) || $_GET['page'] !== 'ggr-stock-price' ) {
+        return;
+    }
+
+    if ( ! current_user_can( 'manage_options' ) ) {
+        return;
+    }
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'ggr_stock_prices';
+
+    // EXPORT (CSV)
+    if (
+        isset( $_GET['action'] ) &&
+        $_GET['action'] === 'export' &&
+        isset( $_GET['_wpnonce'] ) &&
+        wp_verify_nonce( $_GET['_wpnonce'], 'ggr_export_prices' )
+    ) {
+        header( 'Content-Type: text/csv; charset=utf-8' );
+        header( 'Content-Disposition: attachment; filename=ggr-stock-prices.csv' );
+
+        $output = fopen( 'php://output', 'w' );
+        fputcsv( $output, array( 'date', 'value' ) );
+
+        $rows = $wpdb->get_results(
+            "SELECT price_date, price_value 
+             FROM {$table_name} 
+             ORDER BY price_date ASC",
+            ARRAY_A
+        );
+
+        if ( $rows ) {
+            foreach ( $rows as $row ) {
+                fputcsv( $output, array( $row['price_date'], $row['price_value'] ) );
+            }
+        }
+
+        fclose( $output );
+        exit;
+    }
+
+    // ALLE WAARDES VERWIJDEREN
+    if (
+        isset( $_GET['action'] ) &&
+        $_GET['action'] === 'delete_all' &&
+        isset( $_GET['_wpnonce'] ) &&
+        wp_verify_nonce( $_GET['_wpnonce'], 'ggr_delete_all_prices' )
+    ) {
+        $wpdb->query( "DELETE FROM {$table_name}" );
+
+        $target_url = add_query_arg(
+            array(
+                'page' => 'ggr-stock-price',
+                'msg'  => 'deleted_all',
+            ),
+            admin_url( 'admin.php' )
+        );
+        wp_safe_redirect( $target_url );
+        exit;
+    }
+
+    // ENKEL RECORD VERWIJDEREN
+    if (
+        isset( $_GET['action'], $_GET['id'] ) &&
+        $_GET['action'] === 'delete' &&
+        isset( $_GET['_wpnonce'] ) &&
+        wp_verify_nonce( $_GET['_wpnonce'], 'ggr_delete_price_' . (int) $_GET['id'] )
+    ) {
+        $id = (int) $_GET['id'];
+
+        $deleted = $wpdb->delete(
+            $table_name,
+            array( 'id' => $id ),
+            array( '%d' )
+        );
+
+        $msg = $deleted ? 'deleted' : 'delete_failed';
+
+        $target_url = add_query_arg(
+            array(
+                'page' => 'ggr-stock-price',
+                'msg'  => $msg,
+            ),
+            admin_url( 'admin.php' )
+        );
+        wp_safe_redirect( $target_url );
+        exit;
+    }
+}
+
+/* ============================================================================
+ * 4. DATA HELPERS
+ * ========================================================================= */
+
+/**
+ * Sla een GGR stock price op voor een datum (upsert op basis van price_date).
+ *
+ * @param string $date_mysql  Datum in Y-m-d formaat.
+ * @param float  $price       Waarde per participatie.
+ *
+ * @return bool
+ */
+function ggr_upsert_stock_price( $date_mysql, $price ) {
+    global $wpdb;
+
+    $table_name = $wpdb->prefix . 'ggr_stock_prices';
+    $now        = current_time( 'mysql' );
+
+    // Bestaat er al een record voor deze datum?
+    $existing_id = $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT id FROM {$table_name} WHERE price_date = %s LIMIT 1",
+            $date_mysql
+        )
+    );
+
+    if ( $existing_id ) {
+        // Update bestaande snapshot
+        $updated = $wpdb->update(
+            $table_name,
+            array(
+                'price_value' => (float) $price,
+                'updated_at'  => $now,
+            ),
+            array( 'id' => (int) $existing_id ),
+            array( '%f', '%s' ),
+            array( '%d' )
+        );
+
+        return $updated !== false;
+    }
+
+    // Nieuwe snapshot
+    $inserted = $wpdb->insert(
+        $table_name,
+        array(
+            'price_date'  => $date_mysql,
+            'price_value' => (float) $price,
+            'created_at'  => $now,
+            'updated_at'  => $now,
+        ),
+        array( '%s', '%f', '%s', '%s' )
+    );
+
+    return (bool) $inserted;
+}
+
+
+/**
+ * Haal GGR waarde op voor een datum.
+ *
+ * Functioneel gedrag:
+ * - Altijd de laatste bekende koers t/m die datum:
+ *   * als er een koers op die datum is → die koers
+ *   * anders de laatste koers vóór die datum
+ * - Bestaat er helemaal geen koers → null
+ *
+ * @param string $date      Datum (elk formaat dat strtotime pakt).
+ * @param bool   $fallback  Wordt niet meer gebruikt (alleen voor backwards compatibility).
+ * @return float|null       Waarde per 1 GGR-participatie of null.
+ */
+function ggr_get_stock_price_for_date( $date, $fallback = true ) {
+    global $wpdb;
+
+    $table_name = $wpdb->prefix . 'ggr_stock_prices';
+    $date       = date( 'Y-m-d', strtotime( $date ) );
+
+    // Eén query: laatste koers t/m deze datum
+    $value = $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT price_value
+             FROM {$table_name}
+             WHERE price_date <= %s
+             ORDER BY price_date DESC
+             LIMIT 1",
+            $date
+        )
+    );
+
+    return ( $value !== null && $value !== '' ) ? (float) $value : null;
+}
+
+/**
+ * Haal een reeks GGR prijzen op voor een periode (alleen daadwerkelijke snapshots).
+ *
+ * @param string $from
+ * @param string $to
+ * @return array
+ */
+function ggr_get_stock_price_series( $from, $to ) {
+    global $wpdb;
+
+    $table_name = $wpdb->prefix . 'ggr_stock_prices';
+
+    $from = date( 'Y-m-d', strtotime( $from ) );
+    $to   = date( 'Y-m-d', strtotime( $to ) );
+
+    $rows = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT price_date, price_value
+             FROM {$table_name}
+             WHERE price_date BETWEEN %s AND %s
+             ORDER BY price_date ASC",
+            $from,
+            $to
+        ),
+        ARRAY_A
+    );
+
+    return is_array( $rows ) ? $rows : array();
+}
+
+/**
+ * Optioneel: haal de allerlaatste beschikbare koers op (meest recente dag in de tabel).
+ *
+ * @return float|null
+ */
+function ggr_get_latest_stock_price() {
+    global $wpdb;
+
+    $table_name = $wpdb->prefix . 'ggr_stock_prices';
+
+    $value = $wpdb->get_var(
+        "SELECT price_value
+         FROM {$table_name}
+         ORDER BY price_date DESC
+         LIMIT 1"
+    );
+
+    return ( $value !== null && $value !== '' ) ? (float) $value : null;
+}
+
+/* ============================================================================
+ * 5. ADMIN PAGINA (UI + import/save/edit)
+ * ============================================================================
+ */
+
+function ggr_render_stock_price_page() {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_die( 'Je hebt geen toegang tot deze pagina.' );
+    }
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'ggr_stock_prices';
+
+    $notice = '';
+    $error  = '';
+
+    // Meldingen via ?msg=...
+    if ( isset( $_GET['msg'] ) ) {
+        switch ( $_GET['msg'] ) {
+            case 'deleted_all':
+                $notice = 'Alle GGR-waardes zijn verwijderd.';
+                break;
+            case 'deleted':
+                $notice = 'Snapshot verwijderd.';
+                break;
+            case 'delete_failed':
+                $error = 'Verwijderen is mislukt of record bestond niet meer.';
+                break;
+        }
+    }
+
+    $today      = current_time( 'Y-m-d' );
+    $form_date  = $today;
+    $form_value = '';
+    $is_edit    = false;
+
+    /* -----------------------------------------------------------
+     * BEWERKEN (FORM PREFILL)
+     * --------------------------------------------------------- */
+    if ( isset( $_GET['edit_id'] ) ) {
+        $edit_id = (int) $_GET['edit_id'];
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM {$table_name} WHERE id = %d LIMIT 1",
+                $edit_id
+            ),
+            ARRAY_A
+        );
+
+        if ( $row ) {
+            $form_date  = $row['price_date'];
+            $form_value = $row['price_value'];
+            $is_edit    = true;
+        }
+    }
+
+    /* -----------------------------------------------------------
+     * SAVE / UPDATE ACTIE (één waarde)
+     * --------------------------------------------------------- */
+    if ( isset( $_POST['ggr_price_submit'] ) ) {
+        check_admin_referer( 'ggr_save_price' );
+
+        $price_date_raw  = isset( $_POST['price_date'] ) ? sanitize_text_field( $_POST['price_date'] ) : '';
+        $price_value_raw = isset( $_POST['price_value'] ) ? sanitize_text_field( $_POST['price_value'] ) : '';
+
+        $price_date  = $price_date_raw ? date( 'Y-m-d', strtotime( $price_date_raw ) ) : '';
+        $price_value = $price_value_raw !== '' ? (float) str_replace( ',', '.', $price_value_raw ) : 0;
+
+        // Form-velden terugvullen bij fout
+        $form_date  = $price_date_raw;
+        $form_value = $price_value_raw;
+
+        if ( ! $price_date || $price_value_raw === '' ) {
+            $error = 'Datum en waarde zijn verplicht.';
+        } elseif ( $price_value <= 0 ) {
+            $error = 'Waarde moet groter zijn dan 0.';
+        } else {
+            $now = current_time( 'mysql' );
+
+            // Bestaat er al een record voor deze datum?
+            $existing_id = $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT id FROM {$table_name} WHERE price_date = %s LIMIT 1",
+                    $price_date
+                )
+            );
+
+            if ( $existing_id ) {
+                // Update
+                $updated = $wpdb->update(
+                    $table_name,
+                    array(
+                        'price_value' => $price_value,
+                        'updated_at'  => $now,
+                    ),
+                    array( 'id' => (int) $existing_id ),
+                    array( '%f', '%s' ),
+                    array( '%d' )
+                );
+
+                if ( $updated !== false ) {
+                    $notice = 'Waarde per 1 GGR-participatie voor ' . esc_html( $price_date ) . ' is bijgewerkt.';
+                    $form_date  = $price_date;
+                    $form_value = '';
+                    $is_edit    = false;
+                } else {
+                    $error  = 'Bijwerken van de GGR-waarde is mislukt.';
+                }
+            } else {
+                // Insert
+                $inserted = $wpdb->insert(
+                    $table_name,
+                    array(
+                        'price_date'  => $price_date,
+                        'price_value' => $price_value,
+                        'created_at'  => $now,
+                        'updated_at'  => $now,
+                    ),
+                    array( '%s', '%f', '%s', '%s' )
+                );
+
+                if ( $inserted ) {
+                    $notice = 'Waarde per 1 GGR-participatie voor ' . esc_html( $price_date ) . ' is opgeslagen.';
+                    $form_date  = $price_date;
+                    $form_value = '';
+                    $is_edit    = false;
+                } else {
+                    $error  = 'Opslaan van de GGR-waarde is mislukt.';
+                }
+            }
+        }
+    }
+
+    /* -----------------------------------------------------------
+     * IMPORT (CSV)
+     * --------------------------------------------------------- */
+    if ( isset( $_POST['ggr_price_import_submit'] ) ) {
+        check_admin_referer( 'ggr_import_price' );
+
+        if ( ! isset( $_FILES['ggr_price_import_file'] ) || $_FILES['ggr_price_import_file']['error'] !== UPLOAD_ERR_OK ) {
+            $error = 'Importbestand kon niet worden geladen.';
+        } else {
+            $file_tmp  = $_FILES['ggr_price_import_file']['tmp_name'];
+            $contents  = file_get_contents( $file_tmp );
+            $lines     = preg_split( '/\r\n|\r|\n/', $contents );
+            $imported  = 0;
+            $now       = current_time( 'mysql' );
+
+            foreach ( $lines as $idx => $line ) {
+                $line = trim( $line );
+                if ( $line === '' ) {
+                    continue;
+                }
+
+                // Eerste regel overslaan als header
+                if ( $idx === 0 && ( stripos( $line, 'date' ) !== false || stripos( $line, 'datum' ) !== false ) ) {
+                    continue;
+                }
+
+                // Probeer eerst ; daarna ,
+                $parts = str_getcsv( $line, ';' );
+                if ( count( $parts ) < 2 ) {
+                    $parts = str_getcsv( $line, ',' );
+                }
+                if ( count( $parts ) < 2 ) {
+                    continue;
+                }
+
+                $date_raw  = trim( $parts[0] );
+                $value_raw = trim( $parts[1] );
+
+                if ( $date_raw === '' || $value_raw === '' ) {
+                    continue;
+                }
+
+                $date  = date( 'Y-m-d', strtotime( $date_raw ) );
+                $value = (float) str_replace( ',', '.', $value_raw );
+
+                if ( ! $date || $value <= 0 ) {
+                    continue;
+                }
+
+                // Upsert per datum
+                $existing_id = $wpdb->get_var(
+                    $wpdb->prepare(
+                        "SELECT id FROM {$table_name} WHERE price_date = %s LIMIT 1",
+                        $date
+                    )
+                );
+
+                if ( $existing_id ) {
+                    $wpdb->update(
+                        $table_name,
+                        array(
+                            'price_value' => $value,
+                            'updated_at'  => $now,
+                        ),
+                        array( 'id' => (int) $existing_id ),
+                        array( '%f', '%s' ),
+                        array( '%d' )
+                    );
+                } else {
+                    $wpdb->insert(
+                        $table_name,
+                        array(
+                            'price_date'  => $date,
+                            'price_value' => $value,
+                            'created_at'  => $now,
+                            'updated_at'  => $now,
+                        ),
+                        array( '%s', '%f', '%s', '%s' )
+                    );
+                }
+
+                $imported++;
+            }
+
+            if ( $imported > 0 ) {
+                $notice = $imported . ' waardes geïmporteerd of bijgewerkt.';
+            } else {
+                $error  = 'Geen geldige waardes gevonden in importbestand.';
+            }
+        }
+    }
+
+    /* -----------------------------------------------------------
+     * OPHALEN ALLE SNAPSHOTS
+     * --------------------------------------------------------- */
+    $rows = $wpdb->get_results(
+        "SELECT * FROM {$table_name} ORDER BY price_date DESC",
+        ARRAY_A
+    );
+
+    // URLs voor export en delete all
+    $export_url = wp_nonce_url(
+        add_query_arg(
+            array(
+                'page'   => 'ggr-stock-price',
+                'action' => 'export',
+            ),
+            admin_url( 'admin.php' )
+        ),
+        'ggr_export_prices'
+    );
+
+    $delete_all_url = wp_nonce_url(
+        add_query_arg(
+            array(
+                'page'   => 'ggr-stock-price',
+                'action' => 'delete_all',
+            ),
+            admin_url( 'admin.php' )
+        ),
+        'ggr_delete_all_prices'
+    );
+
+    ?>
+    <div class="wrap">
+        <h1>NAV Per Participatie</h1>
+        <p>
+            Beheer hier de dagelijkse waarde per 1 GGR-participatie. Deze reeks kun je koppelen
+            aan de participanten-historie voor echte marktwerking in het portaal.
+        </p>
+
+        <p>
+            <a href="<?php echo esc_url( $export_url ); ?>" class="button">Exporteren (CSV)</a>
+            <a href="<?php echo esc_url( $delete_all_url ); ?>"
+               class="button button-secondary"
+               onclick="return confirm('Weet je zeker dat je álle GGR-waardes wilt verwijderen? Dit kan niet ongedaan worden gemaakt.');">
+                Alle waardes verwijderen
+            </a>
+        </p>
+
+        <?php if ( $notice ) : ?>
+            <div class="notice notice-success is-dismissible">
+                <p><?php echo esc_html( $notice ); ?></p>
+            </div>
+        <?php endif; ?>
+
+        <?php if ( $error ) : ?>
+            <div class="notice notice-error is-dismissible">
+                <p><?php echo esc_html( $error ); ?></p>
+            </div>
+        <?php endif; ?>
+
+        <h2><?php echo $is_edit ? 'Waarde bewerken' : 'Nieuwe / bestaande waarde invoeren'; ?></h2>
+
+        <form method="post">
+            <?php wp_nonce_field( 'ggr_save_price' ); ?>
+
+            <table class="form-table" role="presentation">
+                <tbody>
+                    <tr>
+                        <th scope="row"><label for="price_date">Datum</label></th>
+                        <td>
+                            <input
+                                type="date"
+                                id="price_date"
+                                name="price_date"
+                                value="<?php echo esc_attr( $form_date ); ?>"
+                            />
+                            <p class="description">
+                                Eén snapshot per dag. Bestaande waarde op deze datum wordt overschreven.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><label for="price_value">Waarde per 1 GGR-participatie</label></th>
+                        <td>
+                            <input
+                                type="text"
+                                id="price_value"
+                                name="price_value"
+                                value="<?php echo esc_attr( $form_value ); ?>"
+                                placeholder="Bijv: 102.35"
+                            />
+                            <p class="description">
+                                Gebruik punt of komma als decimaalteken.
+                            </p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <?php submit_button( $is_edit ? 'GGR-waarde bijwerken' : 'GGR-waarde opslaan', 'primary', 'ggr_price_submit' ); ?>
+        </form>
+
+        <hr />
+
+        <h2>Recente GGR-waardes</h2>
+
+        <h3>Importeer waardes (CSV)</h3>
+        <p>Verwacht formaat: <code>date,value</code> (bijvoorbeeld: <code>2025-01-31,102.35</code>). Eerste regel mag een header zijn.</p>
+        <form method="post" enctype="multipart/form-data">
+            <?php wp_nonce_field( 'ggr_import_price' ); ?>
+            <input type="file" name="ggr_price_import_file" accept=".csv,text/csv" />
+            <?php submit_button( 'Importeren', 'secondary', 'ggr_price_import_submit', false ); ?>
+        </form>
+
+        <?php if ( empty( $rows ) ) : ?>
+            <p>Er zijn nog geen GGR-waardes opgeslagen.</p>
+        <?php else : ?>
+            <table class="widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th scope="col">Datum</th>
+                        <th scope="col">Waarde per 1 GGR-participatie</th>
+                        <th scope="col">Δ t.o.v. vorige (%)</th>
+                        <th scope="col">Aangemaakt</th>
+                        <th scope="col">Laatst bijgewerkt</th>
+                        <th scope="col">Acties</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    $count = count( $rows );
+                    for ( $i = 0; $i < $count; $i++ ) :
+                        $row       = $rows[ $i ];
+                        $date_raw  = $row['price_date'];
+                        $date_disp = date_i18n( 'd-m-Y', strtotime( $date_raw ) );
+
+                        $value      = (float) $row['price_value'];
+                        $value_disp = number_format( $value, 4, ',', '.' );
+
+                        // Vorige waarde in de reeks (DESC → volgende index)
+                        $diff_disp = '-';
+                        if ( $i + 1 < $count ) {
+                            $prev_row   = $rows[ $i + 1 ];
+                            $prev_value = (float) $prev_row['price_value'];
+
+                            if ( $prev_value > 0 ) {
+                                $diff = ( ( $value - $prev_value ) / $prev_value ) * 100;
+                                $diff_disp = number_format( $diff, 2, ',', '.' ) . ' %';
+                            }
+                        }
+
+                        $created_disp = $row['created_at'] ? date_i18n( 'd-m-Y H:i', strtotime( $row['created_at'] ) ) : '';
+                        $updated_disp = $row['updated_at'] ? date_i18n( 'd-m-Y H:i', strtotime( $row['updated_at'] ) ) : '';
+
+                        $edit_url = add_query_arg(
+                            array(
+                                'page'    => 'ggr-stock-price',
+                                'edit_id' => (int) $row['id'],
+                            ),
+                            admin_url( 'admin.php' )
+                        );
+
+                        $delete_url = wp_nonce_url(
+                            add_query_arg(
+                                array(
+                                    'page'   => 'ggr-stock-price',
+                                    'action' => 'delete',
+                                    'id'     => (int) $row['id'],
+                                ),
+                                admin_url( 'admin.php' )
+                            ),
+                            'ggr_delete_price_' . (int) $row['id']
+                        );
+                        ?>
+                        <tr>
+                            <td><?php echo esc_html( $date_disp ); ?></td>
+                            <td><?php echo esc_html( $value_disp ); ?></td>
+                            <td><?php echo esc_html( $diff_disp ); ?></td>
+                            <td><?php echo esc_html( $created_disp ); ?></td>
+                            <td><?php echo esc_html( $updated_disp ); ?></td>
+                            <td>
+                                <a href="<?php echo esc_url( $edit_url ); ?>">Bewerken</a> |
+                                <a href="<?php echo esc_url( $delete_url ); ?>"
+                                   onclick="return confirm('Weet je zeker dat je deze snapshot wilt verwijderen?');">
+                                    Verwijderen
+                                </a>
+                            </td>
+                        </tr>
+                    <?php endfor; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
+    </div>
+    <?php
+}
+
+/* ============================================================================
+ * 6. REST API – webhook voor Google Sheets
+ * ========================================================================== */
+
+/**
+ * Registreer endpoint: POST /wp-json/ggr/v1/stock-price
+ */
+add_action( 'rest_api_init', 'ggr_register_stock_price_endpoint' );
+
+function ggr_register_stock_price_endpoint() {
+    register_rest_route(
+        'ggr/v1',
+        '/stock-price',
+        array(
+            'methods'             => 'POST',
+            'callback'            => 'ggr_api_update_stock_price',
+            'permission_callback' => 'ggr_api_authenticate_google_sheet',
+        )
+    );
+}
+
+/**
+ * Eenvoudige authenticatie via een gedeelde secret.
+ */
+function ggr_api_authenticate_google_sheet( WP_REST_Request $request ) {
+    $secret = $request->get_header( 'x-ggr-secret' );
+    if ( ! $secret ) {
+        $secret = $request->get_param( 'secret' );
+    }
+
+    $expected = defined( 'GGR_SHEET_WEBHOOK_SECRET' ) ? GGR_SHEET_WEBHOOK_SECRET : '';
+
+    if ( empty( $expected ) ) {
+        return new WP_Error(
+            'no_secret_configured',
+            'Webhook secret is niet geconfigureerd.',
+            array( 'status' => 500 )
+        );
+    }
+
+    if ( ! hash_equals( $expected, (string) $secret ) ) {
+        return new WP_Error(
+            'forbidden',
+            'Ongeldige secret.',
+            array( 'status' => 403 )
+        );
+    }
+
+    return true;
+}
+
+/**
+ * Callback: datum + prijs ontvangen en opslaan.
+ *
+ * Verwacht JSON body:
+ * {
+ *   "date": "2025-11-29",
+ *   "price": 99.38
+ * }
+ */
+function ggr_api_update_stock_price( WP_REST_Request $request ) {
+
+    $date_raw  = $request->get_param( 'date' );
+    $price_raw = $request->get_param( 'price' );
+
+    // -----------------------------------------
+    // 1. Basisvalidatie
+    // -----------------------------------------
+    if ( empty( $date_raw ) || $price_raw === null ) {
+        return new WP_Error(
+            'missing_params',
+            'Parameters "date" en "price" zijn verplicht.',
+            array( 'status' => 400 )
+        );
+    }
+
+    // -----------------------------------------
+    // 2. Datum normaliseren → Y-m-d
+    // -----------------------------------------
+    if ( function_exists( 'ggr_portal_parse_date_to_mysql' ) ) {
+        $date_mysql = ggr_portal_parse_date_to_mysql( $date_raw );
+    } else {
+        $ts         = strtotime( $date_raw );
+        $date_mysql = $ts ? date( 'Y-m-d', $ts ) : '';
+    }
+
+    if ( empty( $date_mysql ) ) {
+        return new WP_Error(
+            'invalid_date',
+            'Ongeldige datum: ' . $date_raw,
+            array( 'status' => 400 )
+        );
+    }
+
+    // -----------------------------------------
+    // 3. Prijs normaliseren
+    //    → Sheets stuurt meestal al een float zoals 99.38
+    //    → Fallback: string varianten met € of komma
+    // -----------------------------------------
+    if ( is_numeric( $price_raw ) ) {
+
+        // Komt als 99.38 of "99.38"
+        $price_float = (float) $price_raw;
+
+    } else {
+
+        // Indien Sheets toch text stuurt zoals "€ 99,38"
+        $p = trim( (string) $price_raw );
+        $p = str_replace( array( '€', ' ' ), '', $p );
+        $p = str_replace( ',', '.', $p );
+
+        if ( ! is_numeric( $p ) ) {
+            return new WP_Error(
+                'invalid_price',
+                'Ongeldige prijs: ' . $price_raw,
+                array( 'status' => 400 )
+            );
+        }
+
+        $price_float = (float) $p;
+    }
+
+    if ( $price_float <= 0 ) {
+        return new WP_Error(
+            'invalid_price',
+            'Prijs moet groter zijn dan 0.',
+            array( 'status' => 400 )
+        );
+    }
+
+    // -----------------------------------------
+    // 4. Opslaan in database (upsert)
+    // -----------------------------------------
+    $ok = ggr_upsert_stock_price( $date_mysql, $price_float );
+
+    if ( ! $ok ) {
+        return new WP_Error(
+            'db_error',
+            'Kon de GGR-waarde niet opslaan.',
+            array( 'status' => 500 )
+        );
+    }
+
+    // -----------------------------------------
+    // 5. Succesresponse
+    // -----------------------------------------
+    return array(
+        'success' => true,
+        'date'    => $date_mysql,
+        'price'   => $price_float,
+    );
+}
+

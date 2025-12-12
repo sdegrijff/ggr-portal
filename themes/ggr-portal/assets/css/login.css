@@ -1,0 +1,633 @@
+
+/* ===============================
+   GLOBAL: LOGIN-PAGINA CLEAN
+   =============================== */
+
+/* Basis reset + achtergrond voor loginomgeving */
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: #f3f7f7;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Verberg portal-/theme-shell op login-achtige pagina's
+   (header, footer, sidebar, mobiele nav, etc.) */
+header,
+.site-header,
+.site-footer,
+footer,
+.ggr-shell-header,
+.ggr-shell-footer,
+.ggr-shell-sidebar,
+.ggr-shell-bottom-nav,
+.ggr-mobile-nav,
+.ggr-mobile-actions {
+    display: none !important;
+}
+
+/* Als .ggr-shell-main bestaat, mag die full-width zijn */
+.ggr-shell-main {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+
+/* ===============================
+   LOGIN HEADER (LOGO + CTA)
+   =============================== */
+
+/* Balk bovenaan met logo links en CTA rechts */
+.ggr-login-header {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 18px 10%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f3f7f7;
+    z-index: 10;
+    padding-left:10%;
+    padding-right:10%;
+}
+
+/* Logo links */
+.ggr-login-header-left {
+    display: flex;
+    align-items: center;
+}
+
+.ggr-login-logo {
+    height: 56px !important;
+    width: auto;
+    display: block;
+    object-fit: contain;
+}
+
+/* Tekst + link rechts */
+.ggr-login-header-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ggr-login-header-right span {
+    font-size: 15px;
+    font-weight: 400;
+    color: #333333;
+}
+
+.ggr-login-header-cta {
+    font-size: 15px;
+    font-weight: 600;
+    color: #c57a54;
+    text-decoration: underline;
+}
+
+.ggr-login-header-cta:hover {
+    color: #a96845;
+}
+
+/* Mobiel: compacter */
+@media (max-width: 640px) {
+    .ggr-login-header {
+        padding: 14px 18px;
+    }
+
+    .ggr-login-logo {
+        height: 44px !important;
+    }
+
+    .ggr-login-header-right span,
+    .ggr-login-header-cta {
+        font-size: 14px;
+    }
+}
+
+
+/* ===============================
+   GGR LOGIN / 2FA / RESET LAYOUT
+   =============================== */
+
+/* Wrapper: centreert de card op desktop */
+.ggr-login-wrapper {
+    min-height: calc(100vh - 90px); /* ~hoogte login-header */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 16px;
+    background: #f3f7f7;
+    box-sizing: border-box;
+}
+
+/* Binnen-wrapper (card) */
+.ggr-login-shell {
+    width: 100%;
+    max-width: 420px;
+}
+
+/* Eventueel logo direct boven de kaart (indien gebruikt) */
+.ggr-logo-top {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.ggr-logo-top img {
+    max-height: 75px;
+    width: auto;
+    object-fit: contain;
+    display: block;
+}
+
+/* Kaart (login/2FA/reset/wachtwoord-vergeten) */
+.ggr-login-card {
+    width: 100%;
+    max-width: 420px;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 32px 28px 28px 28px;
+    box-shadow: 0 24px 40px rgba(15, 23, 42, 0.12);
+    box-sizing: border-box;
+}
+
+/* Titel en subtitel */
+.ggr-login-title {
+    margin: 0 0 4px 0;
+    font-size: 24px;
+    line-height: 1.25;
+    font-weight: 700;
+    color: #111827;
+    text-align: center;
+}
+
+.ggr-login-subtitle {
+    font-size: 16px;
+    color: #6b7280;
+    margin: 0 0 24px;
+    text-align: center;
+}
+
+/* Algemene paragrafen binnen de card (fallback) */
+.ggr-login-card p {
+    margin: 0 0 8px;
+}
+
+/* Velden */
+.ggr-login-fields .ggr-field,
+.ggr-2fa-form .ggr-field,
+.ggr-resetpass-form .ggr-field {
+    margin-bottom: 16px;
+}
+
+.ggr-login-card label,
+.ggr-login-fields .ggr-field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #4b5563;
+    margin-bottom: 6px;
+    margin-top: 10px !important;
+    text-align: left !important;
+}
+
+/* Inputvelden (login, 2FA, reset, lost password) */
+.ggr-login-card input[type="text"],
+.ggr-login-card input[type="email"],
+.ggr-login-card input[type="password"],
+.ggr-login-fields .ggr-field .input,
+.ggr-2fa-form .input,
+.ggr-resetpass-form .input {
+    width: 100%;
+    box-sizing: border-box;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    padding: 10px 12px;
+    font-size: 14px;
+    color: #111827;
+    background: #ffffff;
+    transition: border-color 0.15s ease,
+                box-shadow 0.15s ease,
+                background-color 0.15s ease;
+}
+
+/* Placeholder kleur */
+.ggr-login-card input::placeholder,
+.ggr-login-fields .ggr-field .input::placeholder,
+.ggr-2fa-form .input::placeholder,
+.ggr-resetpass-form .input::placeholder {
+    color: #b8b8b8;
+    opacity: 1;
+}
+
+/* Focus state */
+.ggr-login-card input:focus,
+.ggr-login-fields .ggr-field .input:focus,
+.ggr-2fa-form .input:focus,
+.ggr-resetpass-form .input:focus {
+    outline: none;
+    border-color: #f49c6b;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 1px rgba(244, 156, 107, 0.3);
+}
+
+/* Foutstatus velden */
+.ggr-login-card input.ggr-input-error {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+}
+
+.ggr-login-card input.ggr-input-error::placeholder {
+    color: #dc2626;
+    opacity: 1;
+}
+
+.ggr-field-error {
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+    color: #dc2626;
+}
+
+/* Notices (info / error) */
+.ggr-login-notice {
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.ggr-login-notice--info {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.ggr-login-notice--error {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+/* Actieblok onder formulier (knoppen) */
+.ggr-login-actions {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Primaire oranje CTA-knop */
+.ggr-login-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    border-radius: 6px;
+    border: none;
+    background: #f49c6b;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 18px;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    transition: background 0.15s ease,
+                transform 0.1s ease,
+                box-shadow 0.1s ease;
+}
+
+.ggr-login-submit:hover {
+    background: #f1884b;
+    box-shadow: 0 10px 20px rgba(244, 156, 107, 0.35);
+    transform: translateY(-1px);
+}
+
+.ggr-login-submit:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+/* Secundaire knop "Investeerder worden" (alleen login) */
+.ggr-login-invest-button {
+    display: block;
+    margin-top: 8px;
+    text-align: center;
+    border-radius: 6px;
+    border: 1px solid #e39b6c;
+    background: #ffffff;
+    color: #111827;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 11px 18px;
+    text-decoration: none;
+    transition: background 0.15s ease,
+                color 0.15s ease,
+                box-shadow 0.15s ease;
+}
+
+.ggr-login-invest-button:hover {
+    background: #fff7f2;
+    box-shadow: 0 6px 14px rgba(227, 155, 108, 0.25);
+}
+
+/* Link-knop (bijv. "Nieuwe code sturen" bij 2FA) */
+.ggr-link-button {
+    background: none;
+    border: none;
+    padding: 0;
+    margin-top: 8px;
+    font-size: 13px;
+    color: #6b7280;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.ggr-2fa-resend .ggr-link-button {
+    color: #e39b6c !important;
+    font-weight: 600;
+}
+
+.ggr-2fa-resend .ggr-link-button:hover {
+    color: #d48752 !important;
+}
+
+/* Links "Wachtwoord vergeten?" / "Terug naar inloggen" */
+.ggr-login-forgot,
+.ggr-login-forgot:visited,
+.ggr-login-back-link {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 14px;
+    color: #709aa7;
+    text-decoration: none;
+}
+
+.ggr-login-forgot:hover,
+.ggr-login-forgot:focus,
+.ggr-login-back-link:hover,
+.ggr-login-back-link:focus {
+    color: #709aa7;
+    text-decoration: underline;
+}
+
+/* Standaard WP-login knop verbergen (we gebruiken onze eigen) */
+#ggr-loginform .button-primary {
+    display: none !important;
+}
+
+/* Standaard WP-errors verbergen op de custom loginpagina's */
+#login_error,
+.ggr-login-card .message,
+.ggr-login-card .error {
+    display: none !important;
+}
+
+/* Toast-meldingen (login errors / success) */
+.ggr-login-toast {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    max-width: 380px;
+    width: calc(100% - 32px);
+    background: #b91c1c;
+    color: #ffffff;
+    border-radius: 13px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    transform: translateY(16px);
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 9999;
+    font-size: 14px;
+}
+
+.ggr-login-toast.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.ggr-login-toast__icon {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    background: rgba(248, 250, 252, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.ggr-login-toast__title {
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.ggr-login-toast__message {
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.ggr-login-toast__close {
+    margin-left: auto;
+    border: none;
+    background: transparent;
+    color: #fef2f2;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0 0 0 4px;
+}
+
+/* Succes-variant (bijv. "E-mail verstuurd") */
+.ggr-login-toast--success {
+    background: #ecfdf3;
+    color: #166534;
+}
+
+
+/* ===============================
+   RESPONSIVE (MOBIEL SPECIFIEK)
+   =============================== */
+
+@media (max-width: 640px) {
+
+    .ggr-login-wrapper {
+        padding: 0;
+    }
+
+    .ggr-login-shell {
+        max-width: 100%;
+        background: #fff;
+        padding: 24px 20px 22px 20px;
+        border-radius: 15px;
+        margin: 10px;
+    }
+
+    .ggr-login-card {
+        border-radius: 15px;
+        padding: 24px 20px 22px 20px;
+        box-shadow: none;
+        display: content !important;
+        margin: 10px;
+    }
+
+    .ggr-login-title {
+        font-size: 22px;
+    }
+
+    .ggr-login-toast {
+        right: 12px;
+        left: 12px;
+        bottom: 16px;
+        width: auto;
+    }
+}
+
+/* ===============================
+   ONBOARDING FORM EXTRA STYLES
+   =============================== */
+
+/* Twee kolommen voor voornaam/achternaam */
+.ggr-onboard-row {
+    display: flex;
+    gap: 16px;
+}
+
+.ggr-onboard-row .ggr-field {
+    flex: 1 1 0;
+    margin-bottom: 16px;
+}
+
+/* Op mobiel onder elkaar */
+@media (max-width: 640px) {
+    .ggr-onboard-row {
+        flex-direction: column;
+    }
+}
+
+/* Zorg dat select en number exact als inputs ogen */
+.ggr-login-card select,
+.ggr-login-card input[type="number"] {
+    width: 100%;
+    box-sizing: border-box;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    padding: 10px 12px;
+    font-size: 14px;
+    color: #111827;
+    background: #ffffff;
+    transition: border-color 0.15s ease,
+                box-shadow 0.15s ease,
+                background-color 0.15s ease;
+    -webkit-appearance: none;
+       -moz-appearance: none;
+            appearance: none;
+}
+
+/* Focus state voor select/number gelijk aan andere inputs */
+.ggr-login-card select:focus,
+.ggr-login-card input[type="number"]:focus {
+    outline: none;
+    border-color: #f49c6b;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 1px rgba(244, 156, 107, 0.3);
+}
+
+/* Placeholderkleur voor number */
+.ggr-login-card input[type="number"]::placeholder {
+    color: #b8b8b8;
+    opacity: 1;
+}
+
+/* Checkboxes netjes uitlijnen */
+.ggr-onboard-checkbox label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 13px;
+    color: #4b5563;
+}
+
+.ggr-onboard-checkbox input[type="checkbox"] {
+    margin-top: 2px;
+}
+
+/* Info-icoon bij wachtwoord + tooltip */
+.ggr-info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    background: #f9fafb;
+    cursor: default;
+    position: relative;
+}
+
+.ggr-info-icon:hover,
+.ggr-info-icon:focus {
+    border-color: #f49c6b;
+    background: #fff7f2;
+    color: #f49c6b;
+    outline: none;
+}
+
+/* Tooltip zelf */
+.ggr-info-icon::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 50%;
+    top: 120%;
+    transform: translateX(-50%);
+    width: 260px;
+    max-width: 80vw;
+    background: #111827;
+    color: #ffffff;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.4;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 20;
+}
+
+/* Klein pijltje onder het bolletje */
+.ggr-info-icon::before {
+    content: '';
+    position: absolute;
+    top: 110%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px 6px 0 6px;
+    border-style: solid;
+    border-color: #111827 transparent transparent transparent;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 21;
+}
+
+.ggr-info-icon:hover::after,
+.ggr-info-icon:hover::before,
+.ggr-info-icon:focus::after,
+.ggr-info-icon:focus::before {
+    opacity: 1;
+}
+

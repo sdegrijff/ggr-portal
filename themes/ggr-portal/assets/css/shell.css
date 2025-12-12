@@ -1,0 +1,363 @@
+:root { 
+    --ggr-primary: #f2f7f8; 
+    --ggr-secondary: #f2f7f8; 
+    --ggr-accent: #f29e75; 
+    --ggr-accent-soft: rgba(242, 158, 117, 0.1); 
+    --ggr-sidebar-bg: #ffffff; 
+    --ggr-main-bg: #f2f7f8; 
+    --ggr-border-soft: #e5e7eb; 
+    --ggr-text-main: #111827; 
+    --ggr-text-muted: #6b7280; }
+
+/* Basis */
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--ggr-main-bg);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--ggr-text-main);
+}
+
+.ggr-shell {
+    display: flex;
+    background: var(--ggr-main-bg);
+}
+
+/* Sidebar: fixed 100vh, menu altijd in beeld */
+
+.ggr-shell-sidebar {
+    width: 210px;
+    background: var(--ggr-sidebar-bg);
+    border-right: 1px solid var(--ggr-border-soft);
+    padding: 28px 22px 20px;
+    display: flex;
+    flex-direction: column;
+
+    position: fixed;
+    left: 0;
+    height: 94vh;
+    overflow-y: auto; /* als scherm echt klein is kun je hier door het menu zelf scrollen */
+}
+
+/* Logo gecentreerd */
+
+.ggr-shell-logo {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.ggr-shell-logo a {
+    display: inline-block;
+}
+
+.ggr-logo-img {
+    max-width: 180px;
+    width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+/* Navigatie containers */
+
+.ggr-shell-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* extra spacing tussen items */
+}
+
+.ggr-shell-nav--primary {
+    margin-bottom: 26px;
+}
+
+.ggr-shell-divider {
+    height: 1px;
+    background: #f3f4f6;
+    margin: 4px 0 10px;
+}
+
+/* Onderste 3 items: via flex onderin sidebar (niet meer extra fixed) */
+
+.ggr-shell-nav--secondary {
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid #f3f4f6;
+}
+
+/* Items */
+
+.ggr-shell-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 0;               /* geen rounding */
+    font-size: 14px;
+    text-decoration: none;
+    color: #374151;
+    border: 1px solid transparent;
+    background: transparent;
+    transition:
+        background-color 0.15s ease,
+        color 0.15s ease,
+        border-color 0.15s ease,
+        transform 0.12s ease;
+}
+
+/* Iconen: plat, zelfde kleur als tekst */
+
+.ggr-shell-nav-icon {
+    width: 20px;
+    text-align: center;
+    font-size: 14px;
+    color: inherit;                 /* zelfde kleur als tekst */
+}
+
+/* CTA: Meer investeren – exact jouw specs */
+
+.ggr-shell-nav-item--cta {
+    background-color: #f29e75;
+    color: #ffffff;
+    border-radius: 0;
+    border: 1px solid #f29e75;
+    font-weight: 600;
+
+    padding-top: 14px !important;
+    padding-right: 35px !important;
+    padding-bottom: 12px !important;
+    padding-left: 15px !important;
+}
+
+.ggr-shell-nav-item--cta .ggr-shell-nav-icon {
+    width: 22px;
+}
+
+.ggr-shell-nav-item--cta:hover {
+    background-color: var(--ggr-accent-soft); /* zelfde kleur on hover */
+    border-color: var(--ggr-accent-soft);
+    color: #ffffff;
+    transform: none;
+}
+
+/* Hover & active voor overige items */
+
+.ggr-shell-nav-item:hover,
+.ggr-shell-nav-item.is-active {
+    background: var(--ggr-accent-soft);  /* #f29e75 @ 50% opacity */
+    border-color: var(--ggr-accent-soft);
+    color: var(--ggr-accent);            /* tekstkleur #f29e75 */
+}
+
+.ggr-shell-nav-item:hover .ggr-shell-nav-icon,
+.ggr-shell-nav-item.is-active .ggr-shell-nav-icon {
+    color: var(--ggr-accent);
+}
+
+/* Logout / secundair */
+
+.ggr-shell-nav-item--logout {
+    color: var(--ggr-text-muted);
+}
+
+/* Main content: schuift naast fixed sidebar mee */
+
+.ggr-shell-main {
+    flex: 1;
+    padding: 28px 32px 40px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    background: var(--ggr-main-bg);
+
+    margin-left: 260px; /* ruimte voor fixed sidebar */
+    min-height: 100vh;
+}
+
+/* Portal content: echt fluid, geen harde 1200px cap meer */
+.ggr-portal-wrapper,
+.ggr-main {
+    width: 100%;
+    max-width: none;      /* geen vaste 1200px meer */
+    margin: 0;            /* niet meer centreren in een smaller blok */
+}
+
+
+/* Zorg dat portal-blokken mooi aansluiten */
+.ggrp-fe {
+    margin: 0;
+}
+
+
+
+/* Responsive – op mobiel sidebar NIET fixed */
+
+/*====================================================*/
+/*MOBILE SHELL*/
+/* Standaard: mobiele header uit op desktop */
+.ggr-mobile-header {
+    display: none;
+}
+
+/* Bottom nav standaard verbergen op desktop */
+.ggr-mobile-footer {
+    display: none;
+}
+
+@media (max-width: 960px) {
+    .ggr-shell {
+        flex-direction: column;
+        background: var(--ggr-main-bg);
+    }
+
+    /* Sidebar verbergen op mobiel */
+    .ggr-shell-sidebar {
+        display: none;
+    }
+
+    /* Mobiele header zichtbaar, app-achtig */
+    .ggr-mobile-header {
+        display: block;
+        padding: 12px 16px 6px;
+        background: var(--ggr-main-bg);
+        position: sticky;
+        top: 0;
+        z-index: 20;
+    }
+
+    .ggr-mobile-header-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+
+    .ggr-mobile-title {
+        font-size: 20px;
+        font-weight: 700;
+    }
+
+    .ggr-mobile-actions {
+        color: var(--ggr-text-muted)!important;
+        display: flex;
+        gap: 8px;
+    }
+
+    .ggr-mobile-icon-btn {
+        border: none;
+        background: transparent;
+        padding: 4px;
+        cursor: pointer;
+        font-size: 20px;
+    }
+
+    .ggr-mobile-nav {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 4px;
+    }
+
+    .ggr-mobile-nav-item {
+        flex: 1;
+        text-align: center;
+        text-decoration: none;
+        font-size: 14px;
+        padding: 8px 4px 6px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        color: var(--ggr-text-muted);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+    }
+
+    .ggr-mobile-nav-item i {
+        font-size: 16px;
+    }
+
+    .ggr-mobile-nav-item.is-active {
+        border-color: var(--ggr-accent-soft);
+        background: var(--ggr-accent-soft);
+        color: var(--ggr-accent);
+    }
+
+    /* Main content onder de header */
+    .ggr-shell-main {
+        margin-left: 0;
+        padding: 16px 16px 30px;
+        min-height: calc(100vh - 70px);
+    }
+    
+    /* ---------- BOTTOM NAV (mobiel) ---------- */
+
+    .ggr-mobile-footer {
+        display: block;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--ggr-sidebar-bg);
+        border-top: 1px solid var(--ggr-border-soft);
+        padding: 6px 2px 10px;
+        z-index: 40;
+    }
+
+    .ggr-mobile-footer-nav {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+    }
+
+    .ggr-mobile-footer-item {
+        flex: 1;
+        text-align: center;
+        text-decoration: none;
+        font-size: 14px;
+        color: var(--ggr-text-muted);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+    }
+
+    .ggr-mobile-footer-item i {
+        font-size: 18px;
+    }
+
+    .ggr-mobile-footer-item.is-active {
+        color: var(--ggr-accent);
+    }
+
+    /* Midden-knop – “floating action button” */
+    .ggr-mobile-footer-cta {
+        position: relative;
+        top: -18px;             /* laat de knop omhoog zweven */
+        flex-shrink: 0;
+        text-decoration: none;
+    }
+
+    .ggr-mobile-footer-cta-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: var(--ggr-accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    .ggr-mobile-footer-cta-icon i {
+        font-size: 24px;
+        color: #ffffff;
+    }
+
+    /* Extra bottom-padding zodat content niet onder de nav verdwijnt */
+    .ggr-shell-main {
+        padding-bottom: 90px; /* verhoog dit als de nav hoger wordt */
+    }
+
+}

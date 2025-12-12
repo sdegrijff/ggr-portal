@@ -1,0 +1,259 @@
+/* ===============================
+   GGR – Onboarding Frontend
+   (aligned with portal shell)
+   =============================== */
+
+:root {
+    --ggr-primary: #f2f7f8;
+    --ggr-secondary: #f2f7f8;
+    --ggr-accent: #f29e75;
+    --ggr-accent-soft: rgba(242, 158, 117, 0.1);
+    --ggr-sidebar-bg: #ffffff;
+    --ggr-main-bg: #f2f7f8;
+    --ggr-border-soft: #e5e7eb;
+    --ggr-text-main: #111827;
+    --ggr-text-muted: #6b7280;
+}
+
+/* Basis – zelfde basis als shell */
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--ggr-main-bg);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--ggr-text-main);
+}
+
+/* Shell voor onboarding – gedraagt zich als ggr-shell-main */
+
+.ggr-onboarding-shell {
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    box-sizing: border-box;
+    background: var(--ggr-main-bg);
+}
+
+/* Contentblok – lijkt op portal content, maar met subtiel kaartgevoel */
+
+.ggr-onboarding-card {
+    width: 100%;
+    max-width: 1100px;
+    border-radius: 12px;
+}
+
+/* Header met logo + titel – in lijn met Dashboard */
+
+.ggr-onboarding-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.ggr-onboarding-logo img {
+    height: 32px;
+    width: auto;
+    display: block;
+}
+
+.ggr-onboarding-title-block h1 {
+    margin: 0 0 4px 0;
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--ggr-text-main);
+    margin-top:20px;
+}
+
+.ggr-onboarding-title-block p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--ggr-text-muted);
+}
+
+/* Status badge */
+
+.ggr-onboarding-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    margin-top: 6px;
+}
+
+/* ===============================
+   Layout binnen de card
+   =============================== */
+
+.ggr-onboarding-body {
+    display: grid;
+    grid-template-columns: 350px minmax(0, 1fr); /* links 400px, rechts flexibel */
+    gap: 40px;
+    align-items: flex-start;
+}
+
+/* Linker kolom: stappen */
+
+.ggr-onboarding-steps {
+    padding-right: 0;
+    Background: #fff;
+    padding: 20px;
+    height: 95vh;
+}
+
+.ggr-onboarding-steps h2 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--ggr-text-main);
+}
+
+.ggr-onboarding-steps p {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    color: var(--ggr-text-muted);
+}
+
+.ggr-onboarding-step-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.ggr-onboarding-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--ggr-border-soft);
+}
+
+.ggr-onboarding-step:last-child {
+    border-bottom: none;
+}
+
+.ggr-onboarding-step-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.ggr-onboarding-step-icon--done {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.ggr-onboarding-step-icon--current {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.ggr-onboarding-step-icon--upcoming {
+    background: #f3f4f6;
+    color: #9ca3af;
+}
+
+.ggr-onboarding-step-content h3 {
+    margin: 0 0 4px 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ggr-text-main);
+}
+
+.ggr-onboarding-step-content p {
+    margin: 0;
+    font-size: 12px;
+    color: var(--ggr-text-muted);
+}
+
+/* Rechter kolom: gegevens + acties */
+
+.ggr-onboarding-side {
+    border-left: 1px solid var(--ggr-border-soft);
+    padding-left: 24px;
+    min-height: 100%;
+}
+
+.ggr-onboarding-side h2 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 10px 0;
+    color: var(--ggr-text-main);
+}
+
+.ggr-onboarding-meta {
+    font-size: 12px;
+    color: var(--ggr-text-muted);
+    margin-bottom: 14px;
+}
+
+.ggr-onboarding-meta div {
+    margin-bottom: 4px;
+}
+
+/* Primaire actie-knop – zelfde accentkleur als Investeren */
+
+.ggr-onboarding-primary-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: none;
+    border-radius: 999px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    background: var(--ggr-accent);
+    color: #ffffff;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.ggr-onboarding-primary-btn:hover {
+    filter: brightness(0.97);
+}
+
+/* ===============================
+   Mobile
+   =============================== */
+
+@media (max-width: 960px) {
+
+    .ggr-onboarding-shell {
+        padding: 16px 16px 24px;
+        justify-content: center;   /* op mobiel centreren */
+    }
+
+    .ggr-onboarding-card {
+        max-width: 100%;
+    }
+
+    .ggr-onboarding-body {
+        grid-template-columns: minmax(0, 1fr); /* stapelen */
+        gap: 18px;
+    }
+
+    .ggr-onboarding-side {
+        border-left: none;
+        padding-left: 0;
+        border-top: 1px solid var(--ggr-border-soft);
+        padding-top: 12px;
+    }
+
+    .ggr-onboarding-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
