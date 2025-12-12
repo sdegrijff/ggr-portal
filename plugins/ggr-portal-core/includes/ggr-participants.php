@@ -1513,9 +1513,17 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
     $phone      = get_user_meta( $user->ID, 'phone', true );
     
     // Onboarding extra's
-    $account_type = get_user_meta( $user->ID, 'ggr_account_type', true );
-    $nationality  = get_user_meta( $user->ID, 'ggr_nationality', true );
-    $investment   = get_user_meta( $user->ID, 'ggr_investment', true );
+    $account_type       = get_user_meta( $user->ID, 'ggr_account_type', true );
+    $nationality        = get_user_meta( $user->ID, 'ggr_nationality', true );
+    $investment         = get_user_meta( $user->ID, 'ggr_investment', true );
+    $investment_amount  = get_user_meta( $user->ID, 'ggr_investment_amount', true );
+    $marketing_optin    = (int) get_user_meta( $user->ID, 'ggr_marketing_optin', true );
+    $onboarding_status  = function_exists( 'ggr_onboarding_get_status' ) ? ggr_onboarding_get_status( $user->ID ) : get_user_meta( $user->ID, 'ggr_onboarding_status', true );
+    $onboarding_updated = get_user_meta( $user->ID, 'ggr_onboarding_updated_at', true );
+
+    if ( $investment_amount === '' ) {
+        $investment_amount = $investment;
+    }
 
     // Mede-participant (optioneel)
     $co_first = get_user_meta( $user->ID, 'co_first_name', true );
@@ -1604,27 +1612,6 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
                             <input type="text" name="ggr_phone" id="ggr_phone"
                                    value="<?php echo esc_attr( $phone ); ?>" />
                         </div>
-                        
-                        <div class="ggr-admin-inline-field">
-                            <label for="ggr_account_type">Account type</label>
-                            <select name="ggr_account_type" id="ggr_account_type">
-                                <option value=""><?php esc_html_e( 'Maak een keuze', 'ggr-portal' ); ?></option>
-                                <option value="private" <?php selected( $account_type, 'private' ); ?>>Privé</option>
-                                <option value="company" <?php selected( $account_type, 'company' ); ?>>Bedrijf</option>
-                            </select>
-                        </div>
-                        
-                        <div class="ggr-admin-inline-field">
-                            <label for="ggr_nationality">Nationaliteit</label>
-                            <input type="text" name="ggr_nationality" id="ggr_nationality"
-                                   value="<?php echo esc_attr( $nationality ); ?>" />
-                        </div>
-                        
-                        <div class="ggr-admin-inline-field">
-                            <label for="ggr_investment">Investeringsbedrag (wens) (€)</label>
-                            <input type="text" name="ggr_investment" id="ggr_investment"
-                                   value="<?php echo esc_attr( $investment ); ?>" />
-                        </div>
 
                     </div>
                     
@@ -1654,6 +1641,70 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
                             <label for="ggr_co_phone">Telefoonnummer</label>
                             <input type="text" name="ggr_co_phone" id="ggr_co_phone"
                                    value="<?php echo esc_attr( $co_phone ); ?>" />
+                        </div>
+                    </div>
+                </div>
+            </td>
+        </tr>
+
+        <tr>
+            <th scope="row">Onboarding</th>
+            <td>
+                <div class="ggr-admin-columns">
+                    <div class="ggr-admin-col">
+                        <h4>Profielkeuzes</h4>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_account_type">Account type</label>
+                            <select name="ggr_account_type" id="ggr_account_type">
+                                <option value=""><?php esc_html_e( 'Maak een keuze', 'ggr-portal' ); ?></option>
+                                <option value="private" <?php selected( $account_type, 'private' ); ?>>Privé</option>
+                                <option value="business" <?php selected( $account_type, 'business' ); ?>>Zakelijk</option>
+                                <option value="company" <?php selected( $account_type, 'company' ); ?>>Bedrijf (legacy)</option>
+                            </select>
+                        </div>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_nationality">Nationaliteit</label>
+                            <input type="text" name="ggr_nationality" id="ggr_nationality"
+                                   value="<?php echo esc_attr( $nationality ); ?>" />
+                        </div>
+                    </div>
+
+                    <div class="ggr-admin-col">
+                        <h4>Aanvraagdetails</h4>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_investment_amount">Investeringsbedrag (wens) (€)</label>
+                            <input type="text" name="ggr_investment_amount" id="ggr_investment_amount"
+                                   value="<?php echo esc_attr( $investment_amount ); ?>" />
+                        </div>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_marketing_optin">
+                                <input type="checkbox" name="ggr_marketing_optin" id="ggr_marketing_optin" value="1" <?php checked( 1, $marketing_optin ); ?> />
+                                Marketing- en investeringsupdates toegestaan
+                            </label>
+                        </div>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_onboarding_status">Onboarding status</label>
+                            <select name="ggr_onboarding_status" id="ggr_onboarding_status">
+                                <?php
+                                $stages = function_exists( 'ggr_onboarding_get_stages' ) ? ggr_onboarding_get_stages() : array();
+                                if ( empty( $stages ) ) {
+                                    $stages = array( $onboarding_status => $onboarding_status );
+                                }
+                                foreach ( $stages as $key => $label ) :
+                                    ?>
+                                    <option value="<?php echo esc_attr( $key ); ?>" <?php selected( $onboarding_status, $key ); ?>>
+                                        <?php echo esc_html( $label ); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <?php if ( $onboarding_updated ) : ?>
+                                <p class="description">Laatst bijgewerkt: <?php echo esc_html( $onboarding_updated ); ?></p>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -1762,11 +1813,11 @@ function ggr_portal_save_account_fields_in_profile( $user_id ) {
     
         // Onboarding extra's
     if ( isset( $_POST['ggr_account_type'] ) ) {
-        update_user_meta(
-            $user_id,
-            'ggr_account_type',
-            sanitize_text_field( wp_unslash( $_POST['ggr_account_type'] ) )
-        );
+        $account_type = sanitize_text_field( wp_unslash( $_POST['ggr_account_type'] ) );
+        if ( 'company' === $account_type ) {
+            $account_type = 'business';
+        }
+        update_user_meta( $user_id, 'ggr_account_type', $account_type );
     }
 
     if ( isset( $_POST['ggr_nationality'] ) ) {
@@ -1777,13 +1828,34 @@ function ggr_portal_save_account_fields_in_profile( $user_id ) {
         );
     }
 
-    if ( isset( $_POST['ggr_investment'] ) ) {
-        // Als je dit later als getal wilt gebruiken, kun je hier nog extra normalisatie doen
-        update_user_meta(
-            $user_id,
-            'ggr_investment',
-            sanitize_text_field( wp_unslash( $_POST['ggr_investment'] ) )
-        );
+    if ( isset( $_POST['ggr_investment_amount'] ) ) {
+        $amount_raw   = sanitize_text_field( wp_unslash( $_POST['ggr_investment_amount'] ) );
+        $amount_clean = preg_replace( '/[^\d,\.]/', '', $amount_raw );
+
+        if ( strpos( $amount_clean, ',' ) !== false && strpos( $amount_clean, '.' ) !== false ) {
+            $amount_clean = str_replace( '.', '', $amount_clean );
+            $amount_clean = str_replace( ',', '.', $amount_clean );
+        } else {
+            $amount_clean = str_replace( ',', '.', $amount_clean );
+        }
+
+        $amount_value = (float) $amount_clean;
+
+        update_user_meta( $user_id, 'ggr_investment_amount', $amount_value );
+        update_user_meta( $user_id, 'ggr_investment', $amount_raw );
+    }
+
+    $marketing_optin = ! empty( $_POST['ggr_marketing_optin'] ) ? 1 : 0;
+    update_user_meta( $user_id, 'ggr_marketing_optin', $marketing_optin );
+
+    if ( isset( $_POST['ggr_onboarding_status'] ) ) {
+        $status = sanitize_key( wp_unslash( $_POST['ggr_onboarding_status'] ) );
+
+        if ( function_exists( 'ggr_onboarding_update_status' ) ) {
+            ggr_onboarding_update_status( $user_id, $status );
+        } else {
+            update_user_meta( $user_id, 'ggr_onboarding_status', $status );
+        }
     }
 
 
@@ -1929,6 +2001,53 @@ function ggr_portal_handle_participant_profile_save() {
         }
     }
 
+    // Onboarding
+    if ( isset( $_POST['ggr_account_type'] ) ) {
+        $account_type = sanitize_text_field( wp_unslash( $_POST['ggr_account_type'] ) );
+        if ( 'company' === $account_type ) {
+            $account_type = 'business';
+        }
+        update_user_meta( $user_id, 'ggr_account_type', $account_type );
+    }
+
+    if ( isset( $_POST['ggr_nationality'] ) ) {
+        update_user_meta(
+            $user_id,
+            'ggr_nationality',
+            sanitize_text_field( wp_unslash( $_POST['ggr_nationality'] ) )
+        );
+    }
+
+    if ( isset( $_POST['ggr_investment_amount'] ) ) {
+        $amount_raw   = sanitize_text_field( wp_unslash( $_POST['ggr_investment_amount'] ) );
+        $amount_clean = preg_replace( '/[^\d,\.]/', '', $amount_raw );
+
+        if ( strpos( $amount_clean, ',' ) !== false && strpos( $amount_clean, '.' ) !== false ) {
+            $amount_clean = str_replace( '.', '', $amount_clean );
+            $amount_clean = str_replace( ',', '.', $amount_clean );
+        } else {
+            $amount_clean = str_replace( ',', '.', $amount_clean );
+        }
+
+        $amount_value = (float) $amount_clean;
+
+        update_user_meta( $user_id, 'ggr_investment_amount', $amount_value );
+        update_user_meta( $user_id, 'ggr_investment', $amount_raw );
+    }
+
+    $marketing_optin = ! empty( $_POST['ggr_marketing_optin'] ) ? 1 : 0;
+    update_user_meta( $user_id, 'ggr_marketing_optin', $marketing_optin );
+
+    if ( isset( $_POST['ggr_onboarding_status'] ) ) {
+        $status = sanitize_key( wp_unslash( $_POST['ggr_onboarding_status'] ) );
+
+        if ( function_exists( 'ggr_onboarding_update_status' ) ) {
+            ggr_onboarding_update_status( $user_id, $status );
+        } else {
+            update_user_meta( $user_id, 'ggr_onboarding_status', $status );
+        }
+    }
+
     // Mede-participant
     if ( isset( $_POST['ggr_co_first_name'] ) ) {
         update_user_meta( $user_id, 'co_first_name', sanitize_text_field( wp_unslash( $_POST['ggr_co_first_name'] ) ) );
@@ -2046,7 +2165,7 @@ function ggr_portal_render_participant_profile_page() {
                     'name'             => 'user_id',
                     'id'               => 'user_id',
                     'show_option_none' => '— Selecteer participant —',
-                    'role__in'         => [ 'participant' ],
+                    'role__in'         => [ 'participant', 'lead' ],
                     'show'             => 'display_name',
                 ] );
                 ?>
@@ -2072,9 +2191,17 @@ function ggr_portal_render_participant_profile_page() {
     $company_kvk  = isset( $meta['company_kvk'][0] )  ? $meta['company_kvk'][0]  : '';
 
     // Onboarding extra's
-    $account_type = isset( $meta['ggr_account_type'][0] ) ? $meta['ggr_account_type'][0] : '';
-    $nationality  = isset( $meta['ggr_nationality'][0] )  ? $meta['ggr_nationality'][0]  : '';
-    $investment   = isset( $meta['ggr_investment'][0] )   ? $meta['ggr_investment'][0]   : '';
+    $account_type       = isset( $meta['ggr_account_type'][0] ) ? $meta['ggr_account_type'][0] : '';
+    $nationality        = isset( $meta['ggr_nationality'][0] )  ? $meta['ggr_nationality'][0]  : '';
+    $investment         = isset( $meta['ggr_investment'][0] )   ? $meta['ggr_investment'][0]   : '';
+    $investment_amount  = isset( $meta['ggr_investment_amount'][0] ) ? $meta['ggr_investment_amount'][0] : '';
+    $marketing_optin    = isset( $meta['ggr_marketing_optin'][0] ) ? (int) $meta['ggr_marketing_optin'][0] : 0;
+    $onboarding_status  = function_exists( 'ggr_onboarding_get_status' ) ? ggr_onboarding_get_status( $user_id ) : ( isset( $meta['ggr_onboarding_status'][0] ) ? $meta['ggr_onboarding_status'][0] : '' );
+    $onboarding_updated = isset( $meta['ggr_onboarding_updated_at'][0] ) ? $meta['ggr_onboarding_updated_at'][0] : '';
+
+    if ( $investment_amount === '' ) {
+        $investment_amount = $investment;
+    }
 
 
     // Mede-participant
@@ -2145,7 +2272,7 @@ function ggr_portal_render_participant_profile_page() {
                 'name'             => 'user_id',
                 'id'               => 'ggr_participant_switch',
                 'selected'         => $user_id,
-                'role__in'         => [ 'participant' ],
+                'role__in'         => [ 'participant', 'lead' ],
                 'show'             => 'display_name',
                 'show_option_none' => '— Kies participant —',
             ] );
@@ -2222,28 +2349,7 @@ function ggr_portal_render_participant_profile_page() {
                                     <input name="ggr_phone" id="ggr_phone" type="text"
                                            value="<?php echo esc_attr( $phone ); ?>" />
                                 </div>
-                                
-                                <div class="ggr-admin-inline-field">
-                                    <label for="ggr_account_type">Account type</label>
-                                    <select name="ggr_account_type" id="ggr_account_type">
-                                        <option value=""><?php esc_html_e( 'Maak een keuze', 'ggr-portal' ); ?></option>
-                                        <option value="private" <?php selected( $account_type, 'private' ); ?>>Privé</option>
-                                        <option value="company" <?php selected( $account_type, 'company' ); ?>>Bedrijf</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="ggr-admin-inline-field">
-                                    <label for="ggr_nationality">Nationaliteit</label>
-                                    <input name="ggr_nationality" id="ggr_nationality" type="text"
-                                           value="<?php echo esc_attr( $nationality ); ?>" />
-                                </div>
-                                
-                                <div class="ggr-admin-inline-field">
-                                    <label for="ggr_investment">Investeringsbedrag (wens) (€)</label>
-                                    <input name="ggr_investment" id="ggr_investment" type="text"
-                                           value="<?php echo esc_attr( $investment ); ?>" />
-                                </div>
-
+ 
                             </div>
 
                             <div class="ggr-admin-col">
@@ -2268,6 +2374,73 @@ function ggr_portal_render_participant_profile_page() {
                                     <label for="ggr_co_phone">Telefoonnummer</label>
                                     <input name="ggr_co_phone" id="ggr_co_phone" type="text"
                                            value="<?php echo esc_attr( $co_phone ); ?>" />
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+
+            <h2 class="title">Onboarding</h2>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row">Onboarding gegevens</th>
+                    <td>
+                        <div class="ggr-admin-columns">
+                            <div class="ggr-admin-col">
+                                <h4>Profielkeuzes</h4>
+
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_account_type">Account type</label>
+                                    <select name="ggr_account_type" id="ggr_account_type">
+                                        <option value=""><?php esc_html_e( 'Maak een keuze', 'ggr-portal' ); ?></option>
+                                        <option value="private" <?php selected( $account_type, 'private' ); ?>>Privé</option>
+                                        <option value="business" <?php selected( $account_type, 'business' ); ?>>Zakelijk</option>
+                                        <option value="company" <?php selected( $account_type, 'company' ); ?>>Bedrijf (legacy)</option>
+                                    </select>
+                                </div>
+
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_nationality">Nationaliteit</label>
+                                    <input name="ggr_nationality" id="ggr_nationality" type="text"
+                                           value="<?php echo esc_attr( $nationality ); ?>" />
+                                </div>
+                            </div>
+
+                            <div class="ggr-admin-col">
+                                <h4>Aanvraagdetails</h4>
+
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_investment_amount">Investeringsbedrag (wens) (€)</label>
+                                    <input name="ggr_investment_amount" id="ggr_investment_amount" type="text"
+                                           value="<?php echo esc_attr( $investment_amount ); ?>" />
+                                </div>
+
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_marketing_optin">
+                                        <input type="checkbox" name="ggr_marketing_optin" id="ggr_marketing_optin" value="1" <?php checked( 1, $marketing_optin ); ?> />
+                                        Marketing- en investeringsupdates toegestaan
+                                    </label>
+                                </div>
+
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_onboarding_status">Onboarding status</label>
+                                    <select name="ggr_onboarding_status" id="ggr_onboarding_status">
+                                        <?php
+                                        $stages = function_exists( 'ggr_onboarding_get_stages' ) ? ggr_onboarding_get_stages() : array();
+                                        if ( empty( $stages ) ) {
+                                            $stages = array( $onboarding_status => $onboarding_status );
+                                        }
+                                        foreach ( $stages as $key => $label ) :
+                                            ?>
+                                            <option value="<?php echo esc_attr( $key ); ?>" <?php selected( $onboarding_status, $key ); ?>>
+                                                <?php echo esc_html( $label ); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <?php if ( $onboarding_updated ) : ?>
+                                        <p class="description">Laatst bijgewerkt: <?php echo esc_html( $onboarding_updated ); ?></p>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
