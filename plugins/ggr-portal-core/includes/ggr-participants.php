@@ -1922,9 +1922,9 @@ function ggr_portal_save_account_fields_in_profile( $user_id ) {
 
 
 /**
- * 10. Backend: Participant profiel-pagina
+ * 10. Backend: Profiel-pagina
  *
- * Onder Gebruikers > Participant profiel:
+ * Onder Gebruikers > Profiel:
  * - Taal
  * - Naam & contactgegevens (incl. mede-participant)
  * - Adresgegevens
@@ -1939,8 +1939,8 @@ add_action( 'admin_menu', 'ggr_portal_register_participant_profile_page' );
 
 function ggr_portal_register_participant_profile_page() {
     add_users_page(
-        'Participant profiel',
-        'Participant profiel',
+        'Profiel',
+        'Profiel',
         'list_users',
         'ggr-participant-profiel',
         'ggr_portal_render_participant_profile_page'
@@ -2156,15 +2156,15 @@ function ggr_portal_render_participant_profile_page() {
     if ( ! $user_id ) {
         ?>
         <div class="wrap">
-            <h1>Participant profiel</h1>
+            <h1>Profiel</h1>
             <form method="get" style="margin-top: 20px;">
                 <input type="hidden" name="page" value="ggr-participant-profiel" />
-                <label for="user_id">Kies participant:</label>
+                <label for="user_id">Kies gebruiker:</label>
                 <?php
                 wp_dropdown_users( [
                     'name'             => 'user_id',
                     'id'               => 'user_id',
-                    'show_option_none' => '— Selecteer participant —',
+                    'show_option_none' => '— Selecteer gebruiker —',
                     'role__in'         => [ 'participant', 'lead' ],
                     'show'             => 'display_name',
                 ] );
@@ -2178,7 +2178,7 @@ function ggr_portal_render_participant_profile_page() {
 
     $user = get_user_by( 'ID', $user_id );
     if ( ! $user ) {
-        echo '<div class="wrap"><h1>Participant profiel</h1><p>Gebruiker niet gevonden.</p></div>';
+        echo '<div class="wrap"><h1>Profiel</h1><p>Gebruiker niet gevonden.</p></div>';
         return;
     }
 
@@ -2219,6 +2219,28 @@ function ggr_portal_render_participant_profile_page() {
     // Bank
     $bank_iban = isset( $meta['bank_account_iban'][0] ) ? $meta['bank_account_iban'][0] : '';
     $bank_name = isset( $meta['bank_account_name'][0] ) ? $meta['bank_account_name'][0] : '';
+    
+        // Onboarding documenten
+    $document_labels = array(
+        'ggr_doc_id'             => 'Identiteitsbewijs',
+        'ggr_doc_funds'          => 'Bewijs herkomst middelen',
+        'ggr_doc_registration'   => 'KVK-uittreksel',
+        'ggr_doc_ubo'            => 'UBO-register / aandeelhouderslijst',
+        'ggr_doc_share_register' => 'Aandeelhoudersregister / overeenkomst',
+        'ggr_doc_other'          => 'Overige documenten',
+    );
+
+    $uploaded_documents = array();
+    foreach ( $document_labels as $meta_key => $label ) {
+        $doc_url = isset( $meta[ $meta_key ][0] ) ? $meta[ $meta_key ][0] : '';
+        if ( $doc_url ) {
+            $uploaded_documents[ $meta_key ] = array(
+                'label' => $label,
+                'url'   => $doc_url,
+            );
+        }
+    }
+
 
     // GGR details (nog gebaseerd op oude berekening)
     $ggr_latest = function_exists( 'ggr_portal_get_latest_calculated_values_for_user' )
@@ -2231,7 +2253,7 @@ function ggr_portal_render_participant_profile_page() {
 
     ?>
     <div class="wrap ggr-participant-wrap">
-        <h1>Participant profiel – <?php echo esc_html( $user->display_name ); ?> (ID: <?php echo (int) $user_id; ?>)</h1>
+        <h1>Profiel – <?php echo esc_html( $user->display_name ); ?> (ID: <?php echo (int) $user_id; ?>)</h1>
 
         <!-- same flex CSS als in profiel-blok -->
         <style>
@@ -2261,12 +2283,19 @@ function ggr_portal_render_participant_profile_page() {
             .ggr-admin-inline-field select {
                 width: 100%;
             }
+            .ggr-admin-doc-list {
+                margin: 0;
+                padding-left: 18px;
+            }
+            .ggr-admin-doc-list li {
+                margin-bottom: 6px;
+            }
         </style>
 
         <!-- Snel wisselen -->
         <form method="get" class="ggr-participant-switcher" style="margin: 10px 0 20px;">
             <input type="hidden" name="page" value="ggr-participant-profiel" />
-            <label for="ggr_participant_switch" style="margin-right:8px;">Ga naar andere participant:</label>
+            <label for="ggr_participant_switch" style="margin-right:8px;">Ga naar andere gebruiker:</label>
             <?php
             wp_dropdown_users( [
                 'name'             => 'user_id',
@@ -2274,7 +2303,7 @@ function ggr_portal_render_participant_profile_page() {
                 'selected'         => $user_id,
                 'role__in'         => [ 'participant', 'lead' ],
                 'show'             => 'display_name',
-                'show_option_none' => '— Kies participant —',
+                'show_option_none' => '— Kies gebruiker —',
             ] );
             ?>
             <noscript><button class="button">Openen</button></noscript>
@@ -2296,7 +2325,7 @@ function ggr_portal_render_participant_profile_page() {
 
         <?php if ( isset( $_GET['updated'] ) && (int) $_GET['updated'] === 1 ) : ?>
             <div class="notice notice-success is-dismissible">
-                <p>Participantgegevens opgeslagen.</p>
+                <p>Profielgegevens opgeslagen.</p>
             </div>
         <?php endif; ?>
 
@@ -2448,6 +2477,27 @@ function ggr_portal_render_participant_profile_page() {
                 </tr>
             </table>
 
+            <h2 class="title">Documenten</h2>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row">Uploads</th>
+                    <td>
+                        <?php if ( ! empty( $uploaded_documents ) ) : ?>
+                            <ul class="ggr-admin-doc-list">
+                                <?php foreach ( $uploaded_documents as $doc ) : ?>
+                                    <li>
+                                        <strong><?php echo esc_html( $doc['label'] ); ?>:</strong>
+                                        <a href="<?php echo esc_url( $doc['url'] ); ?>" target="_blank" rel="noopener noreferrer">Bekijken</a>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php else : ?>
+                            <p>Er zijn nog geen documenten geüpload.</p>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            </table>
+
             <!-- ADRES LINKS, BANK + BEDRIJF RECHTS -->
             <h2 class="title">Adres, bank &amp; bedrijfsgegevens</h2>
             <table class="form-table" role="presentation">
@@ -2583,7 +2633,7 @@ function ggr_portal_render_participant_profile_page() {
                 </tr>
             </table>
 
-            <?php submit_button( 'Participant opslaan' ); ?>
+            <?php submit_button( 'Profiel opslaan' ); ?>
         </form>
     </div>
     <?php
@@ -2610,7 +2660,9 @@ function ggr_portal_redirect_user_edit_to_participant_page() {
         return;
     }
 
-    if ( in_array( 'participant', (array) $user->roles, true ) ) {
+    $profile_roles = array( 'participant', 'lead' );
+
+    if ( array_intersect( $profile_roles, (array) $user->roles ) ) {
         $target = add_query_arg(
             [
                 'page'    => 'ggr-participant-profiel',
