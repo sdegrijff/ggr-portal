@@ -99,11 +99,16 @@ body {
     align-items: flex-start;
 }
 
+.ggr-onboarding-body--full {
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 32px;
+}
+
 /* Linker kolom: stappen */
 
 .ggr-onboarding-steps {
     padding-right: 0;
-    Background: #fff;
+    background: #fff;
     padding: 20px;
     height: 95vh;
 }
@@ -178,6 +183,193 @@ body {
     color: var(--ggr-text-muted);
 }
 
+.ggr-onboarding-content {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+}
+
+.ggr-onboarding-section {
+    padding: 8px 0 24px;
+    border-bottom: 1px solid var(--ggr-border-soft);
+}
+
+.ggr-onboarding-section:last-of-type {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.ggr-onboarding-section h2 {
+    font-size: 18px;
+    margin: 0 0 8px;
+    color: var(--ggr-text-main);
+}
+
+.ggr-onboarding-section p {
+    margin: 0 0 12px;
+    color: var(--ggr-text-muted);
+    font-size: 14px;
+}
+
+.ggr-onboarding-field label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--ggr-text-main);
+}
+
+.ggr-onboarding-field input,
+.ggr-onboarding-field select,
+.ggr-onboarding-field textarea,
+.ggr-onboarding-table input[type="text"],
+.ggr-onboarding-table input[type="email"],
+.ggr-onboarding-table input[type="tel"],
+.ggr-onboarding-table input[type="date"] {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--ggr-border-soft);
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.ggr-onboarding-field textarea {
+    min-height: 96px;
+    resize: vertical;
+}
+
+.ggr-onboarding-note {
+    color: var(--ggr-text-muted);
+    font-size: 13px;
+    margin-top: 6px;
+}
+
+.ggr-onboarding-checkbox label {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-weight: 500;
+}
+
+.ggr-onboarding-radio-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.ggr-onboarding-radio {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--ggr-secondary);
+    border: 1px solid var(--ggr-border-soft);
+    padding: 12px;
+    border-radius: 10px;
+}
+
+.ggr-onboarding-radio small {
+    display: block;
+    color: var(--ggr-text-muted);
+    font-size: 12px;
+}
+
+.ggr-onboarding-table-wrapper {
+    overflow-x: auto;
+    margin: 12px 0;
+}
+
+.ggr-onboarding-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ggr-onboarding-table th,
+.ggr-onboarding-table td {
+    padding: 10px;
+    border: 1px solid var(--ggr-border-soft);
+    text-align: left;
+    font-size: 13px;
+}
+
+.ggr-onboarding-table th {
+    background: #f9fafb;
+    font-weight: 600;
+}
+
+.ggr-onboarding-table--compact td {
+    width: 50%;
+}
+
+.ggr-onboarding-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+    align-items: start;
+}
+
+.ggr-onboarding-highlight {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--ggr-accent-soft);
+    border: 1px solid var(--ggr-border-soft);
+    margin-bottom: 12px;
+}
+
+.ggr-onboarding-highlight h2 {
+    margin: 0 0 6px 0;
+    font-size: 16px;
+}
+
+.ggr-onboarding-highlight p {
+    margin: 0;
+    color: var(--ggr-text-muted);
+    font-size: 14px;
+}
+
+.ggr-onboarding-highlight .ggr-onboarding-primary-btn {
+    white-space: nowrap;
+}
+
+.ggr-onboarding-radio-inline {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.ggr-onboarding-documents {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.ggr-onboarding-documents h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+}
+
+.ggr-onboarding-documents ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--ggr-text-muted);
+    font-size: 13px;
+}
+
+.ggr-onboarding-documents li {
+    margin-bottom: 6px;
+}
+
+.ggr-onboarding-actions {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+}
+
 /* Rechter kolom: gegevens + acties */
 
 .ggr-onboarding-side {
@@ -243,6 +435,10 @@ body {
     .ggr-onboarding-body {
         grid-template-columns: minmax(0, 1fr); /* stapelen */
         gap: 18px;
+    }
+
+    .ggr-onboarding-content {
+        padding: 16px;
     }
 
     .ggr-onboarding-side {
