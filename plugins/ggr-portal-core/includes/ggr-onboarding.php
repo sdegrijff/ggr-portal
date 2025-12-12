@@ -1181,8 +1181,9 @@ function ggr_onboarding_register_shortcode() {
             Registreren
         </button>
     </div>
-    
-</form>
+
+
+                                </form>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -1653,23 +1654,25 @@ function ggr_onboarding_dashboard_shortcode() {
 
         // Stap 1: verzoek om uitgifte participaties.
         if ( isset( $_POST['ggr_collecting_request_submit'] ) ) {
-            $result = ggr_onboarding_handle_collecting_request( $user_id );
-
+            $request_action = sanitize_text_field( wp_unslash( $_POST['ggr_collecting_request_submit'] ) );
+            $result         = ggr_onboarding_handle_collecting_request( $user_id );
+            
             if ( is_wp_error( $result ) ) {
-                $messages['error'][]      = $result->get_error_message();
-                $current_collecting_step  = 'request';
+                $messages['error'][]     = $result->get_error_message();
+                $current_collecting_step = 'request';
             } else {
-                $messages['success']      = 'Je verzoek om uitgifte van participaties is opgeslagen.';
-                $collecting_request_done  = 1;
+                $messages['success']     = 'Je verzoek om uitgifte van participaties is opgeslagen.';
+                $collecting_request_done = 1;
                 update_user_meta( $user_id, 'ggr_collecting_request_done', 1 );
                 update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
-                $current_collecting_step  = 'type';
+                $current_collecting_step = ( 'save' === $request_action ) ? 'request' : 'type';
             }
         }
 
         // Stap 2: zakelijk of privé.
         if ( isset( $_POST['ggr_collecting_type_submit'] ) ) {
-            $result = ggr_onboarding_handle_collecting_participation_type( $user_id );
+            $type_action = sanitize_text_field( wp_unslash( $_POST['ggr_collecting_type_submit'] ) );
+            $result      = ggr_onboarding_handle_collecting_participation_type( $user_id );
 
             if ( is_wp_error( $result ) ) {
                 $messages['error'][]     = $result->get_error_message();
@@ -1679,30 +1682,32 @@ function ggr_onboarding_dashboard_shortcode() {
                 $collecting_type_done    = 1;
                 update_user_meta( $user_id, 'ggr_collecting_type_done', 1 );
                 update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
-                $current_collecting_step = 'personal';
+                $current_collecting_step = ( 'save' === $type_action ) ? 'type' : 'personal';
             }
         }
 
         // Stap 3: persoonlijke gegevens.
         if ( isset( $_POST['ggr_collecting_personal_submit'] ) ) {
-            $result = ggr_onboarding_handle_collecting_personal( $user_id );
+            $personal_action = sanitize_text_field( wp_unslash( $_POST['ggr_collecting_personal_submit'] ) );
+            $result          = ggr_onboarding_handle_collecting_personal( $user_id );
 
             if ( is_wp_error( $result ) ) {
-                $messages['error'][] = $result->get_error_message();
+                $messages['error'][]     = $result->get_error_message();
                 $current_collecting_step = 'personal';
             } else {
-                $messages['success']            = 'Je persoonlijke gegevens zijn opgeslagen.';
-                $collecting_personal_done       = 1;
+                $messages['success']      = 'Je persoonlijke gegevens zijn opgeslagen.';
+                $collecting_personal_done = 1;
                 update_user_meta( $user_id, 'ggr_collecting_personal_done', 1 );
                 // Optioneel: timestamp bijwerken.
                 update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
-                $current_collecting_step = 'origin';
+                $current_collecting_step  = ( 'save' === $personal_action ) ? 'personal' : 'origin';
             }
         }
 
         // Stap 4: herkomst van het geld.
         if ( isset( $_POST['ggr_collecting_origin_submit'] ) ) {
-            $result = ggr_onboarding_handle_collecting_origin( $user_id );
+            $origin_action = sanitize_text_field( wp_unslash( $_POST['ggr_collecting_origin_submit'] ) );
+            $result        = ggr_onboarding_handle_collecting_origin( $user_id );
 
             if ( is_wp_error( $result ) ) {
                 $messages['error'][]     = $result->get_error_message();
@@ -1712,17 +1717,18 @@ function ggr_onboarding_dashboard_shortcode() {
                 $collecting_origin_done = 1;
                 update_user_meta( $user_id, 'ggr_collecting_origin_done', 1 );
                 update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
-                $current_collecting_step = 'files';      
-                }
+                $current_collecting_step = ( 'save' === $origin_action ) ? 'origin' : 'files';
+            }
         }
 
         // Stap 5: documenten uploaden.
         if ( isset( $_POST['ggr_collecting_files_submit'] ) ) {
-            $result = ggr_onboarding_handle_collecting_files( $user_id );
+            $files_action = sanitize_text_field( wp_unslash( $_POST['ggr_collecting_files_submit'] ) );
+            $result       = ggr_onboarding_handle_collecting_files( $user_id );
 
             if ( is_wp_error( $result ) ) {
                 $messages['error'][]     = $result->get_error_message();
-                $current_collecting_step = 'files';
+                $current_collecting_step = ( 'save' === $files_action ) ? 'files' : 'files';
             } else {
                 $messages['success'] = 'Je documenten zijn ontvangen. Wij gaan hiermee aan de slag.';
                 update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
@@ -1735,6 +1741,29 @@ function ggr_onboarding_dashboard_shortcode() {
 
     // Content voor blok rechts (algemene uitleg per status).
     $side_block = ggr_onboarding_get_side_block_content( $status );
+
+    $collecting_step_labels = array(
+        'request'  => '1. Verzoek om uitgifte Participaties',
+        'type'     => '2. Wordt er vanaf zakelijk of privé geparticipeerd',
+        'personal' => '3. Persoonlijke gegevens',
+        'origin'   => '4. Herkomst van het in het Fonds te beleggen geld',
+        'files'    => '5. Mee te sturen documenten',
+    );
+
+    $collecting_step_keys = array_keys( $collecting_step_labels );
+    $collecting_prev_step = '';
+    $collecting_next_step = '';
+    $current_url          = '';
+
+    if ( 'collecting' === $status ) {
+        $current_url = ggr_onboarding_get_current_url();
+
+        $current_index = array_search( $current_collecting_step, $collecting_step_keys, true );
+        if ( false !== $current_index ) {
+            $collecting_prev_step = $collecting_step_keys[ $current_index - 1 ] ?? '';
+            $collecting_next_step = $collecting_step_keys[ $current_index + 1 ] ?? '';
+        }
+    }
 
     ob_start();
     ?>
@@ -1875,6 +1904,18 @@ function ggr_onboarding_dashboard_shortcode() {
                                 <?php endif; ?>
                             </div>
                         </div>
+                        <?php if ( 'collecting' === $status ) : ?>
+                            <div class="ggr-onboarding-step-switch ggr-onboarding-step-switch--inline">
+                                <?php foreach ( $collecting_step_labels as $step_key => $step_label ) :
+                                    $step_url  = add_query_arg( 'collecting_step', $step_key, $current_url );
+                                    $is_active = ( $current_collecting_step === $step_key );
+                                    ?>
+                                    <a class="ggr-onboarding-step-tab <?php echo $is_active ? 'is-active' : ''; ?>" href="<?php echo esc_url( $step_url ); ?>">
+                                        <?php echo esc_html( $step_label ); ?>
+                                    </a>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
 
                         <?php if ( ! empty( $messages['error'] ) || ! empty( $messages['success'] ) ) : ?>
@@ -1906,27 +1947,6 @@ function ggr_onboarding_dashboard_shortcode() {
 
                         <?php if ( 'collecting' === $status ) : ?>
 
-                            <hr class="ggr-onboarding-separator" />
-                            <div class="ggr-onboarding-step-switch">
-                                <?php
-                                $current_url = ggr_onboarding_get_current_url();
-                                $step_labels = array(
-                                    'request'  => '1. Verzoek om uitgifte Participaties',
-                                    'type'     => '2. Wordt er vanaf zakelijk of privé geparticipeerd',
-                                    'personal' => '3. Persoonlijke gegevens',
-                                    'origin'   => '4. Herkomst van het in het Fonds te beleggen geld',
-                                    'files'    => '5. Mee te sturen documenten',
-                                );
-                                foreach ( $step_labels as $step_key => $step_label ) :
-                                    $step_url  = add_query_arg( 'collecting_step', $step_key, $current_url );
-                                    $is_active = ( $current_collecting_step === $step_key );
-                                    ?>
-                                    <a class="ggr-onboarding-step-tab <?php echo $is_active ? 'is-active' : ''; ?>" href="<?php echo esc_url( $step_url ); ?>">
-                                        <?php echo esc_html( $step_label ); ?>
-                                    </a>
-                                <?php endforeach; ?>
-                            </div>
-
                             <?php if ( 'request' === $current_collecting_step ) : ?>
                                 <!-- STAP 1: VERZOEK -->
                                 <h3>Stap 1: Verzoek om uitgifte Participaties</h3>
@@ -1940,16 +1960,28 @@ function ggr_onboarding_dashboard_shortcode() {
                                         $requested_amount = get_user_meta( $user_id, 'ggr_participation_amount', true );
                                     }
                                     ?>
-                                    <p class="ggr-field">
+                                    <div class="ggr-onboarding-field">
                                         <label for="ggr_participation_amount">Bedrag (minimaal € 5.000) *</label>
                                         <input type="number" id="ggr_participation_amount" name="ggr_participation_amount" min="5000" step="500"
                                                value="<?php echo esc_attr( $requested_amount ); ?>" required>
-                                    </p>
+                                    </div>
 
-                                    <div class="ggr-login-actions">
-                                        <button type="submit" name="ggr_collecting_request_submit" value="1" class="ggr-login-submit">
-                                            Opslaan en verder
-                                        </button>
+                                    <div class="ggr-onboarding-form-actions">
+                                        <?php if ( $collecting_prev_step ) : ?>
+                                            <a class="ggr-onboarding-button ggr-onboarding-button--ghost" href="<?php echo esc_url( add_query_arg( 'collecting_step', $collecting_prev_step, $current_url ) ); ?>">
+                                                Terug
+                                            </a>
+                                        <?php endif; ?>
+                                        <div class="ggr-onboarding-form-actions-buttons">
+                                            <button type="submit" name="ggr_collecting_request_submit" value="save" class="ggr-onboarding-button ggr-onboarding-button--ghost">
+                                                Opslaan
+                                            </button>
+                                            <?php if ( $collecting_next_step ) : ?>
+                                                <button type="submit" name="ggr_collecting_request_submit" value="next" class="ggr-onboarding-button ggr-onboarding-button--primary">
+                                                    Verder
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
                                 </form>
 
@@ -1962,15 +1994,33 @@ function ggr_onboarding_dashboard_shortcode() {
                                     <?php wp_nonce_field( 'ggr_collecting_type', 'ggr_collecting_type_nonce' ); ?>
 
                                     <?php $participation_profile = get_user_meta( $user_id, 'ggr_participation_profile', true ); ?>
-                                    <p class="ggr-field">
-                                        <label><input type="radio" name="ggr_participation_profile" value="prive" <?php checked( $participation_profile, 'prive' ); ?> required> Privé</label>
-                                        <label style="margin-left:12px;"><input type="radio" name="ggr_participation_profile" value="zakelijk" <?php checked( $participation_profile, 'zakelijk' ); ?>> Zakelijk (vul persoonlijke gegevens in als contactpersoon van het bedrijf)</label>
-                                    </p>
+                                    <div class="ggr-onboarding-radio-group">
+                                        <label class="ggr-onboarding-radio">
+                                            <input type="radio" name="ggr_participation_profile" value="prive" <?php checked( $participation_profile, 'prive' ); ?> required>
+                                            <span>Privé</span>
+                                        </label>
+                                        <label class="ggr-onboarding-radio">
+                                            <input type="radio" name="ggr_participation_profile" value="zakelijk" <?php checked( $participation_profile, 'zakelijk' ); ?>>
+                                            <span>Zakelijk <small>(vul persoonlijke gegevens in als contactpersoon van het bedrijf)</small></span>
+                                        </label>
+                                    </div>
 
-                                    <div class="ggr-login-actions">
-                                        <button type="submit" name="ggr_collecting_type_submit" value="1" class="ggr-login-submit">
-                                            Opslaan en verder
-                                        </button>
+                                    <div class="ggr-onboarding-form-actions">
+                                        <?php if ( $collecting_prev_step ) : ?>
+                                            <a class="ggr-onboarding-button ggr-onboarding-button--ghost" href="<?php echo esc_url( add_query_arg( 'collecting_step', $collecting_prev_step, $current_url ) ); ?>">
+                                                Terug
+                                            </a>
+                                        <?php endif; ?>
+                                        <div class="ggr-onboarding-form-actions-buttons">
+                                            <button type="submit" name="ggr_collecting_type_submit" value="save" class="ggr-onboarding-button ggr-onboarding-button--ghost">
+                                                Opslaan
+                                            </button>
+                                            <?php if ( $collecting_next_step ) : ?>
+                                                <button type="submit" name="ggr_collecting_type_submit" value="next" class="ggr-onboarding-button ggr-onboarding-button--primary">
+                                                    Verder
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
                                 </form>
 
@@ -1982,45 +2032,46 @@ function ggr_onboarding_dashboard_shortcode() {
                                 <form method="post" class="ggr-onboarding-form">
                                     <?php wp_nonce_field( 'ggr_collecting_personal', 'ggr_collecting_personal_nonce' ); ?>
 
-                                    <div class="ggr-two-cols">
-                                        <p class="ggr-field">
+
+                                    <div class="ggr-onboarding-grid">
+                                        <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_full_name">Volledige naam *</label>
                                             <input type="text" id="ggr_kyc_full_name" name="ggr_kyc_full_name"
                                                    value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_full_name', true ) ); ?>"
                                                    required>
-                                        </p>
-                                        <p class="ggr-field">
+                                        </div>
+                                        <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_birth_date">Geboortedatum *</label>
                                             <input type="date" id="ggr_kyc_birth_date" name="ggr_kyc_birth_date"
                                                    value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_birth_date', true ) ); ?>"
                                                    required>
-                                        </p>
+                                        </div>
                                     </div>
 
-                                    <p class="ggr-field">
+                                    <div class="ggr-onboarding-field">
                                         <label for="ggr_kyc_address">Adres *</label>
                                         <input type="text" id="ggr_kyc_address" name="ggr_kyc_address"
                                                value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_address', true ) ); ?>"
                                                required>
-                                    </p>
+                                    </div>
 
-                                    <div class="ggr-two-cols">
-                                        <p class="ggr-field">
+                                    <div class="ggr-onboarding-grid">
+                                        <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_postcode">Postcode *</label>
                                             <input type="text" id="ggr_kyc_postcode" name="ggr_kyc_postcode"
                                                    value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_postcode', true ) ); ?>"
                                                    required>
-                                        </p>
-                                        <p class="ggr-field">
+                                        </div>
+                                        <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_city_country">Plaats *</label>
                                             <input type="text" id="ggr_kyc_city_country" name="ggr_kyc_city_country"
-                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_city_country', true ) ); ?>"
+                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_city_country',true ) ); ?>"
                                                    required>
-                                        </p>
+                                        </div>
                                     </div>
 
-                                    <div class="ggr-two-cols">
-                                        <p class="ggr-field">
+                                    <div class="ggr-onboarding-grid">
+                                        <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_birth_country">Geboorteland *</label>
                                             <?php
                                             $countries   = ggr_get_countries_nl();
@@ -2035,17 +2086,17 @@ function ggr_onboarding_dashboard_shortcode() {
                                                     </option>
                                                 <?php endforeach; ?>
                                             </select>
-                                        </p>
-                                        <p class="ggr-field">
+                                        </div>
+                                        <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_birth_place">Geboorteplaats *</label>
                                             <input type="text" id="ggr_kyc_birth_place" name="ggr_kyc_birth_place"
                                                    value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_birth_place', true ) ); ?>"
                                                    required>
-                                        </p>
+                                        </div>
                                     </div>
 
-                                    <div class="ggr-two-cols">
-                                        <p class="ggr-field">
+                                    <div class="ggr-onboarding-grid">
+                                        <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_nationality">Nationaliteit *</label>
                                             <?php
                                             $countries   = ggr_get_countries_nl();
@@ -2060,73 +2111,90 @@ function ggr_onboarding_dashboard_shortcode() {
                                                     </option>
                                                 <?php endforeach; ?>
                                             </select>
-                                        </p>
-                                        <p class="ggr-field">
+                                        </div>
+                                        <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_phone">Telefoonnummer *</label>
                                             <input type="tel" id="ggr_kyc_phone" name="ggr_kyc_phone"
                                                    value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_phone', true ) ); ?>"
                                                    required>
-                                        </p>
+                                        </div>
                                     </div>
 
-                                    <div class="ggr-two-cols">
-                                        <p class="ggr-field">
-                                            <label for="ggr_kyc_bsn">Burgerservicenummer *</label>
-                                            <input type="text" id="ggr_kyc_bsn" name="ggr_kyc_bsn"
-                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_bsn', true ) ); ?>"
-                                                   required>
-                                        </p>
+                                    <div class="ggr-onboarding-field">
+                                        <label for="ggr_kyc_bsn">Burgerservicenummer *</label>
+                                        <input type="text" id="ggr_kyc_bsn" name="ggr_kyc_bsn"
+                                               value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_bsn', true ) ); ?>"
+                                               required>
                                     </div>
 
-                                    <p class="ggr-field">
+                                    <div class="ggr-onboarding-field">
                                         <label for="ggr_kyc_iban_name">Tenaamstelling IBAN *</label>
                                         <input type="text" id="ggr_kyc_iban_name" name="ggr_kyc_iban_name"
                                                value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_iban_name', true ) ); ?>"
                                                required>
-                                    </p>
+                                    </div>
 
-                                    <p class="ggr-field">
+                                    <div class="ggr-onboarding-field">
                                         <label for="ggr_kyc_iban">IBAN *</label>
                                         <input type="text" id="ggr_kyc_iban" name="ggr_kyc_iban"
                                                value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_iban', true ) ); ?>"
                                                required>
-                                    </p>
+                                    </div>
 
-                                    <div class="ggr-two-cols">
-                                        <p class="ggr-field">
+                                    <div class="ggr-onboarding-grid">
+                                        <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_company">Bedrijfsnaam (optioneel)</label>
                                             <input type="text" id="ggr_kyc_company" name="ggr_kyc_company"
                                                    value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_company', true ) ); ?>">
-                                        </p>
-                                        <p class="ggr-field">
+                                        </div>
+                                        <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_kvk">KVK nummer (optioneel)</label>
                                             <input type="text" id="ggr_kyc_kvk" name="ggr_kyc_kvk"
                                                    value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_kvk', true ) ); ?>">
-                                        </p>
+                                        </div>
                                     </div>
 
-                                    <div class="ggr-two-cols">
-                                        <p class="ggr-field">
-                                            <span>Politiek Prominent Persoon *</span><br>
+                                    <div class="ggr-onboarding-grid">
+                                        <div class="ggr-onboarding-field">
+                                            <label>Politiek Prominent Persoon *</label>
                                             <?php $pep = get_user_meta( $user_id, 'ggr_kyc_pep', true ); ?>
-                                            <label><input type="radio" name="ggr_kyc_pep" value="ja" <?php checked( $pep, 'ja' ); ?> required> Ja</label>
-                                            <label style="margin-left:12px;"><input type="radio" name="ggr_kyc_pep" value="nee" <?php checked( $pep, 'nee' ); ?>> Nee</label>
-                                        </p>
-                                        <p class="ggr-field">
-                                            <span>US person *</span><br>
+                                            <div class="ggr-onboarding-radio-inline">
+                                                <label><input type="radio" name="ggr_kyc_pep" value="ja" <?php checked( $pep, 'ja' ); ?> required> Ja</label>
+                                                <label><input type="radio" name="ggr_kyc_pep" value="nee" <?php checked( $pep, 'nee' ); ?>> Nee</label>
+                                            </div>
+                                        </div>
+                                        <div class="ggr-onboarding-field">
+                                            <label>US person *</label>
                                             <?php $us = get_user_meta( $user_id, 'ggr_kyc_us_person', true ); ?>
-                                            <label><input type="radio" name="ggr_kyc_us_person" value="ja" <?php checked( $us, 'ja' ); ?> required> Ja</label>
-                                            <label style="margin-left:12px;"><input type="radio" name="ggr_kyc_us_person" value="nee" <?php checked( $us, 'nee' ); ?>> Nee</label>
-                                        </p>
+                                            <div class="ggr-onboarding-radio-inline">
+                                                <label><input type="radio" name="ggr_kyc_us_person" value="ja" <?php checked( $us, 'ja' ); ?> required> Ja</label>
+                                                <label><input type="radio" name="ggr_kyc_us_person" value="nee" <?php checked( $us, 'nee' ); ?>> Nee</label>
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    <div class="ggr-login-actions">
-                                        <button type="submit"
-                                                name="ggr_collecting_personal_submit"
-                                                value="1"
-                                                class="ggr-login-submit">
-                                            Opslaan
-                                        </button>
+                                    <div class="ggr-onboarding-form-actions">
+                                        <?php if ( $collecting_prev_step ) : ?>
+                                            <a class="ggr-onboarding-button ggr-onboarding-button--ghost" href="<?php echo esc_url( add_query_arg( 'collecting_step', $collecting_prev_step, $current_url ) ); ?>">
+                                                Terug
+                                            </a>
+                                        <?php endif; ?>
+                                        <div class="ggr-onboarding-form-actions-buttons">
+                                            <button type="submit"
+                                                    name="ggr_collecting_personal_submit"
+                                                    value="save"
+                                                    class="ggr-onboarding-button ggr-onboarding-button--ghost">
+                                                Opslaan
+                                            </button>
+                                            <?php if ( $collecting_next_step ) : ?>
+                                                <button type="submit"
+                                                        name="ggr_collecting_personal_submit"
+                                                        value="next"
+                                                        class="ggr-onboarding-button ggr-onboarding-button--primary">
+                                                    Verder
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
                                 </form>
                             <?php elseif ( 'origin' === $current_collecting_step ) : ?>
@@ -2138,7 +2206,8 @@ function ggr_onboarding_dashboard_shortcode() {
                                 <form method="post" class="ggr-onboarding-form">
                                     <?php wp_nonce_field( 'ggr_collecting_origin', 'ggr_collecting_origin_nonce' ); ?>
 
-                                    <p class="ggr-field">
+
+                                    <div class="ggr-onboarding-field">
                                         <label for="ggr_origin_country">Land van herkomst van de middelen *</label>
                                         <?php
                                         $countries   = ggr_get_countries_nl();
@@ -2153,56 +2222,69 @@ function ggr_onboarding_dashboard_shortcode() {
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
-                                    </p>
+                                    </div>
 
-                                    <div class="ggr-two-cols">
-                                        <p class="ggr-field">
+                                    <div class="ggr-onboarding-grid">
+                                        <div class="ggr-onboarding-field">
                                             <label for="ggr_origin_salary">Ik ben in loondienst</label>
                                             <textarea id="ggr_origin_salary" name="ggr_origin_salary" rows="2" placeholder="Vermeld werkgever en hoogte/jaarinkomen."><?php echo esc_textarea( get_user_meta( $user_id, 'ggr_origin_salary', true ) ); ?></textarea>
-                                        </p>
-                                        <p class="ggr-field">
+                                        </div>
+                                        <div class="ggr-onboarding-field">
                                             <label for="ggr_origin_business">Ondernemingsactiviteiten</label>
                                             <textarea id="ggr_origin_business" name="ggr_origin_business" rows="2" placeholder="Omschrijf de activiteit en ontvangen bedragen."><?php echo esc_textarea( get_user_meta( $user_id, 'ggr_origin_business', true ) ); ?></textarea>
-                                        </p>
+                                        </div>
                                     </div>
 
-                                    <div class="ggr-two-cols">
-                                        <p class="ggr-field">
+                                    <div class="ggr-onboarding-grid">
+                                        <div class="ggr-onboarding-field">
                                             <label for="ggr_origin_rental_dividend">Opbrengsten rente/dividend/huur</label>
                                             <textarea id="ggr_origin_rental_dividend" name="ggr_origin_rental_dividend" rows="2" placeholder="Bijv. huurinkomsten uit vastgoed, dividend, rente."><?php echo esc_textarea( get_user_meta( $user_id, 'ggr_origin_rental_dividend', true ) ); ?></textarea>
-                                        </p>
-                                        <p class="ggr-field">
+                                        </div>
+                                        <div class="ggr-onboarding-field">
                                             <label for="ggr_origin_savings">Vermogen, erfenis of pensioen/ontslagvergoeding</label>
-                                            <textarea id="ggr_origin_savings" name="ggr_origin_savings" rows="2" placeholder="Specificeer vermogen of ontvangen erfenis/uitkering."><?php echo esc_textarea( get_user_meta( $user_id, 'ggr_origin_savings', true ) ); ?></textarea>
-                                        </p>
+                                            <textarea id="ggr_origin_savings" name="ggr_origin_savings" rows="2" placeholder="Specificieer vermogen of ontvangen erfenis/uitkering."><?php echo esc_textarea( get_user_meta( $user_id, 'ggr_origin_savings', true ) ); ?></textarea>
+                                        </div>
                                     </div>
 
-                                    <div class="ggr-two-cols">
-                                        <p class="ggr-field">
+                                    <div class="ggr-onboarding-grid">
+                                        <div class="ggr-onboarding-field">
                                             <label for="ggr_origin_sale">Opbrengst verkoop (bijv. vastgoed/aandelen)</label>
                                             <textarea id="ggr_origin_sale" name="ggr_origin_sale" rows="2" placeholder="Noem het object en het verkoopbedrag."><?php echo esc_textarea( get_user_meta( $user_id, 'ggr_origin_sale', true ) ); ?></textarea>
-                                        </p>
-                                        <p class="ggr-field">
+                                        </div>
+                                        <div class="ggr-onboarding-field">
                                             <label for="ggr_origin_loan">Ontvangen lening</label>
                                             <textarea id="ggr_origin_loan" name="ggr_origin_loan" rows="2" placeholder="Geef de verstrekkende partij en voorwaarden aan."><?php echo esc_textarea( get_user_meta( $user_id, 'ggr_origin_loan', true ) ); ?></textarea>
-                                        </p>
+                                        </div>
                                     </div>
 
-                                    <p class="ggr-field">
+                                    <div class="ggr-onboarding-field">
                                         <label for="ggr_origin_other">Overige herkomst / toelichting</label>
                                         <textarea id="ggr_origin_other" name="ggr_origin_other" rows="3" placeholder="Vul in indien de herkomst anders is dan hierboven beschreven."><?php echo esc_textarea( get_user_meta( $user_id, 'ggr_origin_other', true ) ); ?></textarea>
-                                    </p>
+                                    </div>
 
-                                    <p class="ggr-field">
+                                    <div class="ggr-onboarding-field">
                                         <label for="ggr_origin_transaction_details">Rekeningnummers / transactiekenmerken</label>
                                         <textarea id="ggr_origin_transaction_details" name="ggr_origin_transaction_details" rows="3" placeholder="Geef bankrekening, transactiedatum of referentie voor de storting."><?php echo esc_textarea( get_user_meta( $user_id, 'ggr_origin_transaction_details', true ) ); ?></textarea>
-                                    </p>
-
-                                    <div class="ggr-login-actions">
-                                        <button type="submit" name="ggr_collecting_origin_submit" value="1" class="ggr-login-submit">
-                                            Opslaan en verder
-                                        </button>
                                     </div>
+
+                                    <div class="ggr-onboarding-form-actions">
+                                        <?php if ( $collecting_prev_step ) : ?>
+                                            <a class="ggr-onboarding-button ggr-onboarding-button--ghost" href="<?php echo esc_url( add_query_arg( 'collecting_step', $collecting_prev_step, $current_url ) ); ?>">
+                                                Terug
+                                            </a>
+                                        <?php endif; ?>
+                                        <div class="ggr-onboarding-form-actions-buttons">
+                                            <button type="submit" name="ggr_collecting_origin_submit" value="save" class="ggr-onboarding-button ggr-onboarding-button--ghost">
+                                                Opslaan
+                                            </button>
+                                            <?php if ( $collecting_next_step ) : ?>
+                                                <button type="submit" name="ggr_collecting_origin_submit" value="next" class="ggr-onboarding-button ggr-onboarding-button--primary">
+                                                    Verder
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    
                                 </form>
                                 
                             <?php else : ?>
@@ -2214,48 +2296,57 @@ function ggr_onboarding_dashboard_shortcode() {
                                 <form method="post" enctype="multipart/form-data" class="ggr-onboarding-form">
                                     <?php wp_nonce_field( 'ggr_collecting_files', 'ggr_collecting_files_nonce' ); ?>
 
-                                    <p class="ggr-field">
+
+                                    <div class="ggr-onboarding-field">
                                         <label for="ggr_doc_id">Identiteitsbewijs (paspoort / ID-kaart) *</label>
                                         <input type="file" id="ggr_doc_id" name="ggr_doc_id" accept=".pdf,.jpg,.jpeg,.png" required>
-                                    </p>
+                                    </div>
 
-                                    <p class="ggr-field">
+                                    <div class="ggr-onboarding-field">
                                         <label for="ggr_doc_funds">Bewijs herkomst middelen (bijv. bankafschrift) *</label>
                                         <input type="file" id="ggr_doc_funds" name="ggr_doc_funds" accept=".pdf,.jpg,.jpeg,.png" required>
-                                    </p>
+                                    </div>
 
                                     <hr>
 
                                     <p><strong>Specifiek voor zakelijke participanten</strong></p>
 
-                                    <p class="ggr-field">
+                                    <div class="ggr-onboarding-field">
                                         <label for="ggr_doc_registration">Recent uittreksel Kamer van Koophandel *</label>
                                         <input type="file" id="ggr_doc_registration" name="ggr_doc_registration" accept=".pdf,.jpg,.jpeg,.png">
-                                    </p>
+                                    </div>
 
-                                    <p class="ggr-field">
+                                    <div class="ggr-onboarding-field">
                                         <label for="ggr_doc_ubo">Uittreksel UBO-register / aandeelhouderslijst *</label>
                                         <input type="file" id="ggr_doc_ubo" name="ggr_doc_ubo" accept=".pdf,.jpg,.jpeg,.png">
-                                    </p>
+                                    </div>
 
-                                    <p class="ggr-field">
+                                    <div class="ggr-onboarding-field">
                                         <label for="ggr_doc_share_register">Aandeelhoudersregister of overeenkomst (optioneel)</label>
                                         <input type="file" id="ggr_doc_share_register" name="ggr_doc_share_register" accept=".pdf,.jpg,.jpeg,.png">
-                                    </p>
+                                    </div>
 
-                                    <p class="ggr-field">
+                                    <div class="ggr-onboarding-field">
                                         <label for="ggr_doc_other">Overige documenten</label>
                                         <input type="file" id="ggr_doc_other" name="ggr_doc_other" accept=".pdf,.jpg,.jpeg,.png">
-                                    </p>
-
-                                    <div class="ggr-login-actions">
-                                        <button type="submit"
-                                                name="ggr_collecting_files_submit"
-                                                value="1"
-                                                class="ggr-login-submit">
-                                            Documenten uploaden
-                                        </button>
                                     </div>
+
+                                    <div class="ggr-onboarding-form-actions">
+                                        <?php if ( $collecting_prev_step ) : ?>
+                                            <a class="ggr-onboarding-button ggr-onboarding-button--ghost" href="<?php echo esc_url( add_query_arg( 'collecting_step', $collecting_prev_step, $current_url ) ); ?>">
+                                                Terug
+                                            </a>
+                                        <?php endif; ?>
+                                        <div class="ggr-onboarding-form-actions-buttons">
+                                            <button type="submit"
+                                                    name="ggr_collecting_files_submit"
+                                                    value="save"
+                                                    class="ggr-onboarding-button ggr-onboarding-button--ghost">
+                                                Opslaan
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
                                 </form>
 
                             <?php endif; // end personal/files switch ?>
