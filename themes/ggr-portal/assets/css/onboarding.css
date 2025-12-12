@@ -34,7 +34,8 @@ body {
     align-items: flex-start;
     justify-content: flex-start;
     box-sizing: border-box;
-    background: var(--ggr-main-bg);
+    background: linear-gradient(135deg, #f8fbfc 0%, #f2f7f8 60%, #eef2f7 100%);
+    padding: 32px 24px 48px;
 }
 
 /* Contentblok – lijkt op portal content, maar met subtiel kaartgevoel */
@@ -42,7 +43,8 @@ body {
 .ggr-onboarding-card {
     width: 100%;
     max-width: 1100px;
-    border-radius: 12px;
+    border-radius: 16px;
+    padding: 12px;
 }
 
 /* Header met logo + titel – in lijn met Dashboard */
@@ -76,6 +78,14 @@ body {
 
 /* Status badge */
 
+.ggr-onboarding-status-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
 .ggr-onboarding-status-badge {
     display: inline-flex;
     align-items: center;
@@ -85,7 +95,11 @@ body {
     border-radius: 999px;
     background: #eff6ff;
     color: #1d4ed8;
-    margin-top: 6px;
+}
+
+.ggr-onboarding-status-meta {
+    font-size: 12px;
+    color: var(--ggr-text-muted);
 }
 
 /* ===============================
@@ -111,6 +125,11 @@ body {
     background: #fff;
     padding: 20px;
     height: 95vh;
+    border-radius: 12px;
+    border: 1px solid var(--ggr-border-soft);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+    position: sticky;
+    top: 24px;
 }
 
 .ggr-onboarding-steps h2 {
@@ -183,11 +202,25 @@ body {
     color: var(--ggr-text-muted);
 }
 
+.ggr-onboarding-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #f0f9ff;
+    color: #0b4f9a;
+    font-size: 11px;
+    border: 1px solid #dbeafe;
+    margin-top: 6px;
+}
+
+
 .ggr-onboarding-content {
     background: #fff;
     border-radius: 12px;
     padding: 24px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--ggr-border-soft);
 }
 
 .ggr-onboarding-section {
@@ -320,6 +353,15 @@ body {
     margin-bottom: 12px;
 }
 
+.ggr-onboarding-kicker {
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin: 0 0 4px;
+    color: #92400e;
+    font-weight: 600;
+}
+
 .ggr-onboarding-highlight h2 {
     margin: 0 0 6px 0;
     font-size: 16px;
@@ -389,10 +431,22 @@ body {
     font-size: 12px;
     color: var(--ggr-text-muted);
     margin-bottom: 14px;
+    display: grid;
+    gap: 8px;
 }
 
-.ggr-onboarding-meta div {
-    margin-bottom: 4px;
+.ggr-onboarding-meta-row {
+    padding: 10px 12px;
+    border: 1px solid var(--ggr-border-soft);
+    border-radius: 10px;
+    background: #f9fafb;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ggr-onboarding-meta strong {
+    color: var(--ggr-text-main);
 }
 
 /* Primaire actie-knop – zelfde accentkleur als Investeren */
