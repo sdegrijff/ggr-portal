@@ -604,6 +604,311 @@ function ggr_get_countries_nl() {
 }
 
 /**
+ * Statische onboarding-flow
+ *
+ * Shortcode: [ggr_onboarding_flow]
+ */
+add_shortcode( 'ggr_onboarding_flow', 'ggr_onboarding_flow_shortcode' );
+
+function ggr_onboarding_flow_shortcode() {
+    ob_start();
+    ?>
+    <div class="ggr-onboarding-shell">
+        <div class="ggr-onboarding-card">
+            <div class="ggr-onboarding-header">
+                <div class="ggr-onboarding-logo">
+                    <img
+                        src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20MIF%20full%20logo%20-%20Blue%20-%20Black.png"
+                        alt="GGR Monthly Income Fund"
+                    />
+                </div>
+                <div class="ggr-onboarding-title-block">
+                    <h1>Onboarding Participaties</h1>
+                    <p>Doorloop de stappen om je participaties in het GGR Monthly Income Fund aan te vragen.</p>
+                    <span class="ggr-onboarding-status-badge">
+                        <i class="ri-check-line" aria-hidden="true"></i>
+                        <span>Documenteer en dien je gegevens in</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="ggr-onboarding-body ggr-onboarding-body--full">
+                <aside class="ggr-onboarding-steps">
+                    <h2>Stappen</h2>
+                    <p>Je kunt per stap de gevraagde gegevens invullen en documenten voorbereiden.</p>
+                    <ul class="ggr-onboarding-step-list">
+                        <li class="ggr-onboarding-step">
+                            <div class="ggr-onboarding-step-icon ggr-onboarding-step-icon--current">1</div>
+                            <div class="ggr-onboarding-step-content">
+                                <h3>Verzoek om uitgifte Participaties</h3>
+                                <p>Start met het gewenste investeringsbedrag.</p>
+                            </div>
+                        </li>
+                        <li class="ggr-onboarding-step">
+                            <div class="ggr-onboarding-step-icon ggr-onboarding-step-icon--upcoming">2</div>
+                            <div class="ggr-onboarding-step-content">
+                                <h3>Privé of zakelijk</h3>
+                                <p>Geef aan of je als persoon of via een entiteit participeert.</p>
+                            </div>
+                        </li>
+                        <li class="ggr-onboarding-step">
+                            <div class="ggr-onboarding-step-icon ggr-onboarding-step-icon--upcoming">3</div>
+                            <div class="ggr-onboarding-step-content">
+                                <h3>Persoonlijke gegevens</h3>
+                                <p>Vul de gegevens van (mede-)participants in.</p>
+                            </div>
+                        </li>
+                        <li class="ggr-onboarding-step">
+                            <div class="ggr-onboarding-step-icon ggr-onboarding-step-icon--upcoming">4</div>
+                            <div class="ggr-onboarding-step-content">
+                                <h3>Herkomst van geld</h3>
+                                <p>Beschrijf de herkomst van het te beleggen bedrag.</p>
+                            </div>
+                        </li>
+                        <li class="ggr-onboarding-step">
+                            <div class="ggr-onboarding-step-icon ggr-onboarding-step-icon--upcoming">5</div>
+                            <div class="ggr-onboarding-step-content">
+                                <h3>Mee te sturen documenten</h3>
+                                <p>Lever de benodigde bijlagen aan op basis van je participatietype.</p>
+                            </div>
+                        </li>
+                    </ul>
+                    <div class="ggr-onboarding-meta">
+                        <div><strong>Gemiddelde duur:</strong> 10-15 minuten</div>
+                        <div><strong>Opslaan:</strong> concepten worden lokaal bewaard</div>
+                        <div><strong>Contact:</strong> onboarding@ggr.nl</div>
+                    </div>
+                </aside>
+
+                <div class="ggr-onboarding-content">
+                    <div class="ggr-onboarding-highlight">
+                        <div>
+                            <h2>Snel starten</h2>
+                            <p>Download het inschrijfformulier en gebruik deze pagina als checklist voor alle vereiste gegevens.</p>
+                        </div>
+                        <a class="ggr-onboarding-primary-btn" href="#" download>
+                            <i class="ri-file-download-line" aria-hidden="true"></i>
+                            Inschrijfformulier downloaden
+                        </a>
+                    </div>
+
+                    <form class="ggr-onboarding-form" action="#" method="post">
+                        <section id="stap-1" class="ggr-onboarding-section">
+                            <h2>1. Verzoek om uitgifte Participaties</h2>
+                            <p>Ondergetekende (de "Participant") wil Participaties aankopen in het GGR Monthly Income Fund (het "Fonds") voor een bedrag van:</p>
+                            <div class="ggr-onboarding-grid">
+                                <div class="ggr-onboarding-field">
+                                    <label for="ggr-investment-amount">Gewenst bedrag (€)</label>
+                                    <input type="text" id="ggr-investment-amount" name="ggr_investment_amount" placeholder="Bijv. 10.000" />
+                                    <p class="ggr-onboarding-note">Een eerste inschrijving is mogelijk vanaf € 5.000.</p>
+                                </div>
+                                <div class="ggr-onboarding-field">
+                                    <label for="ggr-investment-start">Gewenste startdatum</label>
+                                    <input type="date" id="ggr-investment-start" name="ggr_investment_start" />
+                                    <p class="ggr-onboarding-note">We plannen de uitgifte zo dicht mogelijk op deze datum.</p>
+                                </div>
+                                <div class="ggr-onboarding-field">
+                                    <label for="ggr-investment-frequency">Frequentie</label>
+                                    <select id="ggr-investment-frequency" name="ggr_investment_frequency">
+                                        <option value="eenmalig">Eenmalig</option>
+                                        <option value="periodiek">Periodiek</option>
+                                    </select>
+                                    <p class="ggr-onboarding-note">Bij periodiek beleggen stemmen we de incassodata met je af.</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section id="stap-2" class="ggr-onboarding-section">
+                            <h2>2. Wordt er vanaf zakelijk of privé geparticipeerd?</h2>
+                            <p>Selecteer het type participant. Vul bij een zakelijke participatie ook de contactpersoon in.</p>
+                            <div class="ggr-onboarding-radio-group">
+                                <label class="ggr-onboarding-radio">
+                                    <input type="radio" name="ggr_participation_type" value="prive" />
+                                    <span>Privé</span>
+                                </label>
+                                <label class="ggr-onboarding-radio">
+                                    <input type="radio" name="ggr_participation_type" value="zakelijk" />
+                                    <span>Zakelijk <small>(Vul persoonlijke gegevens in als contactpersoon van het bedrijf)</small></span>
+                                </label>
+                            </div>
+                            <div class="ggr-onboarding-table-wrapper">
+                                <table class="ggr-onboarding-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Zakelijke gegevens (indien van toepassing)</th>
+                                            <th>In te vullen</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Bedrijfsnaam</td>
+                                            <td><input type="text" name="ggr_company_name" /></td>
+                                        </tr>
+                                        <tr>
+                                            <td>KvK nummer</td>
+                                            <td><input type="text" name="ggr_company_kvk" /></td>
+                                        </tr>
+                                        <tr>
+                                            <td>BTW nummer</td>
+                                            <td><input type="text" name="ggr_company_vat" /></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Vestigingsadres</td>
+                                            <td><input type="text" name="ggr_company_address" /></td>
+                                        </tr>
+                                        <tr>
+                                            <td>UBO's (namen en percentages)</td>
+                                            <td><input type="text" name="ggr_company_ubos" placeholder="Bijv. Jansen 60%, de Vries 40%" /></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                        <section id="stap-3" class="ggr-onboarding-section">
+                            <h2>3. Persoonlijke gegevens</h2>
+                            <p>Vul de persoonlijke gegevens in van de participant en, indien van toepassing, een mede-participant.</p>
+                            <div class="ggr-onboarding-table-wrapper">
+                                <table class="ggr-onboarding-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Gegevens</th>
+                                            <th>Participant</th>
+                                            <th>Mede-participant</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Volledige naam</td>
+                                            <td><input type="text" name="ggr_name_participant" /></td>
+                                            <td><input type="text" name="ggr_name_co_participant" /></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Geboortedatum</td>
+                                            <td><input type="date" name="ggr_dob_participant" /></td>
+                                            <td><input type="date" name="ggr_dob_co_participant" /></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Adres</td>
+                                            <td><input type="text" name="ggr_address_participant" /></td>
+                                            <td><input type="text" name="ggr_address_co_participant" /></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Postcode</td>
+                                            <td><input type="text" name="ggr_zip_participant" /></td>
+                                            <td><input type="text" name="ggr_zip_co_participant" /></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Woonplaats</td>
+                                            <td><input type="text" name="ggr_city_participant" /></td>
+                                            <td><input type="text" name="ggr_city_co_participant" /></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Telefoon</td>
+                                            <td><input type="tel" name="ggr_phone_participant" /></td>
+                                            <td><input type="tel" name="ggr_phone_co_participant" /></td>
+                                        </tr>
+                                        <tr>
+                                            <td>E-mailadres</td>
+                                            <td><input type="email" name="ggr_email_participant" /></td>
+                                            <td><input type="email" name="ggr_email_co_participant" /></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Identificatienummer paspoort/ID</td>
+                                            <td><input type="text" name="ggr_id_participant" /></td>
+                                            <td><input type="text" name="ggr_id_co_participant" /></td>
+                                        </tr>
+                                        <tr>
+                                            <td>IBAN (voor uitkeringen)</td>
+                                            <td><input type="text" name="ggr_iban_participant" /></td>
+                                            <td><input type="text" name="ggr_iban_co_participant" /></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Nationaliteit</td>
+                                            <td><input type="text" name="ggr_nationality_participant" /></td>
+                                            <td><input type="text" name="ggr_nationality_co_participant" /></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                        <section id="stap-4" class="ggr-onboarding-section">
+                            <h2>4. Herkomst van het geld</h2>
+                            <p>Geef de herkomst van het te beleggen bedrag aan en licht dit kort toe.</p>
+                            <div class="ggr-onboarding-grid">
+                                <div class="ggr-onboarding-field">
+                                    <label>Herkomst</label>
+                                    <div class="ggr-onboarding-checkboxes">
+                                        <label><input type="checkbox" name="ggr_source_income" /> Inkomen</label>
+                                        <label><input type="checkbox" name="ggr_source_savings" /> Spaargeld</label>
+                                        <label><input type="checkbox" name="ggr_source_investments" /> Andere investeringen</label>
+                                        <label><input type="checkbox" name="ggr_source_inheritance" /> Erfenis</label>
+                                        <label><input type="checkbox" name="ggr_source_other" /> Anders</label>
+                                    </div>
+                                </div>
+                                <div class="ggr-onboarding-field">
+                                    <label for="ggr-source-notes">Toelichting</label>
+                                    <textarea id="ggr-source-notes" name="ggr_source_notes" rows="4" placeholder="Beschrijf kort waar het geld vandaan komt."></textarea>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section id="stap-5" class="ggr-onboarding-section">
+                            <h2>5. Mee te sturen documenten</h2>
+                            <p>Afhankelijk van je participatietype lever je de volgende documenten aan.</p>
+
+                            <div class="ggr-onboarding-grid">
+                                <div class="ggr-onboarding-field">
+                                    <h3>Voor privé-participatie</h3>
+                                    <ul class="ggr-onboarding-doc-list">
+                                        <li>Kopie geldig paspoort of ID-kaart</li>
+                                        <li>Bewijs van adres (bijv. energierekening)</li>
+                                        <li>Bankafschrift met IBAN</li>
+                                        <li>Eventueel: bewijs van herkomst middelen</li>
+                                    </ul>
+                                </div>
+                                <div class="ggr-onboarding-field">
+                                    <h3>Voor zakelijke participatie</h3>
+                                    <ul class="ggr-onboarding-doc-list">
+                                        <li>Uittreksel KvK (max 3 maanden oud)</li>
+                                        <li>Kopie paspoort/ID contactpersoon</li>
+                                        <li>UBO-overzicht en verificatie</li>
+                                        <li>Bankafschrift van bedrijfsrekening</li>
+                                        <li>Eventueel: aandeelhoudersregister</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="ggr-onboarding-highlight ggr-onboarding-highlight--secondary">
+                                <div>
+                                    <h3>Akkoordverklaring</h3>
+                                    <p>Door het formulier te verzenden verklaar je akkoord te zijn met de voorwaarden van het GGR Monthly Income Fund en bevestig je dat de gegevens juist zijn.</p>
+                                </div>
+                                <label class="ggr-onboarding-checkbox-inline">
+                                    <input type="checkbox" name="ggr_terms" />
+                                    <span>Ik ga akkoord en wil mijn deelname afronden</span>
+                                </label>
+                            </div>
+                        </section>
+
+                        <div class="ggr-onboarding-actions">
+                            <button type="submit" class="ggr-onboarding-primary-btn">
+                                <i class="ri-send-plane-2-line" aria-hidden="true"></i>
+                                Verzoek indienen
+                            </button>
+                            <a class="ggr-onboarding-link" href="#stap-1">Terug naar boven</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+
+/**
  * Front-end onboarding registratie + e-mailverificatie
  *
  * Shortcode: [ggr_onboarding_register]
