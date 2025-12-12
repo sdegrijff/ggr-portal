@@ -167,6 +167,15 @@ function ggr_portal_access_control() {
         if ( ggr_portal_is_onboarding_page() || ggr_portal_is_login_like_page() ) {
             return;
         }
+        
+        // Onboarding-profiel: sta leads toe om hun accountgegevens te bekijken
+        if ( ggr_portal_is_portal_page() ) {
+            global $post;
+
+            if ( $post instanceof WP_Post && $post->post_name === 'mijn-account' ) {
+                return;
+            }
+        }
 
         // Alles anders → terug naar onboarding
         wp_safe_redirect( $onboarding_url );
