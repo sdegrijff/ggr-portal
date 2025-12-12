@@ -623,12 +623,15 @@ function ggr_onboarding_flow_shortcode() {
                     />
                 </div>
                 <div class="ggr-onboarding-title-block">
-                    <h1>Onboarding Participaties</h1>
-                    <p>Doorloop de stappen om je participaties in het GGR Monthly Income Fund aan te vragen.</p>
-                    <span class="ggr-onboarding-status-badge">
-                        <i class="ri-check-line" aria-hidden="true"></i>
-                        <span>Documenteer en dien je gegevens in</span>
-                    </span>
+                    <h1>Onboarding als investeerder</h1>
+                    <p>Volg de stappen om je aanvraag netjes en compleet bij ons aan te leveren.</p>
+                    <div class="ggr-onboarding-status-row">
+                        <span class="ggr-onboarding-status-badge">
+                            <i class="ri-check-line" aria-hidden="true"></i>
+                            <span>Documentatie aanleveren</span>
+                        </span>
+                        <span class="ggr-onboarding-status-meta">Gemiddelde doorlooptijd: 10-15 minuten</span>
+                    </div>
                 </div>
             </div>
 
@@ -642,6 +645,7 @@ function ggr_onboarding_flow_shortcode() {
                             <div class="ggr-onboarding-step-content">
                                 <h3>Verzoek om uitgifte Participaties</h3>
                                 <p>Start met het gewenste investeringsbedrag.</p>
+                                <span class="ggr-onboarding-chip">Start</span>
                             </div>
                         </li>
                         <li class="ggr-onboarding-step">
@@ -649,6 +653,7 @@ function ggr_onboarding_flow_shortcode() {
                             <div class="ggr-onboarding-step-content">
                                 <h3>Privé of zakelijk</h3>
                                 <p>Geef aan of je als persoon of via een entiteit participeert.</p>
+                                <span class="ggr-onboarding-chip">Kies type</span>
                             </div>
                         </li>
                         <li class="ggr-onboarding-step">
@@ -656,6 +661,7 @@ function ggr_onboarding_flow_shortcode() {
                             <div class="ggr-onboarding-step-content">
                                 <h3>Persoonlijke gegevens</h3>
                                 <p>Vul de gegevens van (mede-)participants in.</p>
+                                <span class="ggr-onboarding-chip">Identiteit</span>
                             </div>
                         </li>
                         <li class="ggr-onboarding-step">
@@ -663,6 +669,7 @@ function ggr_onboarding_flow_shortcode() {
                             <div class="ggr-onboarding-step-content">
                                 <h3>Herkomst van geld</h3>
                                 <p>Beschrijf de herkomst van het te beleggen bedrag.</p>
+                                <span class="ggr-onboarding-chip">KYC</span>                                
                             </div>
                         </li>
                         <li class="ggr-onboarding-step">
@@ -670,19 +677,26 @@ function ggr_onboarding_flow_shortcode() {
                             <div class="ggr-onboarding-step-content">
                                 <h3>Mee te sturen documenten</h3>
                                 <p>Lever de benodigde bijlagen aan op basis van je participatietype.</p>
+                                <span class="ggr-onboarding-chip">Bijlagen</span>
                             </div>
                         </li>
                     </ul>
                     <div class="ggr-onboarding-meta">
-                        <div><strong>Gemiddelde duur:</strong> 10-15 minuten</div>
-                        <div><strong>Opslaan:</strong> concepten worden lokaal bewaard</div>
-                        <div><strong>Contact:</strong> onboarding@ggr.nl</div>
+                        <div class="ggr-onboarding-meta-row">
+                            <strong>Opslaan</strong>
+                            <span>Concepten worden lokaal bewaard.</span>
+                        </div>
+                        <div class="ggr-onboarding-meta-row">
+                            <strong>Hulp nodig?</strong>
+                            <span>Mail naar onboarding@ggr.nl</span>
+                        </div>
                     </div>
                 </aside>
 
                 <div class="ggr-onboarding-content">
                     <div class="ggr-onboarding-highlight">
                         <div>
+                            <p class="ggr-onboarding-kicker">Doorloop de stappen in Collectie</p>
                             <h2>Snel starten</h2>
                             <p>Download het inschrijfformulier en gebruik deze pagina als checklist voor alle vereiste gegevens.</p>
                         </div>
