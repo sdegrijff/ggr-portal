@@ -16,13 +16,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 function ggr_onboarding_get_stages() {
     return array(
-        'register'           => 'Register (eerste aanmelding)',
-        'confirmed'          => 'Confirmed (e-mail gevalideerd)',
-        'collecting'         => 'Collecting (documentatie aanleveren)',
-        'validating'         => 'Validating (documentatie controleren)',
-        'sign_contract'      => 'Sign contract (Overeenkomst tekenen)',
-        'transfer_completed' => 'Transfer completed (Geld overmaken)',
-        'active_participant' => 'Active participant (Achterover leunen)',
+        'register'           => 'Formulier ingevuld',
+        'confirmed'          => 'Account bevestigd',
+        'collecting'         => 'Documentatie aanleveren',
+        'validating'         => 'Documentatie controleren',
+        'sign_contract'      => 'Overeenkomst tekenen',
+        'transfer_completed' => 'Geld overmaken',
+        'active_participant' => 'Achterover leunen',
     );
 }
 
@@ -1764,16 +1764,28 @@ function ggr_onboarding_dashboard_shortcode() {
                     $total_steps     = count( $order );
                     $progress_pct    = max( 0, min( 100, round( ( $completed_count / $total_steps ) * 100 ) ) );
                     ?>
-                    <div class="ggr-onboarding-steps-header">
-                        <div>
-                            <p class="ggr-onboarding-kicker">Onboarding</p>
-                            <h2>Jouw voortgang</h2>
-                            <p class="ggr-onboarding-muted">Doorloop de stappen zodat we je toegang kunnen geven tot het portaal.</p>
+                    
+                            <div class="ggr-onboarding-logo">
+                            <a href="<?php echo esc_url( home_url( '/dashboard/' ) ); ?>">
+                                <img
+                                    src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20MIF%20full%20logo%20-%20Blue%20-%20Black.png"
+                                    alt="GGR monthly Income Fund"
+                                    class="ggr-logo-img"
+                                />
+                            </a>
                         </div>
-                        <div class="ggr-onboarding-progress">
+                        
+                  <div class="ggr-onboarding-progress">
                             <div class="ggr-onboarding-progress-bar" style="width: <?php echo (int) $progress_pct; ?>%"></div>
                             <span><?php echo (int) $progress_pct; ?>% afgerond</span>
                         </div>
+                        
+                    <div class="ggr-onboarding-steps-header">
+                        <div>
+                            <h2>Jouw voortgang</h2>
+                            <p class="ggr-onboarding-muted">Doorloop de stappen zodat we je toegang kunnen geven tot het portaal.</p>
+                        </div>
+
                     </div>
                     
                     <ul class="ggr-onboarding-step-list">
