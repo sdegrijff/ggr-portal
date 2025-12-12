@@ -491,6 +491,86 @@ body {
     justify-content: flex-end;
 }
 
+.ggr-onboarding-step-switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.ggr-onboarding-step-switch--inline {
+    margin-top: 8px;
+    padding: 10px 0 2px 0;
+    border-bottom: 1px solid var(--ggr-border-soft);
+}
+
+.ggr-onboarding-step-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--ggr-border-soft);
+    background: #fff;
+    color: var(--ggr-text-main);
+    font-size: 13px;
+    text-decoration: none;
+    transition: all 0.12s ease;
+}
+
+.ggr-onboarding-step-tab.is-active {
+    border-color: var(--ggr-accent);
+    background: #eef2ff;
+    color: #111827;
+    box-shadow: inset 0 0 0 1px rgba(62, 99, 255, 0.08);
+}
+
+.ggr-onboarding-form-actions {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.ggr-onboarding-form-actions-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.ggr-onboarding-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--ggr-border-soft);
+    background: #fff;
+    color: var(--ggr-text-main);
+    text-decoration: none;
+    transition: all 0.12s ease;
+}
+
+.ggr-onboarding-button--ghost:hover {
+    background: #f9fafb;
+}
+
+.ggr-onboarding-button--primary {
+    background: var(--ggr-accent);
+    border-color: var(--ggr-accent);
+    color: #fff;
+}
+
+.ggr-onboarding-button--primary:hover {
+    filter: brightness(0.97);
+}
+
+
 /* Rechter kolom: gegevens + acties */
 
 .ggr-onboarding-side {
