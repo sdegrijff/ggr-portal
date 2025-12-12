@@ -187,11 +187,18 @@ function ggr_onboarding_render_table_view( $users, $stages ) {
             $status       = ggr_onboarding_get_status( $uid );
             $status_label = isset( $stages[ $status ] ) ? $stages[ $status ] : $status;
             $updated      = get_user_meta( $uid, 'ggr_onboarding_updated_at', true );
+            $profile_url  = add_query_arg(
+                array(
+                    'page'    => 'ggr-participant-profiel',
+                    'user_id' => $uid,
+                ),
+                admin_url( 'users.php' )
+            );
             ?>
             <tr>
                 <td><?php echo esc_html( $uid ); ?></td>
                 <td>
-                    <a href="<?php echo esc_url( get_edit_user_link( $uid ) ); ?>">
+                    <a href="<?php echo esc_url( $profile_url ); ?>">
                         <?php echo esc_html( $user->display_name ); ?>
                     </a>
                 </td>
@@ -352,13 +359,20 @@ function ggr_onboarding_render_board_view( $users, $stages ) {
                 <ul class="ggr-onboard-column-list"
                     data-stage="<?php echo esc_attr( $stage_key ); ?>">
                     <?php foreach ( $stage_users as $user ) :
-                        $uid     = $user->ID;
-                        $updated = get_user_meta( $uid, 'ggr_onboarding_updated_at', true );
+                        $uid          = $user->ID;
+                        $updated      = get_user_meta( $uid, 'ggr_onboarding_updated_at', true );
+                        $profile_url  = add_query_arg(
+                            array(
+                                'page'    => 'ggr-participant-profiel',
+                                'user_id' => $uid,
+                            ),
+                            admin_url( 'users.php' )
+                        );
                         ?>
                         <li class="ggr-onboard-card"
                             data-user-id="<?php echo esc_attr( $uid ); ?>">
                             <div class="ggr-onboard-card-header">
-                                <a href="<?php echo esc_url( get_edit_user_link( $uid ) ); ?>" target="_blank">
+                                <a href="<?php echo esc_url( $profile_url ); ?>" target="_blank">
                                     <?php echo esc_html( $user->display_name ); ?>
                                 </a>
                             </div>
@@ -1727,32 +1741,43 @@ function ggr_onboarding_dashboard_shortcode() {
     <div class="ggr-onboarding-shell">
         <div class="ggr-onboarding-card">
 
-            <div class="ggr-onboarding-header">
-            </div>
-
             <div class="ggr-onboarding-body">
                 <div class="ggr-onboarding-steps">
-                    <h2>Jouw stappen</h2>
-                    <p>We begeleiden je stap voor stap. Zodra alle stappen zijn afgerond, word je een actieve participant.</p>
+                    <?php
+                    // Heel simpel: mapping per status naar "done/current/upcoming".
+                    $order = array(
+                        'register',
+                        'confirmed',
+                        'collecting',
+                        'validating',
+                        'sign_contract',
+                        'transfer_completed',
+                        'active_participant',
+                    );
 
+                    $current_index = array_search( $status, $order, true );
+                    if ( $current_index === false ) {
+                        $current_index = 0;
+                    }
+
+                    $completed_count = $current_index + 1;
+                    $total_steps     = count( $order );
+                    $progress_pct    = max( 0, min( 100, round( ( $completed_count / $total_steps ) * 100 ) ) );
+                    ?>
+                    <div class="ggr-onboarding-steps-header">
+                        <div>
+                            <p class="ggr-onboarding-kicker">Onboarding</p>
+                            <h2>Jouw voortgang</h2>
+                            <p class="ggr-onboarding-muted">Doorloop de stappen zodat we je toegang kunnen geven tot het portaal.</p>
+                        </div>
+                        <div class="ggr-onboarding-progress">
+                            <div class="ggr-onboarding-progress-bar" style="width: <?php echo (int) $progress_pct; ?>%"></div>
+                            <span><?php echo (int) $progress_pct; ?>% afgerond</span>
+                        </div>
+                    </div>
+                    
                     <ul class="ggr-onboarding-step-list">
                         <?php
-                        // Heel simpel: mapping per status naar "done/current/upcoming".
-                        $order = array(
-                            'register',
-                            'confirmed',
-                            'collecting',
-                            'validating',
-                            'sign_contract',
-                            'transfer_completed',
-                            'active_participant',
-                        );
-
-                        $current_index = array_search( $status, $order, true );
-                        if ( $current_index === false ) {
-                            $current_index = 0;
-                        }
-
                         foreach ( $order as $index => $key ) {
                             $label = isset( $stages[ $key ] ) ? $stages[ $key ] : $key;
 
@@ -1772,7 +1797,14 @@ function ggr_onboarding_dashboard_shortcode() {
                                     <?php echo esc_html( $icon ); ?>
                                 </div>
                                 <div class="ggr-onboarding-step-content">
-                                    <h3><?php echo esc_html( $label ); ?></h3>
+                                    <div class="ggr-onboarding-step-top">
+                                        <h3><?php echo esc_html( $label ); ?></h3>
+                                        <?php if ( $state === 'current' ) : ?>
+                                            <span class="ggr-onboarding-chip">Nu bezig</span>
+                                        <?php elseif ( $state === 'done' ) : ?>
+                                            <span class="ggr-onboarding-chip">Afgerond</span>
+                                        <?php endif; ?>
+                                    </div>
                                     <p>
                                         <?php
                                         switch ( $key ) {
@@ -1808,18 +1840,30 @@ function ggr_onboarding_dashboard_shortcode() {
                         }
                         ?>
                     </ul>
+
+                    <div class="ggr-onboarding-steps-footer">
+                        <a class="ggr-onboarding-logout" href="<?php echo esc_url( wp_logout_url( home_url( '/inloggen/' ) ) ); ?>">
+                            <i class="ri-logout-box-line" aria-hidden="true"></i> Uitloggen
+                        </a>
+                    </div>
                 </div>
 
-                <div class="ggr-onboarding-title-block">
-                    <h1>Onboarding als investeerder</h1>
-                    <p>Volg hier de stappen tot je volledige toegang krijgt tot het GGR Portal.</p>
-
-                    <div class="ggr-onboarding-status-badge">
-                        <span>Huidige fase:</span>
-                        <strong><?php echo esc_html( $status_label ); ?></strong>
+                <div class="ggr-onboarding-side">
+                    <div class="ggr-onboarding-hero">
+                        <div>
+                            <p class="ggr-onboarding-kicker">Welkom, <?php echo esc_html( $user->display_name ); ?></p>
+                            <h1>Rond je onboarding af</h1>
+                            <p class="ggr-onboarding-muted">Werk de openstaande stappen af zodat we je kunnen aanmelden als deelnemer.</p>
+                            <div class="ggr-onboarding-status-row">
+                                <span class="ggr-onboarding-status-badge">
+                                    Fase: <?php echo esc_html( $status_label ); ?>
+                                </span>
+                                <?php if ( $updated ) : ?>
+                                    <span class="ggr-onboarding-status-meta">Bijgewerkt: <?php echo esc_html( $updated ); ?></span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
                     </div>
-
-                    <div class="ggr-onboarding-side">
 
                         <?php if ( ! empty( $messages['error'] ) || ! empty( $messages['success'] ) ) : ?>
                             <div class="ggr-onboarding-notice-wrapper">
@@ -2205,28 +2249,6 @@ function ggr_onboarding_dashboard_shortcode() {
                             <?php endif; // end personal/files switch ?>
                         <?php endif; // end collecting check ?>
 
-                        <div class="ggr-onboarding-meta-block">
-                            <h3>Jouw gegevens</h3>
-                            <div class="ggr-onboarding-meta">
-                                <div><strong>Naam:</strong> <?php echo esc_html( $user->display_name ); ?></div>
-                                <div><strong>E-mail:</strong> <?php echo esc_html( $user->user_email ); ?></div>
-                                <?php
-                                $investment = get_user_meta( $user_id, 'ggr_investment_amount', true );
-                                if ( $investment ) :
-                                    ?>
-                                    <div><strong>Indicatieve investering:</strong>
-                                        € <?php echo esc_html( number_format_i18n( floatval( $investment ), 0 ) ); ?>
-                                    </div>
-                                <?php endif; ?>
-                                <?php if ( $updated ) : ?>
-                                    <div><strong>Laatste update:</strong> <?php echo esc_html( $updated ); ?></div>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-
-                        <a href="/contact" class="ggr-onboarding-primary-btn">
-                            Vragen over je onboarding?
-                        </a>
                     </div>
                 </div>
             </div>
