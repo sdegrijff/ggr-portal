@@ -35,16 +35,13 @@ body {
     justify-content: flex-start;
     box-sizing: border-box;
     background: linear-gradient(135deg, #f8fbfc 0%, #f2f7f8 60%, #eef2f7 100%);
-    padding: 32px 24px 48px;
 }
 
 /* Contentblok – lijkt op portal content, maar met subtiel kaartgevoel */
 
 .ggr-onboarding-card {
     width: 100%;
-    max-width: 1100px;
     border-radius: 16px;
-    padding: 16px;
     background: #ffffff;
     border: 1px solid var(--ggr-border-soft);
     box-shadow: 0 20px 60px rgba(17, 24, 39, 0.08);
@@ -60,9 +57,10 @@ body {
 }
 
 .ggr-onboarding-logo img {
-    height: 32px;
+    height: 75px;
     width: auto;
-    display: block;
+    display: flex;
+    justify-content: center;
 }
 
 .ggr-onboarding-title-block h1 {
@@ -95,7 +93,7 @@ body {
     gap: 8px;
     font-size: 12px;
     padding: 6px 10px;
-    border-radius: 999px;
+    border-radius: 5px;
     background: #eff6ff;
     color: #1d4ed8;
 }
@@ -106,13 +104,13 @@ body {
 }
 
 .ggr-onboarding-hero .ggr-onboarding-status-badge {
-    background: rgba(255, 255, 255, 0.14);
-    color: #fff;
+    background: rgba(242, 158, 117, 0.1);
+    color: #f29f75;
     border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .ggr-onboarding-hero .ggr-onboarding-status-meta {
-    color: rgba(255, 255, 255, 0.8);
+    color: #111827;
 }
 
 /* ===============================
@@ -137,11 +135,9 @@ body {
     padding-right: 0;
     background: #fff;
     padding: 20px;
-    border-radius: 12px;
-    border: 1px solid var(--ggr-border-soft);
+    border-right: 1px solid var(--ggr-border-soft);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
     position: sticky;
-    top: 24px;
     min-height: calc(100vh - 120px);
     display: flex;
     flex-direction: column;
@@ -172,7 +168,7 @@ body {
 .ggr-onboarding-progress {
     position: relative;
     min-width: 170px;
-    border-radius: 12px;
+    border-radius: 5px;
     padding: 12px 14px;
     background: #f8fafc;
     border: 1px solid var(--ggr-border-soft);
@@ -245,14 +241,14 @@ body {
 
 .ggr-onboarding-step-content h3 {
     margin: 0 0 4px 0;
-    font-size: 15px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--ggr-text-main);
 }
 
 .ggr-onboarding-step-content p {
     margin: 0;
-    font-size: 12px;
+    font-size: 11px;
     color: var(--ggr-text-muted);
 }
 
@@ -267,7 +263,7 @@ body {
     display: inline-flex;
     align-items: center;
     padding: 2px 8px;
-    border-radius: 999px;
+    border-radius: 5px;
     background: #e0ecff;
     color: #0f3e8a;
     font-size: 11px;
@@ -442,7 +438,7 @@ body {
 }
 
 .ggr-onboarding-hero .ggr-onboarding-kicker {
-    color: rgba(255, 255, 255, 0.9);
+    color: #111827;
 }
 
 .ggr-onboarding-highlight h2 {
@@ -503,6 +499,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    margin-top:40px;
+    margin-right:40px;
 }
 
 .ggr-onboarding-side h2 {
@@ -513,22 +511,20 @@ body {
 }
 
 .ggr-onboarding-hero {
-    padding: 22px;
     border-radius: 14px;
-    background: linear-gradient(135deg, #0f3e8a, #0ea5e9);
-    color: #fff;
-    box-shadow: 0 20px 50px rgba(14, 165, 233, 0.18);
+    background: #fff;
+    color: #000;
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .ggr-onboarding-hero h1 {
     margin: 4px 0 8px;
     font-size: 22px;
-    color: #fff;
+    color: #000;
 }
 
 .ggr-onboarding-hero .ggr-onboarding-muted {
-    color: rgba(255, 255, 255, 0.85);
+    color: #111827;
 }
 
 .ggr-onboarding-meta {
