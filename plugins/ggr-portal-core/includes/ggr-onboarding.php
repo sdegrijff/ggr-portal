@@ -1956,7 +1956,7 @@ function ggr_onboarding_dashboard_shortcode() {
                                                    required>
                                         </p>
                                         <p class="ggr-field">
-                                            <label for="ggr_kyc_city_country">Woonplaats + land *</label>
+                                            <label for="ggr_kyc_city_country">Plaats *</label>
                                             <input type="text" id="ggr_kyc_city_country" name="ggr_kyc_city_country"
                                                    value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_city_country', true ) ); ?>"
                                                    required>
@@ -2014,25 +2014,6 @@ function ggr_onboarding_dashboard_shortcode() {
                                     </div>
 
                                     <div class="ggr-two-cols">
-                                        <p class="ggr-field">
-                                            <label for="ggr_kyc_id_expiry">Geldigheid identiteitsbewijs *</label>
-                                            <input type="date" id="ggr_kyc_id_expiry" name="ggr_kyc_id_expiry"
-                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_id_expiry', true ) ); ?>"
-                                                   required>
-                                        </p>
-                                        <p class="ggr-field">
-                                            <label for="ggr_kyc_relation">Relatie tot GGR (optioneel)</label>
-                                            <input type="text" id="ggr_kyc_relation" name="ggr_kyc_relation"
-                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_relation', true ) ); ?>">
-                                        </p>
-                                    </div>
-
-                                    <div class="ggr-two-cols">
-                                        <p class="ggr-field">
-                                            <label for="ggr_kyc_pep_reason">Toelichting PEP (optioneel)</label>
-                                            <input type="text" id="ggr_kyc_pep_reason" name="ggr_kyc_pep_reason"
-                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_pep_reason', true ) ); ?>">
-                                        </p>
                                         <p class="ggr-field">
                                             <label for="ggr_kyc_bsn">Burgerservicenummer *</label>
                                             <input type="text" id="ggr_kyc_bsn" name="ggr_kyc_bsn"
