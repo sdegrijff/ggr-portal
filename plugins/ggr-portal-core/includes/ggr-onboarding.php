@@ -1280,40 +1280,125 @@ function ggr_onboarding_dashboard_shortcode() {
         'success' => '',
     );
 
-    // Flag: heeft gebruiker stap 1 (persoonlijke gegevens) al afgerond?
-    $collecting_personal_done = get_user_meta( $user_id, 'ggr_collecting_personal_done', true );
+    // Bepaal actieve stap in collecting-fase en maak wisselen mogelijk via query-parameter.
+    $available_collecting_steps = array( 'request', 'profile', 'personal', 'origin', 'documents' );
+    $collecting_progress        = array(
+        'request'   => (int) get_user_meta( $user_id, 'ggr_collecting_request_done', true ),
+        'profile'   => (int) get_user_meta( $user_id, 'ggr_collecting_profile_done', true ),
+        'personal'  => (int) get_user_meta( $user_id, 'ggr_collecting_personal_done', true ),
+        'origin'    => (int) get_user_meta( $user_id, 'ggr_collecting_origin_done', true ),
+        'documents' => (int) get_user_meta( $user_id, 'ggr_collecting_documents_done', true ),
+    );
+
+    $requested_collecting_step = isset( $_GET['collecting_step'] )
+        ? sanitize_key( wp_unslash( $_GET['collecting_step'] ) )
+        : '';
+
+    $current_collecting_step = in_array( $requested_collecting_step, $available_collecting_steps, true )
+        ? $requested_collecting_step
+        : 'request';
+
+    if ( ! $requested_collecting_step ) {
+        foreach ( $available_collecting_steps as $step_key ) {
+            if ( empty( $collecting_progress[ $step_key ] ) ) {
+                $current_collecting_step = $step_key;
+                break;
+            }
+        }
+    }
 
     /**
      * Collecting-fase: POST-afhandeling
      */
     if ( 'collecting' === $status ) {
 
-        // Stap 1: persoonlijke gegevens.
+        $get_next_collecting_step = function () use ( $available_collecting_steps, &$collecting_progress ) {
+            foreach ( $available_collecting_steps as $step_key ) {
+                if ( empty( $collecting_progress[ $step_key ] ) ) {
+                    return $step_key;
+                }
+            }
+
+            return 'documents';
+        };
+
+        // Stap 1: verzoek om uitgifte participaties.
+        if ( isset( $_POST['ggr_collecting_request_submit'] ) ) {
+            $result = ggr_onboarding_handle_collecting_request( $user_id );
+
+            if ( is_wp_error( $result ) ) {
+                $messages['error'][]      = $result->get_error_message();
+                $current_collecting_step  = 'request';
+            } else {
+                $messages['success']           = 'Je verzoek is ontvangen.';
+                $collecting_progress['request'] = 1;
+                update_user_meta( $user_id, 'ggr_collecting_request_done', 1 );
+                update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
+                $current_collecting_step = $get_next_collecting_step();
+            }
+        }
+
+        // Stap 2: keuze privé/zakelijk.
+        if ( isset( $_POST['ggr_collecting_profile_submit'] ) ) {
+            $result = ggr_onboarding_handle_collecting_profile( $user_id );
+
+            if ( is_wp_error( $result ) ) {
+                $messages['error'][]      = $result->get_error_message();
+                $current_collecting_step  = 'profile';
+            } else {
+                $messages['success']          = 'Je voorkeur is opgeslagen.';
+                $collecting_progress['profile'] = 1;
+                update_user_meta( $user_id, 'ggr_collecting_profile_done', 1 );
+                update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
+                $current_collecting_step = $get_next_collecting_step();
+            }
+        }
+
+        // Stap 3: persoonlijke gegevens.
         if ( isset( $_POST['ggr_collecting_personal_submit'] ) ) {
             $result = ggr_onboarding_handle_collecting_personal( $user_id );
 
             if ( is_wp_error( $result ) ) {
-                $messages['error'][] = $result->get_error_message();
+                $messages['error'][]      = $result->get_error_message();
+                $current_collecting_step  = 'personal';
             } else {
-                $messages['success']            = 'Je persoonlijke gegevens zijn opgeslagen.';
-                $collecting_personal_done       = 1;
+                $messages['success']             = 'Je persoonlijke gegevens zijn opgeslagen.';
+                $collecting_progress['personal']  = 1;
                 update_user_meta( $user_id, 'ggr_collecting_personal_done', 1 );
-                // Optioneel: timestamp bijwerken.
                 update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
+                $current_collecting_step = $get_next_collecting_step();
             }
         }
 
-        // Stap 2: documenten uploaden.
+        // Stap 4: herkomst van geld.
+        if ( isset( $_POST['ggr_collecting_origin_submit'] ) ) {
+            $result = ggr_onboarding_handle_collecting_origin( $user_id );
+
+            if ( is_wp_error( $result ) ) {
+                $messages['error'][]      = $result->get_error_message();
+                $current_collecting_step  = 'origin';
+            } else {
+                $messages['success']           = 'Je verklaring over de herkomst van het geld is opgeslagen.';
+                $collecting_progress['origin']  = 1;
+                update_user_meta( $user_id, 'ggr_collecting_origin_done', 1 );
+                update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
+                $current_collecting_step = $get_next_collecting_step();
+            }
+        }
+
+        // Stap 5: documenten uploaden.
         if ( isset( $_POST['ggr_collecting_files_submit'] ) ) {
             $result = ggr_onboarding_handle_collecting_files( $user_id );
 
             if ( is_wp_error( $result ) ) {
-                $messages['error'][] = $result->get_error_message();
+                $messages['error'][]      = $result->get_error_message();
+                $current_collecting_step  = 'documents';
             } else {
                 $messages['success'] = 'Je documenten zijn ontvangen. Wij gaan hiermee aan de slag.';
-                // Hier laat je de status bewust nog op "collecting" staan,
-                // zodat jij in de backoffice eerst kunt valideren.
+                $collecting_progress['documents'] = 1;
+                update_user_meta( $user_id, 'ggr_collecting_documents_done', 1 );
                 update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
+                $current_collecting_step = 'documents';
             }
         }
     }
@@ -1449,11 +1534,77 @@ function ggr_onboarding_dashboard_shortcode() {
 
                         <?php if ( 'collecting' === $status ) : ?>
 
-                            <?php if ( ! $collecting_personal_done ) : ?>
-                                <!-- STAP 1: PERSOONLIJKE GEGEVENS -->
-                                <hr class="ggr-onboarding-separator" />
-                                <h3>Stap 1: persoonlijke gegevens</h3>
-                                <p>Vul hieronder je gegevens in zoals ze ook op het inschrijfformulier staan.</p>
+                            <hr class="ggr-onboarding-separator" />
+                            <div class="ggr-onboarding-step-switch">
+                                <?php
+                                $current_url = ggr_onboarding_get_current_url();
+                                $step_labels = array(
+                                    'request'   => '1. Verzoek om uitgifte Participaties',
+                                    'profile'   => '2. Wordt er vanaf zakelijk of privé geparticipeerd',
+                                    'personal'  => '3. Persoonlijke gegevens',
+                                    'origin'    => '4. Herkomst van geld',
+                                    'documents' => '5. Mee te sturen documenten',
+                                );
+                                foreach ( $step_labels as $step_key => $step_label ) :
+                                    $step_url  = add_query_arg( 'collecting_step', $step_key, $current_url );
+                                    $is_active = ( $current_collecting_step === $step_key );
+                                    ?>
+                                    <a class="ggr-onboarding-step-tab <?php echo $is_active ? 'is-active' : ''; ?>" href="<?php echo esc_url( $step_url ); ?>">
+                                        <?php echo esc_html( $step_label ); ?>
+                                    </a>
+                                <?php endforeach; ?>
+                            </div>
+
+                            <?php if ( 'request' === $current_collecting_step ) : ?>
+                                <!-- STAP 1: VERZOEK OM UITGIFTE PARTICIPATIES -->
+                                <h3>1. Verzoek om uitgifte Participaties</h3>
+                                <p>Ondergetekende wil participaties aankopen in het GGR Monthly Income Fund. Een eerste inschrijving is mogelijk vanaf € 5.000.</p>
+
+                                <form method="post" class="ggr-onboarding-form">
+                                    <?php wp_nonce_field( 'ggr_collecting_request', 'ggr_collecting_request_nonce' ); ?>
+                                    <p class="ggr-field">
+                                        <label for="ggr_collecting_request_amount">Gewenst bedrag (€)</label>
+                                        <input type="text" id="ggr_collecting_request_amount" name="ggr_collecting_request_amount" value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_investment_amount', true ) ); ?>" required>
+                                    </p>
+
+                                    <div class="ggr-login-actions">
+                                        <button type="submit" name="ggr_collecting_request_submit" value="1" class="ggr-login-submit">
+                                            Opslaan en verder
+                                        </button>
+                                    </div>
+                                </form>
+
+                            <?php elseif ( 'profile' === $current_collecting_step ) : ?>
+                                <!-- STAP 2: PARTICIPATIEPROFIEL -->
+                                <h3>2. Wordt er vanaf zakelijk of privé geparticipeerd</h3>
+                                <p>Kies of je privé of zakelijk participeert. Bij een zakelijke inschrijving vragen we om jouw gegevens als contactpersoon van het bedrijf.</p>
+
+                                <form method="post" class="ggr-onboarding-form">
+                                    <?php wp_nonce_field( 'ggr_collecting_profile', 'ggr_collecting_profile_nonce' ); ?>
+                                    <?php $profile_type = get_user_meta( $user_id, 'ggr_collecting_participation_type', true );
+                                    if ( ! $profile_type ) {
+                                        $profile_type = get_user_meta( $user_id, 'ggr_account_type', true );
+                                    }
+                                    ?>
+                                    <p class="ggr-field">
+                                        <label><input type="radio" name="ggr_collecting_profile" value="private" <?php checked( $profile_type, 'private' ); ?> required> Privé</label>
+                                    </p>
+                                    <p class="ggr-field">
+                                        <label><input type="radio" name="ggr_collecting_profile" value="business" <?php checked( $profile_type, 'business' ); ?>> Zakelijk</label>
+                                        <span class="ggr-help-text">(Vul persoonlijke gegevens in als contactpersoon van het bedrijf.)</span>
+                                    </p>
+
+                                    <div class="ggr-login-actions">
+                                        <button type="submit" name="ggr_collecting_profile_submit" value="1" class="ggr-login-submit">
+                                            Opslaan en verder
+                                        </button>
+                                    </div>
+                                </form>
+
+                            <?php elseif ( 'personal' === $current_collecting_step ) : ?>
+                                <!-- STAP 3: PERSOONLIJKE GEGEVENS -->
+                                <h3>3. Persoonlijke gegevens</h3>
+                                <p>Vul hieronder de persoonlijke gegevens in die op het inschrijfformulier staan.</p>
 
                                 <form method="post" class="ggr-onboarding-form">
                                     <?php wp_nonce_field( 'ggr_collecting_personal', 'ggr_collecting_personal_nonce' ); ?>
@@ -1502,19 +1653,20 @@ function ggr_onboarding_dashboard_shortcode() {
                                                required>
                                     </p>
 
-                                    <p class="ggr-field">
-                                        <label for="ggr_kyc_iban_name">Tenaamstelling IBAN *</label>
-                                        <input type="text" id="ggr_kyc_iban_name" name="ggr_kyc_iban_name"
-                                               value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_iban_name', true ) ); ?>"
-                                               required>
-                                    </p>
-
-                                    <p class="ggr-field">
-                                        <label for="ggr_kyc_iban">IBAN *</label>
-                                        <input type="text" id="ggr_kyc_iban" name="ggr_kyc_iban"
-                                               value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_iban', true ) ); ?>"
-                                               required>
-                                    </p>
+                                    <div class="ggr-two-cols">
+                                        <p class="ggr-field">
+                                            <label for="ggr_kyc_iban_name">Tenaamstelling IBAN *</label>
+                                            <input type="text" id="ggr_kyc_iban_name" name="ggr_kyc_iban_name"
+                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_iban_name', true ) ); ?>"
+                                                   required>
+                                        </p>
+                                        <p class="ggr-field">
+                                            <label for="ggr_kyc_iban">IBAN *</label>
+                                            <input type="text" id="ggr_kyc_iban" name="ggr_kyc_iban"
+                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_iban', true ) ); ?>"
+                                                   required>
+                                        </p>
+                                    </div>
 
                                     <div class="ggr-two-cols">
                                         <p class="ggr-field">
@@ -1549,17 +1701,82 @@ function ggr_onboarding_dashboard_shortcode() {
                                                 name="ggr_collecting_personal_submit"
                                                 value="1"
                                                 class="ggr-login-submit">
-                                            Opslaan &amp; ga verder naar documenten
+                                            Opslaan en verder
+                                        </button>
+                                    </div>
+                                </form>
+
+                            <?php elseif ( 'origin' === $current_collecting_step ) : ?>
+                                <!-- STAP 4: HERKOMST VAN GELD -->
+                                <h3>4. Herkomst van het geld</h3>
+                                <p>Geef aan hoe het inlegbedrag wordt gefinancierd en licht dit kort toe.</p>
+
+                                <form method="post" class="ggr-onboarding-form">
+                                    <?php wp_nonce_field( 'ggr_collecting_origin', 'ggr_collecting_origin_nonce' ); ?>
+                                    <?php $origin_type = get_user_meta( $user_id, 'ggr_kyc_origin_type', true ); ?>
+
+                                    <div class="ggr-field">
+                                        <label><input type="radio" name="ggr_collecting_origin" value="salary" <?php checked( $origin_type, 'salary' ); ?> required> Spaargeld of inkomen (bijvoorbeeld salaris)</label>
+                                    </div>
+                                    <div class="ggr-field">
+                                        <label><input type="radio" name="ggr_collecting_origin" value="business_income" <?php checked( $origin_type, 'business_income' ); ?>> Winst uit onderneming</label>
+                                    </div>
+                                    <div class="ggr-field">
+                                        <label><input type="radio" name="ggr_collecting_origin" value="pension" <?php checked( $origin_type, 'pension' ); ?>> Pensioenuitkering</label>
+                                    </div>
+                                    <div class="ggr-field">
+                                        <label><input type="radio" name="ggr_collecting_origin" value="inheritance" <?php checked( $origin_type, 'inheritance' ); ?>> Erfenis of schenking</label>
+                                    </div>
+                                    <div class="ggr-field">
+                                        <label><input type="radio" name="ggr_collecting_origin" value="loan" <?php checked( $origin_type, 'loan' ); ?>> Lening (bijvoorbeeld zakelijke lening)</label>
+                                    </div>
+                                    <div class="ggr-field">
+                                        <label><input type="radio" name="ggr_collecting_origin" value="other" <?php checked( $origin_type, 'other' ); ?>> Anders</label>
+                                    </div>
+
+                                    <p class="ggr-field">
+                                        <label for="ggr_collecting_origin_detail">Toelichting (bij leenconstructies graag naam en relatie verstrekker)</label>
+                                        <textarea id="ggr_collecting_origin_detail" name="ggr_collecting_origin_detail" rows="4"><?php echo esc_textarea( get_user_meta( $user_id, 'ggr_kyc_origin_detail', true ) ); ?></textarea>
+                                    </p>
+
+                                    <div class="ggr-login-actions">
+                                        <button type="submit" name="ggr_collecting_origin_submit" value="1" class="ggr-login-submit">
+                                            Opslaan en verder
                                         </button>
                                     </div>
                                 </form>
 
                             <?php else : ?>
-
-                                <!-- STAP 2: BESTANDEN UPLOADEN -->
-                                <hr class="ggr-onboarding-separator" />
-                                <h3>Stap 2: documenten uploaden</h3>
+                                <!-- STAP 5: BESTANDEN UPLOADEN -->
+                                <h3>5. Mee te sturen documenten</h3>
+                                <?php
+                                $account_type = get_user_meta( $user_id, 'ggr_collecting_participation_type', true );
+                                if ( ! $account_type ) {
+                                    $account_type = get_user_meta( $user_id, 'ggr_account_type', true );
+                                }
+                                ?>
                                 <p>Upload de gevraagde documenten zodat we je onboarding kunnen afronden.</p>
+                                <div class="ggr-onboarding-doc-notes">
+                                    <?php if ( 'business' === $account_type ) : ?>
+                                        <p><strong>Zakelijke participant(en)</strong></p>
+                                        <ul>
+                                            <li>Inschrijfformulier</li>
+                                            <li>Kopie paspoort of ID van aandeelhouders en (pseudo-)UBO’s</li>
+                                            <li>Recent uittreksel Kamer van Koophandel</li>
+                                            <li>Bewijs herkomst middelen (bijvoorbeeld bankafschrift)</li>
+                                            <li>Aandeelhoudersregister of -overeenkomst</li>
+                                        </ul>
+                                    <?php else : ?>
+                                        <p><strong>Particuliere participant(en)</strong></p>
+                                        <ul>
+                                            <li>Inschrijfformulier (volledig ingevuld)</li>
+                                            <li>Kopie paspoort of ID van Nederlandse deelnemers</li>
+                                            <li>Bewijs van IBAN en tenaamstelling</li>
+                                            <li>Documentatie ter verklaring van herkomst van investeringsbedrag</li>
+                                            <li>Eventueel bewijs tweede participant</li>
+                                        </ul>
+                                    <?php endif; ?>
+                                </div>
 
                                 <form method="post" enctype="multipart/form-data" class="ggr-onboarding-form">
                                     <?php wp_nonce_field( 'ggr_collecting_files', 'ggr_collecting_files_nonce' ); ?>
@@ -1589,7 +1806,7 @@ function ggr_onboarding_dashboard_shortcode() {
                                     </div>
                                 </form>
 
-                            <?php endif; // end personal_done check ?>
+                            <?php endif; // end step switch ?>
 
                         <?php endif; // end collecting check ?>
 
@@ -1642,7 +1859,84 @@ function ggr_onboarding_handle_file_upload( $file_key, $user_id ) {
 
 
 /**
- * Stap 1 collecting: persoonlijke gegevens opslaan
+ * Stap 1 collecting: verzoek om uitgifte participaties
+ */
+function ggr_onboarding_handle_collecting_request( $user_id ) {
+
+    if ( ! isset( $_POST['ggr_collecting_request_nonce'] ) ||
+         ! wp_verify_nonce( $_POST['ggr_collecting_request_nonce'], 'ggr_collecting_request' ) ) {
+        return new WP_Error( 'invalid_nonce', 'Ongeldige sessie. Probeer het opnieuw.' );
+    }
+
+    if ( get_current_user_id() !== (int) $user_id ) {
+        return new WP_Error( 'invalid_user', 'Je kunt dit verzoek niet voor een andere gebruiker indienen.' );
+    }
+
+    $amount_raw = isset( $_POST['ggr_collecting_request_amount'] ) ? $_POST['ggr_collecting_request_amount'] : '';
+
+    if ( $amount_raw === '' || trim( (string) $amount_raw ) === '' ) {
+        return new WP_Error( 'missing_amount', 'Vul het gewenste bedrag in.' );
+    }
+
+    $amount_clean = preg_replace( '/[^\d,\.]/', '', (string) $amount_raw );
+
+    if ( $amount_clean === '' ) {
+        return new WP_Error( 'invalid_amount', 'Voer een geldig bedrag in.' );
+    }
+
+    if ( strpos( $amount_clean, ',' ) !== false && strpos( $amount_clean, '.' ) !== false ) {
+        $amount_clean = str_replace( '.', '', $amount_clean );
+        $amount_clean = str_replace( ',', '.', $amount_clean );
+    } elseif ( strpos( $amount_clean, ',' ) !== false ) {
+        $amount_clean = str_replace( ',', '.', $amount_clean );
+    }
+
+    $amount = (float) $amount_clean;
+
+    if ( $amount < 5000 ) {
+        return new WP_Error( 'amount_too_low', 'Een eerste inschrijving is mogelijk vanaf € 5.000.' );
+    }
+
+    update_user_meta( $user_id, 'ggr_collecting_request_amount', $amount );
+    update_user_meta( $user_id, 'ggr_investment_amount', $amount );
+
+    return true;
+}
+
+
+/**
+ * Stap 2 collecting: profielkeuze (privé/zakelijk)
+ */
+function ggr_onboarding_handle_collecting_profile( $user_id ) {
+
+    if ( ! isset( $_POST['ggr_collecting_profile_nonce'] ) ||
+         ! wp_verify_nonce( $_POST['ggr_collecting_profile_nonce'], 'ggr_collecting_profile' ) ) {
+        return new WP_Error( 'invalid_nonce', 'Ongeldige sessie. Probeer het opnieuw.' );
+    }
+
+    if ( get_current_user_id() !== (int) $user_id ) {
+        return new WP_Error( 'invalid_user', 'Je kunt deze voorkeur niet voor een andere gebruiker opslaan.' );
+    }
+
+    $profile = isset( $_POST['ggr_collecting_profile'] ) ? sanitize_key( wp_unslash( $_POST['ggr_collecting_profile'] ) ) : '';
+
+    if ( 'company' === $profile ) {
+        $profile = 'business';
+    }
+
+    if ( ! in_array( $profile, array( 'private', 'business' ), true ) ) {
+        return new WP_Error( 'invalid_profile', 'Kies of je privé of zakelijk participeert.' );
+    }
+
+    update_user_meta( $user_id, 'ggr_collecting_participation_type', $profile );
+    update_user_meta( $user_id, 'ggr_account_type', $profile );
+
+    return true;
+}
+
+
+/**
+ * Stap 3 collecting: persoonlijke gegevens opslaan
  */
 function ggr_onboarding_handle_collecting_personal( $user_id ) {
 
@@ -1702,7 +1996,36 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
 }
 
 /**
- * Stap 2 collecting: bestanden uploaden
+ * Stap 4 collecting: verklaring herkomst middelen
+ */
+function ggr_onboarding_handle_collecting_origin( $user_id ) {
+
+    if ( ! isset( $_POST['ggr_collecting_origin_nonce'] ) ||
+         ! wp_verify_nonce( $_POST['ggr_collecting_origin_nonce'], 'ggr_collecting_origin' ) ) {
+        return new WP_Error( 'invalid_nonce', 'Ongeldige sessie. Probeer het opnieuw.' );
+    }
+
+    if ( get_current_user_id() !== (int) $user_id ) {
+        return new WP_Error( 'invalid_user', 'Je kunt deze gegevens niet voor een andere gebruiker wijzigen.' );
+    }
+
+    $origin = isset( $_POST['ggr_collecting_origin'] ) ? sanitize_key( wp_unslash( $_POST['ggr_collecting_origin'] ) ) : '';
+    $detail = isset( $_POST['ggr_collecting_origin_detail'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_collecting_origin_detail'] ) ) : '';
+
+    $allowed = array( 'salary', 'business_income', 'pension', 'inheritance', 'loan', 'other' );
+
+    if ( ! in_array( $origin, $allowed, true ) ) {
+        return new WP_Error( 'invalid_origin', 'Selecteer de herkomst van het geld.' );
+    }
+
+    update_user_meta( $user_id, 'ggr_kyc_origin_type', $origin );
+    update_user_meta( $user_id, 'ggr_kyc_origin_detail', $detail );
+
+    return true;
+}
+
+/**
+ * Stap 5 collecting: bestanden uploaden
  */
 function ggr_onboarding_handle_collecting_files( $user_id ) {
 
@@ -1764,12 +2087,14 @@ if ( ! function_exists( 'ggr_onboarding_get_side_block_content' ) ) {
                 break;
 
             case 'collecting':
-                $content['title']       = 'Vul je gegevens in en upload documenten';
-                $content['description'] = 'In deze stap vragen we eerst om je persoonlijke gegevens, daarna kun je je documenten uploaden.';
+                $content['title']       = 'Volg de 5 collecting-stappen';
+                $content['description'] = 'Je kunt tussen de stappen wisselen. Begin met het verzoek en profiel, vul daarna je gegevens en herkomst in en sluit af met de documenten.';
                 $content['bullets']     = array(
-                    'Stap 1: vul je persoonlijke gegevens in, zoals in het inschrijfformulier.',
-                    'Stap 2: upload je identiteitsbewijs en bewijs van herkomst van middelen.',
-                    'Controleer goed of alles compleet en leesbaar is.',
+                    '1. Verzoek om uitgifte Participaties (minimaal € 5.000).',
+                    '2. Geef aan of je privé of zakelijk participeert.',
+                    '3. Vul persoonlijke gegevens in.',
+                    '4. Licht de herkomst van het geld toe.',
+                    '5. Upload de benodigde documenten (privé of zakelijk).',
                 );
                 break;
 

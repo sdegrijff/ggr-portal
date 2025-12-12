@@ -21,7 +21,17 @@ add_action( 'after_setup_theme', function() {
  *      (nodig om tijdelijk code + status per gebruiker op te slaan)
  */
 function ggr_portal_start_session() {
-    if ( ! session_id() ) {
+    if ( PHP_SESSION_ACTIVE === session_status() ) {
+        return;
+    }
+
+    if ( headers_sent( $sent_file, $sent_line ) ) {
+        $location = $sent_file ? sprintf( '%s:%s', $sent_file, $sent_line ?: '?' ) : 'onbekend';
+        error_log( 'GGR Portal: sessie kon niet worden gestart, headers al verzonden in ' . $location );
+        return;
+    }
+
+    if ( PHP_SESSION_NONE === session_status() ) {
         session_start();
     }
 }
@@ -95,13 +105,16 @@ function ggr_portal_send_2fa_code_email( $user, $code ) {
 
     // Als er geen actieve template is of iets faalt -> eenvoudige fallback
     if ( ! $sent ) {
-        $subject  = 'Je GGR bevestigingscode';
-        $message  = "Beste " . ( $user->first_name ?: $user->display_name ) . ",\n\n";
-        $message .= "Je bevestigingscode voor het GGR portal is:\n\n";
+        $subject = __( 'Je GGR bevestigingscode', 'ggr-portal-core' );
+        $name    = $user->first_name ?: $user->display_name;
+
+        $message  = sprintf( __( 'Beste %s,', 'ggr-portal-core' ), $name ) . "\n\n";
+        $message .= __( 'Je bevestigingscode voor het GGR portal is:', 'ggr-portal-core' ) . "\n\n";
         $message .= $code . "\n\n";
-        $message .= "Deze code is 10 minuten geldig.\n\n";
-        $message .= "Heb jij dit niet aangevraagd? Neem dan direct contact op met GGR.\n\n";
-        $message .= "Met vriendelijke groet,\nGGR Income Fund";
+        $message .= __( 'Deze code is 10 minuten geldig.', 'ggr-portal-core' ) . "\n\n";
+        $message .= __( 'Heb jij dit niet aangevraagd? Neem dan direct contact op met GGR.', 'ggr-portal-core' ) . "\n\n";
+        $message .= __( 'Met vriendelijke groet,', 'ggr-portal-core' ) . "\n";
+        $message .= __( 'GGR Income Fund', 'ggr-portal-core' );
 
         wp_mail( $user->user_email, $subject, $message );
     }
@@ -147,6 +160,10 @@ if ( ! function_exists( 'my_user_record_field_shortcode' ) ) {
             return '';
         }
 
+        $atts['field']     = sanitize_text_field( $atts['field'] );
+        $atts['post_type'] = sanitize_key( $atts['post_type'] );
+        $atts['meta_key']  = sanitize_key( $atts['meta_key'] );
+
         if ( ! is_user_logged_in() ) {
             return '';
         }
@@ -169,7 +186,7 @@ if ( ! function_exists( 'my_user_record_field_shortcode' ) ) {
 
         $records = get_posts( $args );
 
-        if ( empty( $records ) ) {
+        if ( ! is_array( $records ) || empty( $records ) ) {
             return '';
         }
 
