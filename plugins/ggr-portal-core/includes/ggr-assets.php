@@ -62,13 +62,6 @@ function ggr_portal_core_enqueue_assets() {
                 break;
             }
 
-            $user  = wp_get_current_user();
-            $roles = (array) $user->roles;
-
-            if ( in_array( 'lead', $roles, true ) ) {
-                break;
-            }
-
             wp_enqueue_style(
                 'ggr-portal-frontend',
                 $assets_url . 'ggr-portal-frontend.css',
