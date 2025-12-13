@@ -21,7 +21,6 @@ html,
 body {
     margin: 0;
     padding: 0;
-    background: var(--ggr-main-bg);
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     color: var(--ggr-text-main);
 }
@@ -53,7 +52,6 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
 }
 
 .ggr-onboarding-logo img {
@@ -61,6 +59,11 @@ body {
     width: auto;
     display: flex;
     justify-content: center;
+    margin: 0 auto;
+}
+
+.ggr-onboarding-logo {
+    text-align: center;
 }
 
 .ggr-onboarding-title-block h1 {
@@ -113,6 +116,10 @@ body {
     color: #111827;
 }
 
+.is-hidden {
+    display: none !important;
+}
+
 /* ===============================
    Layout binnen de card
    =============================== */
@@ -121,7 +128,7 @@ body {
     display: grid;
     grid-template-columns: 350px minmax(0, 1fr); /* links 400px, rechts flexibel */
     gap: 40px;
-    align-items: flex-start;
+    background: var(--ggr-main-bg);
 }
 
 .ggr-onboarding-body--full {
@@ -138,10 +145,12 @@ body {
     border-right: 1px solid var(--ggr-border-soft);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
     position: sticky;
+    top: 20px;
     min-height: calc(100vh - 120px);
     display: flex;
     flex-direction: column;
     gap: 12px;
+    top: 16px;
 }
 
 .ggr-onboarding-steps-header {
@@ -204,9 +213,8 @@ body {
     align-items: flex-start;
     gap: 10px;
     padding: 12px;
-    border: 1px solid var(--ggr-border-soft);
-    border-radius: 12px;
-    background: #fbfdff;
+    border-bottom: 1px solid var(--ggr-border-soft);
+
 }
 
 .ggr-onboarding-step:last-child {
@@ -230,8 +238,8 @@ body {
 }
 
 .ggr-onboarding-step-icon--current {
-    background: #eff6ff;
-    color: #1d4ed8;
+    background: rgba(242, 158, 117, 0.1);
+    color: #f29f75;
 }
 
 .ggr-onboarding-step-icon--upcoming {
@@ -264,8 +272,8 @@ body {
     align-items: center;
     padding: 2px 8px;
     border-radius: 5px;
-    background: #e0ecff;
-    color: #0f3e8a;
+    background: rgba(115, 154, 172, 0.1);
+    color: #739aac;
     font-size: 11px;
     border: 1px solid #c7d7ff;
     margin: 0;
@@ -291,11 +299,39 @@ body {
 
 
 .ggr-onboarding-content {
-    background: #fff;
     border-radius: 12px;
     padding: 24px;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.06);
     border: 1px solid var(--ggr-border-soft);
+}
+
+.ggr-onboarding-step-card {
+    background: #fff;
+    border: 1px solid var(--ggr-border-soft);
+    border-radius: 14px;
+    box-shadow: 0 12px 30px rgba(17, 24, 39, 0.05);
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+.ggr-onboarding-step-text {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.ggr-onboarding-step-heading {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ggr-text-main);
+}
+
+.ggr-onboarding-step-description {
+    margin: 0;
+    color: var(--ggr-text-muted);
+    font-size: 14px;
 }
 
 .ggr-onboarding-section {
@@ -315,7 +351,7 @@ body {
 }
 
 .ggr-onboarding-section p {
-    margin: 0 0 12px;
+    margin: 0 0 10px;
     color: var(--ggr-text-muted);
     font-size: 14px;
 }
@@ -353,11 +389,22 @@ body {
     margin-top: 6px;
 }
 
+.ggr-onboarding-phase-copy {
+    margin: 8px 0 4px;
+    font-weight: 600;
+    color: var(--ggr-text-main);
+}
+
 .ggr-onboarding-checkbox label {
     display: flex;
     gap: 10px;
     align-items: flex-start;
     font-weight: 500;
+}
+
+.ggr-onboarding-checkboxes--stacked label {
+    display: block;
+    margin-bottom: 6px;
 }
 
 .ggr-onboarding-radio-group {
@@ -416,11 +463,24 @@ body {
     align-items: start;
 }
 
+.ggr-onboarding-origin-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+}
+
+.ggr-onboarding-origin-detail {
+    display: none;
+}
+
+.ggr-onboarding-origin-detail.is-visible {
+    display: block;
+}
+
 .ggr-onboarding-highlight {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
     padding: 14px 16px;
     border-radius: 12px;
     background: var(--ggr-accent-soft);
@@ -465,7 +525,6 @@ body {
 .ggr-onboarding-documents {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 16px;
     margin-top: 12px;
 }
 
@@ -485,6 +544,17 @@ body {
     margin-bottom: 6px;
 }
 
+.ggr-onboarding-file-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+}
+
+.ggr-onboarding-small-print {
+    margin-top: 4px;
+    font-size: 12px;
+}
+
 .ggr-onboarding-actions {
     margin-top: 12px;
     display: flex;
@@ -500,8 +570,10 @@ body {
 
 .ggr-onboarding-step-switch--inline {
     margin-top: 8px;
-    padding: 10px 0 2px 0;
+    padding: 10px 0 10px 0;
     border-bottom: 1px solid var(--ggr-border-soft);
+    border-top: 1px solid var(--ggr-border-soft);
+
 }
 
 .ggr-onboarding-step-tab {
@@ -509,8 +581,7 @@ body {
     align-items: center;
     gap: 8px;
     padding: 9px 12px;
-    border-radius: 10px;
-    border: 1px solid var(--ggr-border-soft);
+    border-radius: 5px;
     background: #fff;
     color: var(--ggr-text-main);
     font-size: 13px;
@@ -519,10 +590,8 @@ body {
 }
 
 .ggr-onboarding-step-tab.is-active {
-    border-color: var(--ggr-accent);
-    background: #eef2ff;
-    color: #111827;
-    box-shadow: inset 0 0 0 1px rgba(62, 99, 255, 0.08);
+    background: rgba(242, 158, 117, 0.1);
+    color: var(--ggr-accent);
 }
 
 .ggr-onboarding-form-actions {
@@ -560,6 +629,18 @@ body {
     background: #f9fafb;
 }
 
+.ggr-onboarding-button--accent {
+    background: #f29e75;
+    color: #111827;
+    border-color: #f29e75;
+}
+
+.ggr-onboarding-button--accent:hover {
+    background: #e68b5d;
+    border-color: #e68b5d;
+    color: #0f172a;
+}
+
 .ggr-onboarding-button--primary {
     background: var(--ggr-accent);
     border-color: var(--ggr-accent);
@@ -578,9 +659,9 @@ body {
     min-height: 100%;
     display: flex;
     flex-direction: column;
-    gap: 16px;
     margin-top:40px;
     margin-right:40px;
+    background: var(--ggr-main-bg);
 }
 
 .ggr-onboarding-side h2 {
@@ -594,6 +675,7 @@ body {
     border-radius: 14px;
     background: #fff;
     color: #000;
+    padding: 20px;
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
