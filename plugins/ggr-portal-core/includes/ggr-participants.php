@@ -1545,6 +1545,21 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
     $company_name = get_user_meta( $user->ID, 'company_name', true );
     $company_kvk  = get_user_meta( $user->ID, 'company_kvk', true );
 
+    // KYC + herkomst
+    $kyc_birth_date    = get_user_meta( $user->ID, 'ggr_kyc_birth_date', true );
+    $kyc_birth_place   = get_user_meta( $user->ID, 'ggr_kyc_birth_place', true );
+    $kyc_birth_country = get_user_meta( $user->ID, 'ggr_kyc_birth_country', true );
+    $kyc_nationality   = get_user_meta( $user->ID, 'ggr_kyc_nationality', true );
+    $kyc_bsn           = get_user_meta( $user->ID, 'ggr_kyc_bsn', true );
+    $kyc_id_expiry     = get_user_meta( $user->ID, 'ggr_kyc_id_expiry', true );
+    $kyc_pep           = get_user_meta( $user->ID, 'ggr_kyc_pep', true );
+    $kyc_us_person     = get_user_meta( $user->ID, 'ggr_kyc_us_person', true );
+    $origin_country    = get_user_meta( $user->ID, 'ggr_origin_country', true );
+    $origin_sources    = get_user_meta( $user->ID, 'ggr_origin_sources', true );
+    if ( ! is_array( $origin_sources ) ) {
+        $origin_sources = array();
+    }
+
     // Eenmalig simpele CSS injecteren
     static $css_done = false;
     if ( ! $css_done ) : $css_done = true; ?>
@@ -1778,6 +1793,99 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
                 </div>
             </td>
         </tr>
+
+        <!-- KYC + herkomst middelen -->
+        <tr>
+            <th scope="row">KYC & herkomst</th>
+            <td>
+                <div class="ggr-admin-columns">
+                    <div class="ggr-admin-col">
+                        <h4>Persoonsgegevens</h4>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_kyc_birth_date">Geboortedatum</label>
+                            <input type="date" name="ggr_kyc_birth_date" id="ggr_kyc_birth_date"
+                                   value="<?php echo esc_attr( $kyc_birth_date ); ?>" />
+                        </div>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_kyc_birth_place">Geboorteplaats</label>
+                            <input type="text" name="ggr_kyc_birth_place" id="ggr_kyc_birth_place"
+                                   value="<?php echo esc_attr( $kyc_birth_place ); ?>" />
+                        </div>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_kyc_birth_country">Land</label>
+                            <input type="text" name="ggr_kyc_birth_country" id="ggr_kyc_birth_country"
+                                   value="<?php echo esc_attr( $kyc_birth_country ); ?>" />
+                        </div>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_kyc_nationality">Geboorteland</label>
+                            <input type="text" name="ggr_kyc_nationality" id="ggr_kyc_nationality"
+                                   value="<?php echo esc_attr( $kyc_nationality ); ?>" />
+                        </div>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_kyc_bsn">BSN</label>
+                            <input type="text" name="ggr_kyc_bsn" id="ggr_kyc_bsn"
+                                   value="<?php echo esc_attr( $kyc_bsn ); ?>" />
+                        </div>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_kyc_id_expiry">Geldigheid ID</label>
+                            <input type="date" name="ggr_kyc_id_expiry" id="ggr_kyc_id_expiry"
+                                   value="<?php echo esc_attr( $kyc_id_expiry ); ?>" />
+                        </div>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_kyc_pep">PEP</label>
+                            <input type="text" name="ggr_kyc_pep" id="ggr_kyc_pep"
+                                   value="<?php echo esc_attr( $kyc_pep ); ?>" />
+                        </div>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_kyc_us_person">US person</label>
+                            <input type="text" name="ggr_kyc_us_person" id="ggr_kyc_us_person"
+                                   value="<?php echo esc_attr( $kyc_us_person ); ?>" />
+                        </div>
+                    </div>
+
+                    <div class="ggr-admin-col">
+                        <h4>Herkomst middelen</h4>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_origin_country">Land van herkomst</label>
+                            <input type="text" name="ggr_origin_country" id="ggr_origin_country"
+                                   value="<?php echo esc_attr( $origin_country ); ?>" />
+                        </div>
+
+                        <div class="ggr-admin-inline-field">
+                            <label>Geselecteerde bronnen</label>
+                            <div>
+                                <?php
+                                $origin_labels = array(
+                                    'salary'   => 'In loondienst',
+                                    'business' => 'Ondernemingsactiviteiten',
+                                    'rental'   => 'Rente/dividend/huur',
+                                    'savings'  => 'Vermogen/erfenis/pensioen',
+                                    'sale'     => 'Opbrengst verkoop',
+                                    'loan'     => 'Ontvangen lening',
+                                    'other'    => 'Andere herkomst',
+                                );
+                                foreach ( $origin_labels as $key => $label ) :
+                                    ?>
+                                    <label style="display:block;">
+                                        <input type="checkbox" name="ggr_origin_sources[]" value="<?php echo esc_attr( $key ); ?>" <?php checked( in_array( $key, $origin_sources, true ) ); ?> />
+                                        <?php echo esc_html( $label ); ?>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </td>
+        </tr>
     </table>
     <?php
 }
@@ -1917,6 +2025,31 @@ function ggr_portal_save_account_fields_in_profile( $user_id ) {
         $kvk = sanitize_text_field( wp_unslash( $_POST['ggr_company_kvk'] ) );
         update_user_meta( $user_id, 'company_kvk', $kvk );
     }
+
+    $kyc_fields = array(
+        'ggr_kyc_birth_date',
+        'ggr_kyc_birth_place',
+        'ggr_kyc_birth_country',
+        'ggr_kyc_nationality',
+        'ggr_kyc_bsn',
+        'ggr_kyc_id_expiry',
+        'ggr_kyc_pep',
+        'ggr_kyc_us_person',
+    );
+
+    foreach ( $kyc_fields as $kyc_field ) {
+        if ( isset( $_POST[ $kyc_field ] ) ) {
+            update_user_meta( $user_id, $kyc_field, sanitize_text_field( wp_unslash( $_POST[ $kyc_field ] ) ) );
+        }
+    }
+
+    if ( isset( $_POST['ggr_origin_country'] ) ) {
+        update_user_meta( $user_id, 'ggr_origin_country', sanitize_text_field( wp_unslash( $_POST['ggr_origin_country'] ) ) );
+    }
+
+    $origin_sources = isset( $_POST['ggr_origin_sources'] ) ? (array) wp_unslash( $_POST['ggr_origin_sources'] ) : array();
+    $origin_sources = array_map( 'sanitize_key', $origin_sources );
+    update_user_meta( $user_id, 'ggr_origin_sources', $origin_sources );
 }
 
 
