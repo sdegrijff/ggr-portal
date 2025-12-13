@@ -1912,14 +1912,6 @@ function ggr_onboarding_dashboard_shortcode() {
         'files'    => '5. Documentatie',
     );
 
-    $collecting_step_messages = array(
-        'request'  => 'Start met het gewenste investeringsbedrag waarmee je wilt deelnemen.',
-        'type'     => 'Geef aan of je als privépersoon of via een zakelijke entiteit investeert.',
-        'personal' => 'Vul je persoonlijke gegevens in zodat we het participantenprofiel compleet kunnen maken.',
-        'origin'   => 'Beschrijf waar het te beleggen vermogen vandaan komt en koppel alleen de relevante bronnen.',
-        'files'    => 'Upload de gevraagde documenten en dien ze in ter controle door ons team.',
-    );
-
     // Content voor blok rechts (algemene uitleg per status).
     $side_block = ggr_onboarding_get_side_block_content( $status );
 
