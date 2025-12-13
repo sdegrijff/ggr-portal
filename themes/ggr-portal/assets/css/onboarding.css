@@ -307,11 +307,12 @@ body {
 
 .ggr-onboarding-step-card {
     background: #fff;
-    border: 1px solid var(--ggr-border-soft);
     border-radius: 14px;
+    margin-top:20px;
     box-shadow: 0 12px 30px rgba(17, 24, 39, 0.05);
     padding: 20px;
     margin-bottom: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .ggr-onboarding-step-text {
@@ -359,7 +360,7 @@ body {
 .ggr-onboarding-field label {
     display: block;
     font-weight: 600;
-    margin-bottom: 6px;
+    margin-top: 10px;
     color: var(--ggr-text-main);
 }
 
@@ -371,6 +372,8 @@ body {
 .ggr-onboarding-table input[type="tel"],
 .ggr-onboarding-table input[type="date"] {
     width: 100%;
+    max-width: 550px;
+    margin-top: 10px;
     padding: 10px 12px;
     border-radius: 8px;
     border: 1px solid var(--ggr-border-soft);
@@ -614,7 +617,7 @@ body {
     justify-content: center;
     gap: 6px;
     padding: 10px 16px;
-    border-radius: 10px;
+    border-radius: 5px;
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
@@ -677,6 +680,7 @@ body {
     color: #000;
     padding: 20px;
     border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 12px 30px rgba(17, 24, 39, 0.05);
 }
 
 .ggr-onboarding-hero h1 {
