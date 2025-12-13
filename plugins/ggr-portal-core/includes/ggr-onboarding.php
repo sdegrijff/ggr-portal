@@ -2119,10 +2119,13 @@ function ggr_onboarding_dashboard_shortcode() {
 
                             <?php if ( 'request' === $current_collecting_step ) : ?>
                                 <!-- STAP 1: VERZOEK -->
-                                <h3>Stap 1: Verzoek om uitgifte Participaties</h3>
-                                <p>Geef aan voor welk bedrag je participaties wilt aankopen in het GGR Monthly Income Fund.</p>
+                                <div class="ggr-onboarding-step-card">
+                                    <div class="ggr-onboarding-step-text">
+                                        <h3 class="ggr-onboarding-step-heading">Stap 1: Verzoek om uitgifte Participaties</h3>
+                                        <p class="ggr-onboarding-step-description">Geef aan voor welk bedrag je participaties wilt aankopen in het GGR Monthly Income Fund.</p>
+                                    </div>
 
-                                <form method="post" class="ggr-onboarding-form">
+                                    <form method="post" class="ggr-onboarding-form">
                                     <?php wp_nonce_field( 'ggr_collecting_request', 'ggr_collecting_request_nonce' ); ?>
                                     <?php
                                     $requested_amount = get_user_meta( $user_id, 'ggr_investment_amount', true );
@@ -2158,14 +2161,18 @@ function ggr_onboarding_dashboard_shortcode() {
                                             <?php endif; ?>
                                         </div>
                                     </div>
-                                </form>
+                                    </form>
+                                </div>
 
                             <?php elseif ( 'type' === $current_collecting_step ) : ?>
                                 <!-- STAP 2: TYPE -->
-                                <h3>Stap 2: Wordt er vanaf zakelijk of privé geparticipeerd</h3>
-                                <p>Geef aan of de participaties vanuit een privé- of zakelijke entiteit worden gehouden.</p>
+                                <div class="ggr-onboarding-step-card">
+                                    <div class="ggr-onboarding-step-text">
+                                        <h3 class="ggr-onboarding-step-heading">Stap 2: Wordt er vanaf zakelijk of privé geparticipeerd</h3>
+                                        <p class="ggr-onboarding-step-description">Geef aan of de participaties vanuit een privé- of zakelijke entiteit worden gehouden.</p>
+                                    </div>
 
-                                <form method="post" class="ggr-onboarding-form">
+                                    <form method="post" class="ggr-onboarding-form">
                                     <?php wp_nonce_field( 'ggr_collecting_type', 'ggr_collecting_type_nonce' ); ?>
 
                                     <?php $participation_profile = get_user_meta( $user_id, 'ggr_participation_profile', true ); ?>
@@ -2197,15 +2204,19 @@ function ggr_onboarding_dashboard_shortcode() {
                                             <?php endif; ?>
                                         </div>
                                     </div>
-                                </form>
+                                    </form>
+                                </div>
 
                             <?php elseif ( 'personal' === $current_collecting_step ) : ?>
                                 <!-- STAP 3: PERSOONLIJKE GEGEVENS -->
-                                <h3>Stap 3: Persoonlijke gegevens</h3>
-                                <p>Vul hieronder je gegevens in zoals ze ook op het inschrijfformulier staan.</p>
+                                <div class="ggr-onboarding-step-card">
+                                    <div class="ggr-onboarding-step-text">
+                                        <h3 class="ggr-onboarding-step-heading">Stap 3: Persoonlijke gegevens</h3>
+                                        <p class="ggr-onboarding-step-description">Vul hieronder je gegevens in zoals ze ook op het inschrijfformulier staan.</p>
+                                    </div>
 
-                                <form method="post" class="ggr-onboarding-form">
-                                    <?php wp_nonce_field( 'ggr_collecting_personal', 'ggr_collecting_personal_nonce' ); ?>
+                                    <form method="post" class="ggr-onboarding-form">
+                                        <?php wp_nonce_field( 'ggr_collecting_personal', 'ggr_collecting_personal_nonce' ); ?>
 
 
                                     <div class="ggr-onboarding-grid">
@@ -2369,15 +2380,19 @@ function ggr_onboarding_dashboard_shortcode() {
                                             <?php endif; ?>
                                         </div>
                                     </div>
-                                </form>
+                                    </form>
+                                </div>
                             <?php elseif ( 'origin' === $current_collecting_step ) : ?>
 
                                 <!-- STAP 4: HERKOMST GELD -->
-                                <h3>Stap 4: Herkomst van het in het Fonds te beleggen geld</h3>
-                                <p>Geef aan waar het te beleggen bedrag vandaan komt en licht kort toe. Kruis alles aan wat van toepassing is.</p>
+                                <div class="ggr-onboarding-step-card">
+                                    <div class="ggr-onboarding-step-text">
+                                        <h3 class="ggr-onboarding-step-heading">Stap 4: Herkomst van het in het Fonds te beleggen geld</h3>
+                                        <p class="ggr-onboarding-step-description">Geef aan waar het te beleggen bedrag vandaan komt en licht kort toe. Kruis alles aan wat van toepassing is.</p>
+                                    </div>
 
-                                <form method="post" class="ggr-onboarding-form">
-                                    <?php wp_nonce_field( 'ggr_collecting_origin', 'ggr_collecting_origin_nonce' ); ?>
+                                    <form method="post" class="ggr-onboarding-form">
+                                        <?php wp_nonce_field( 'ggr_collecting_origin', 'ggr_collecting_origin_nonce' ); ?>
 
 
                                     <div class="ggr-onboarding-field">
@@ -2487,17 +2502,21 @@ function ggr_onboarding_dashboard_shortcode() {
                                             <?php endif; ?>
                                         </div>
                                     </div>
-                                    
-                                </form>
+
+                                    </form>
+                                </div>
                                 
                             <?php else : ?>
 
                                 <!-- STAP 5: BESTANDEN UPLOADEN -->
-                                <h3>Stap 5: Mee te sturen documenten</h3>
-                                <p>Upload de gevraagde documenten zodat we je onboarding kunnen afronden. De lijst past zich aan op basis van zakelijk of privé.</p>
+                                <div class="ggr-onboarding-step-card">
+                                    <div class="ggr-onboarding-step-text">
+                                        <h3 class="ggr-onboarding-step-heading">Stap 5: Mee te sturen documenten</h3>
+                                        <p class="ggr-onboarding-step-description">Upload de gevraagde documenten zodat we je onboarding kunnen afronden. De lijst past zich aan op basis van zakelijk of privé.</p>
+                                    </div>
 
-                                <form method="post" enctype="multipart/form-data" class="ggr-onboarding-form" data-documents-form="true">
-                                    <?php wp_nonce_field( 'ggr_collecting_files', 'ggr_collecting_files_nonce' ); ?>
+                                    <form method="post" enctype="multipart/form-data" class="ggr-onboarding-form" data-documents-form="true">
+                                        <?php wp_nonce_field( 'ggr_collecting_files', 'ggr_collecting_files_nonce' ); ?>
 
                                     <div class="ggr-onboarding-file-grid">
                                         <div class="ggr-onboarding-field">
@@ -2556,7 +2575,8 @@ function ggr_onboarding_dashboard_shortcode() {
                                         </div>
                                     </div>
                                     
-                                </form>
+                                    </form>
+                                </div>
 
                             <?php endif; // end personal/files switch ?>
                         <?php endif; // end collecting check ?>
