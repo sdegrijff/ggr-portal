@@ -341,7 +341,7 @@ function ggrp_fe_account_shortcode( $atts ) {
 
                 <div class="ggrp-fe-account-card-body">
 
-                                        <!-- Participant (view) -->
+                    <!-- Participant (view) -->
                     <div class="ggrp-fe-account-row" data-section="participant_contact">
                         <div class="ggrp-fe-account-label">Participant</div>
                         <div class="ggrp-fe-account-value">
@@ -353,7 +353,39 @@ function ggrp_fe_account_shortcode( $atts ) {
                     </div>
 
                     <!-- Participant (form) -->
-                    <!-- ... jouw bestaande form ... -->
+                    <div class="ggrp-fe-account-row-form" data-section="participant_contact">
+                        <form method="post" class="ggrp-fe-account-form">
+                            <?php wp_nonce_field( 'ggr_account_update', 'ggr_account_nonce' ); ?>
+                            <input type="hidden" name="ggr_account_section" value="participant_contact" />
+
+                            <div class="ggrp-fe-account-label"> </div>
+                            <div class="ggrp-fe-account-form-fields">
+                                <div class="ggrp-fe-account-form-row">
+                                    <label>Voornaam</label>
+                                    <input type="text" name="first_name" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['first_name'] ); ?>" />
+                                </div>
+                                <div class="ggrp-fe-account-form-row">
+                                    <label>Achternaam</label>
+                                    <input type="text" name="last_name" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['last_name'] ); ?>" />
+                                </div>
+                                <div class="ggrp-fe-account-form-row">
+                                    <label>E-mailadres</label>
+                                    <input type="email" name="email" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['email'] ); ?>" />
+                                </div>
+                                <div class="ggrp-fe-account-form-row">
+                                    <label>Telefoonnummer</label>
+                                    <input type="text" name="phone" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['phone'] ); ?>" />
+                                </div>
+                            </div>
+
+                            <div class="ggrp-fe-account-actions">
+                                <button type="submit" class="ggrp-fe-account-btn ggrp-fe-account-btn--primary">Opslaan</button>
+                                <button type="button" class="ggrp-fe-account-btn ggrp-fe-account-btn--ghost ggrp-fe-account-cancel">
+                                    Annuleren
+                                </button>
+                            </div>
+                        </form>
+                    </div>
 
                     <!-- Wachtwoord (view) -->
                     <div class="ggrp-fe-account-row" data-section="password">
