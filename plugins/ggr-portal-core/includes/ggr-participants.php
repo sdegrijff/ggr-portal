@@ -1909,9 +1909,17 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     $profile_timestamp = current_time( 'mysql' );
 
     $status_override = '';
+    
+    $participant_user  = get_user_by( 'ID', $user_id );
+    $participant_email = $participant_user ? $participant_user->user_email : '';
 
     $doc_action   = isset( $_POST['ggr_doc_action'] ) ? sanitize_key( wp_unslash( $_POST['ggr_doc_action'] ) ) : '';
     $doc_feedback = isset( $_POST['ggr_doc_feedback'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_doc_feedback'] ) ) : '';
+    
+    $doc_to_delete = isset( $_POST['ggr_delete_document'] ) ? sanitize_key( wp_unslash( $_POST['ggr_delete_document'] ) ) : '';
+    if ( $doc_to_delete ) {
+        delete_user_meta( $user_id, $doc_to_delete );
+    }
 
     if ( '' !== $doc_feedback ) {
         update_user_meta( $user_id, 'ggr_doc_feedback', $doc_feedback );
@@ -1995,17 +2003,17 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
                 );
             }
 
-            if ( function_exists( 'ggr_meldingen_add' ) ) {
-                ggr_meldingen_add(
-                    'Documentatie goedgekeurd',
-                    sprintf(
-                        'De documentatie van %s (%s) is goedgekeurd. Status is bijgewerkt naar overeenkomst tekenen.',
-                        ggr_portal_get_nice_user_name( $user_id ),
-                        esc_html( wp_get_current_user()->user_email )
-                    ),
-                    $user_id,
-                    array( 'onboarding_status' => 'sign_contract' )
-                );
+                    if ( function_exists( 'ggr_meldingen_add' ) ) {
+                        ggr_meldingen_add(
+                            'Documentatie goedgekeurd',
+                            sprintf(
+                                'De documentatie van %s (%s) is goedgekeurd. Status is bijgewerkt naar overeenkomst tekenen.',
+                                ggr_portal_get_nice_user_name( $user_id ),
+                                esc_html( $participant_email )
+                            ),
+                            $user_id,
+                            array( 'onboarding_status' => 'sign_contract' )
+                        );
             }
 
             if ( function_exists( 'ggr_portal_log_participant_action' ) ) {
@@ -2036,18 +2044,18 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
                 );
             }
 
-            if ( function_exists( 'ggr_meldingen_add' ) ) {
-                ggr_meldingen_add(
-                    'Documentatie afgekeurd',
-                    sprintf(
-                        'De documentatie van %s (%s) is afgekeurd met feedback: %s',
-                        ggr_portal_get_nice_user_name( $user_id ),
-                        esc_html( wp_get_current_user()->user_email ),
-                        $doc_feedback ? $doc_feedback : '—'
-                    ),
-                    $user_id,
-                    array( 'onboarding_status' => 'collecting' )
-                );
+                    if ( function_exists( 'ggr_meldingen_add' ) ) {
+                        ggr_meldingen_add(
+                            'Documentatie afgekeurd',
+                            sprintf(
+                                'De documentatie van %s (%s) is afgekeurd met feedback: %s',
+                                ggr_portal_get_nice_user_name( $user_id ),
+                                esc_html( $participant_email ),
+                                $doc_feedback ? $doc_feedback : '—'
+                            ),
+                            $user_id,
+                            array( 'onboarding_status' => 'collecting' )
+                        );
             }
 
             if ( function_exists( 'ggr_portal_log_participant_action' ) ) {
@@ -2483,8 +2491,9 @@ function ggr_portal_render_participant_profile_page() {
         $doc_url = isset( $meta[ $meta_key ][0] ) ? $meta[ $meta_key ][0] : '';
         if ( $doc_url ) {
             $uploaded_documents[ $meta_key ] = array(
-                'label' => $label,
-                'url'   => $doc_url,
+                'label'    => $label,
+                'url'      => $doc_url,
+                'meta_key' => $meta_key,
             );
         }
     }
@@ -2892,6 +2901,7 @@ function ggr_portal_render_participant_profile_page() {
                 <tr>
                     <th scope="row">Herkomst</th>
                     <td>
+                        <?php if ( ! is_array( $origin_sources ) ) { $origin_sources = array(); } ?>                        
                         <div class="ggr-admin-inline-field">
                             <label for="ggr_origin_country">Land van herkomst</label>
                             <select name="ggr_origin_country" id="ggr_origin_country">
@@ -2941,6 +2951,13 @@ function ggr_portal_render_participant_profile_page() {
                                     <li>
                                         <strong><?php echo esc_html( $doc['label'] ); ?>:</strong>
                                         <a href="<?php echo esc_url( $doc['url'] ); ?>" target="_blank" rel="noopener noreferrer">Bekijken</a>
+                                        <button type="submit"
+                                                class="button-link-delete"
+                                                name="ggr_delete_document"
+                                                value="<?php echo esc_attr( $doc['meta_key'] ); ?>"
+                                                onclick="return confirm('Weet je zeker dat je dit document wilt verwijderen?');">
+                                            Verwijderen
+                                        </button>
                                     </li>
                                 <?php endforeach; ?>
                             </ul>
@@ -3166,6 +3183,7 @@ function ggr_portal_render_participant_overview_page() {
                     <th>Achternaam</th>
                     <th>E-mailadres</th>
                     <th>Telefoonnummer</th>
+                    <th>Laatste login</th>                    
                     <th>Eerste transactiedatum</th>
                     <th>Totaal participaties</th>
                     <th>Positiewaarde (&euro;)</th>
@@ -3182,6 +3200,15 @@ function ggr_portal_render_participant_overview_page() {
                 $first = get_user_meta( $uid, 'first_name', true );
                 $last  = get_user_meta( $uid, 'last_name', true );
                 $phone = get_user_meta( $uid, 'phone', true );
+
+                $last_login_raw   = get_user_meta( $uid, 'ggr_last_login_at', true );
+                $last_login_label = '–';
+                if ( $last_login_raw ) {
+                    $timestamp = is_numeric( $last_login_raw ) ? (int) $last_login_raw : strtotime( $last_login_raw );
+                    if ( $timestamp ) {
+                        $last_login_label = date_i18n( 'd-m-Y H:i', $timestamp );
+                    }
+                }
 
                 // Historie ophalen om eerste transactiedatum te bepalen
                 $history = function_exists( 'ggr_portal_get_history_for_user' )
@@ -3276,6 +3303,7 @@ $history_url = add_query_arg(
         </a>
     </td>
     <td><?php echo esc_html( $phone ?: '–' ); ?></td>
+    <td><?php echo esc_html( $last_login_label ); ?></td>    
     <td><?php echo esc_html( $first_date_label ); ?></td>
 
     <td><?php echo esc_html( $totaal_part_label ); ?></td>
