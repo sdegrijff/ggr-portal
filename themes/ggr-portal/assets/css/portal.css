@@ -169,29 +169,30 @@
     display: flex;
     gap: 8px;
     align-items: center;
+
 }
 
 .ggrp-fe-range-button {
-    border: 1px solid #d1d5db;
-    background: #f9fafb;
-    color: #111827;
-    border-radius: 999px;
+    color: var(--ggr-accent);
+    background: #fff;
+    border: 0px solid rgba(242, 158, 117, 0.1);
+    background: rgba(242, 158, 117, 0.1);
+    border-radius: 5px;
     padding: 6px 12px;
-    font-size: 12px;
+    font-size: 10px;
     cursor: pointer;
     transition: all 0.15s ease;
 }
 
 .ggrp-fe-range-button:hover {
-    background: #eef2ff;
-    border-color: #c7d2fe;
+    color: var(--ggr-accent);
+    background: rgba(242, 158, 117, 0.1);
 }
 
 .ggrp-fe-range-button.is-active {
-    background: #111827;
-    color: #ffffff;
+    color: var(--ggr-accent);
+    background: rgba(242, 158, 117, 0.1);
     border-color: #111827;
-    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
 }
 
 .ggrp-fe-panel-body {
