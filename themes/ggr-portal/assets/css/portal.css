@@ -781,11 +781,54 @@
 /* Checkbox --------------------------------------------------------------- */
 
 .ggr-bericht-checkbox {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     margin: 0;
     flex-shrink: 0;
-    accent-color: var(--ggr-accent);
+    border: 1px solid #709aa7;
+    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    color: transparent;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
+    transition: border-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease, color 0.12s ease, transform 0.12s ease;
+    -webkit-appearance: none;
+       -moz-appearance: none;
+            appearance: none;
+}
+
+.ggr-bericht-checkbox::after {
+    content: '✓';
+    transform: scale(0.5);
+    color: transparent;
+    transition: color 0.12s ease, transform 0.12s ease;
+}
+
+.ggr-bericht-checkbox:hover {
+    border-color: rgba(112, 154, 167, 0.7);
+    transform: translateY(-1px);
+}
+
+.ggr-bericht-checkbox:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(112, 154, 167, 0.25);
+    border-color: #709aa7;
+}
+
+.ggr-bericht-checkbox:checked {
+    background: #709aa7;
+    color: #ffffff;
+    box-shadow: 0 0 0 3px rgba(112, 154, 167, 0.10);
+}
+
+.ggr-bericht-checkbox:checked::after {
+    color: #ffffff;
+    transform: scale(1);
 }
 
 /* Inhoud / link ---------------------------------------------------------- */
