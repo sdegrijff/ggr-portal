@@ -1896,6 +1896,17 @@ add_action( 'admin_init', 'ggr_portal_handle_participant_profile_save' );
 function ggr_portal_store_participant_profile_data( $user_id ) {
     $profile_timestamp = current_time( 'mysql' );
 
+    $status_override = '';
+
+    $doc_action   = isset( $_POST['ggr_doc_action'] ) ? sanitize_key( wp_unslash( $_POST['ggr_doc_action'] ) ) : '';
+    $doc_feedback = isset( $_POST['ggr_doc_feedback'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_doc_feedback'] ) ) : '';
+
+    if ( '' !== $doc_feedback ) {
+        update_user_meta( $user_id, 'ggr_doc_feedback', $doc_feedback );
+    } else {
+        delete_user_meta( $user_id, 'ggr_doc_feedback' );
+    }
+
     $sanitize_text = function( $key ) {
         return isset( $_POST[ $key ] ) ? sanitize_text_field( wp_unslash( $_POST[ $key ] ) ) : '';
     };
@@ -1940,9 +1951,84 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     $marketing_optin = ! empty( $_POST['ggr_marketing_optin'] ) ? 1 : 0;
     update_user_meta( $user_id, 'ggr_marketing_optin', $marketing_optin );
 
+    // Betaling en startdatum
+    $payment_received = ! empty( $_POST['ggr_payment_received'] ) ? 1 : 0;
+    update_user_meta( $user_id, 'ggr_payment_received', $payment_received );
+
+    if ( isset( $_POST['ggr_first_trade_day'] ) ) {
+        $first_trade_day = $sanitize_text( 'ggr_first_trade_day' );
+        if ( $first_trade_day !== '' ) {
+            update_user_meta( $user_id, 'ggr_first_trade_day', $first_trade_day );
+        }
+    }
+
+    if ( $payment_received ) {
+        update_user_meta( $user_id, 'ggr_payment_received_at', $profile_timestamp );
+        $status_override = $status_override ? $status_override : 'active_participant';
+    }
+
     // Onboarding status
-    if ( isset( $_POST['ggr_onboarding_status'] ) ) {
-        $status = sanitize_key( wp_unslash( $_POST['ggr_onboarding_status'] ) );
+    // Documentcontrole: override status en trigger e-mails.
+    if ( $doc_action ) {
+        if ( 'approve' === $doc_action ) {
+            $status_override = 'sign_contract';
+
+            if ( function_exists( 'ggr_portal_send_templated_email' ) ) {
+                ggr_portal_send_templated_email(
+                    'documents_approved',
+                    $user_id,
+                    array(
+                        'contract_link' => home_url( '/onboarding/' ),
+                    )
+                );
+            }
+
+            if ( function_exists( 'ggr_meldingen_add' ) ) {
+                ggr_meldingen_add(
+                    'Documentatie goedgekeurd',
+                    sprintf(
+                        'De documentatie van %s (%s) is goedgekeurd. Status is bijgewerkt naar overeenkomst tekenen.',
+                        ggr_portal_get_nice_user_name( $user_id ),
+                        esc_html( wp_get_current_user()->user_email )
+                    ),
+                    $user_id,
+                    array( 'onboarding_status' => 'sign_contract' )
+                );
+            }
+
+        } elseif ( 'reject' === $doc_action ) {
+            $status_override = 'collecting';
+
+            if ( function_exists( 'ggr_portal_send_templated_email' ) ) {
+                ggr_portal_send_templated_email(
+                    'documents_rejected',
+                    $user_id,
+                    array(
+                        'rejection_feedback' => $doc_feedback,
+                        'portal_link'        => home_url( '/onboarding/' ),
+                    )
+                );
+            }
+
+            if ( function_exists( 'ggr_meldingen_add' ) ) {
+                ggr_meldingen_add(
+                    'Documentatie afgekeurd',
+                    sprintf(
+                        'De documentatie van %s (%s) is afgekeurd met feedback: %s',
+                        ggr_portal_get_nice_user_name( $user_id ),
+                        esc_html( wp_get_current_user()->user_email ),
+                        $doc_feedback ? $doc_feedback : '—'
+                    ),
+                    $user_id,
+                    array( 'onboarding_status' => 'collecting' )
+                );
+            }
+        }
+    }
+
+    // Onboarding status (met mogelijkheid tot override).
+    if ( isset( $_POST['ggr_onboarding_status'] ) || $status_override ) {
+        $status = $status_override ? $status_override : sanitize_key( wp_unslash( $_POST['ggr_onboarding_status'] ) );
 
         if ( function_exists( 'ggr_onboarding_update_status' ) ) {
             ggr_onboarding_update_status( $user_id, $status );
@@ -2228,7 +2314,13 @@ function ggr_portal_render_participant_profile_page() {
     $marketing_optin    = isset( $meta['ggr_marketing_optin'][0] ) ? (int) $meta['ggr_marketing_optin'][0] : 0;
     $onboarding_status  = function_exists( 'ggr_onboarding_get_status' ) ? ggr_onboarding_get_status( $user_id ) : ( isset( $meta['ggr_onboarding_status'][0] ) ? $meta['ggr_onboarding_status'][0] : '' );
     $onboarding_updated = isset( $meta['ggr_onboarding_updated_at'][0] ) ? $meta['ggr_onboarding_updated_at'][0] : '';
-
+    $doc_feedback       = isset( $meta['ggr_doc_feedback'][0] ) ? $meta['ggr_doc_feedback'][0] : '';
+    $contract_signed_at = isset( $meta['ggr_contract_signed_at'][0] ) ? $meta['ggr_contract_signed_at'][0] : '';
+    $payment_confirmation_at = isset( $meta['ggr_payment_confirmation_at'][0] ) ? $meta['ggr_payment_confirmation_at'][0] : '';
+    $payment_received   = isset( $meta['ggr_payment_received'][0] ) ? (int) $meta['ggr_payment_received'][0] : 0;
+    $payment_received_at = isset( $meta['ggr_payment_received_at'][0] ) ? $meta['ggr_payment_received_at'][0] : '';
+    $first_trade_day    = isset( $meta['ggr_first_trade_day'][0] ) ? $meta['ggr_first_trade_day'][0] : '';
+    
     if ( $investment_amount === '' ) {
         $investment_amount = $investment;
     }
@@ -2374,6 +2466,17 @@ function ggr_portal_render_participant_profile_page() {
             .ggr-admin-inline-field input,
             .ggr-admin-inline-field select {
                 width: 100%;
+            }
+            .ggr-admin-inline-actions {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+                margin-top: 6px;
+            }
+            .ggr-admin-meta-note {
+                color: #4b5563;
+                font-style: italic;
+                margin-top: 6px;
             }
             .ggr-admin-doc-list {
                 margin: 0;
@@ -2780,6 +2883,43 @@ function ggr_portal_render_participant_profile_page() {
                         <?php else : ?>
                             <p>Er zijn nog geen documenten geüpload.</p>
                         <?php endif; ?>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_doc_feedback">Opmerking voor lead (bij afkeuren)</label>
+                            <textarea name="ggr_doc_feedback" id="ggr_doc_feedback" rows="3" style="width:100%;"><?php echo esc_textarea( $doc_feedback ); ?></textarea>
+                            <p class="description">Wordt meegenomen in de afwijs-e-mail en kan gebruikt worden als toelichting.</p>
+                        </div>
+
+                        <div class="ggr-admin-inline-actions">
+                            <button type="submit" name="ggr_doc_action" value="approve" class="button button-primary">Documentatie goedgekeurd</button>
+                            <button type="submit" name="ggr_doc_action" value="reject" class="button">Afkeuren en terug naar documentatie</button>
+                        </div>
+
+                        <?php if ( $contract_signed_at ) : ?>
+                            <p class="ggr-admin-meta-note">Lead heeft de overeenkomst bevestigd op: <?php echo esc_html( $contract_signed_at ); ?>.</p>
+                        <?php endif; ?>
+                        <?php if ( $payment_confirmation_at ) : ?>
+                            <p class="ggr-admin-meta-note">Lead gaf aan betaald te hebben op: <?php echo esc_html( $payment_confirmation_at ); ?>.</p>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            </table>
+            <h2 class="title">Stap 6: Betaling & start</h2>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row">Ontvangst betaling</th>
+                    <td>
+                        <label style="display:block; margin-bottom:8px;">
+                            <input type="checkbox" name="ggr_payment_received" value="1" <?php checked( $payment_received, 1 ); ?> /> Betaling ontvangen en gecontroleerd
+                        </label>
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_first_trade_day">Eerste handelsdag</label>
+                            <input type="date" id="ggr_first_trade_day" name="ggr_first_trade_day" value="<?php echo esc_attr( $first_trade_day ); ?>" />
+                            <p class="description">Wordt gebruikt om de actieve startdatum van de participant vast te leggen.</p>
+                        </div>
+                        <?php if ( $payment_received_at ) : ?>
+                            <p class="ggr-admin-meta-note">Ontvangen gemarkeerd op: <?php echo esc_html( $payment_received_at ); ?>.</p>
+                        <?php endif; ?>
                     </td>
                 </tr>
             </table>
@@ -2859,6 +2999,21 @@ function ggr_portal_render_participant_profile_page() {
         </form>
     </div>
     <?php
+}
+
+/**
+ * Admin-pagina: participant-profiel
+ */
+add_action( 'admin_menu', 'ggr_portal_register_participant_profile_page' );
+
+function ggr_portal_register_participant_profile_page() {
+    add_users_page(
+        'Participant profiel',
+        'Participant profiel',
+        'list_users',
+        'ggr-participant-profiel',
+        'ggr_portal_render_participant_profile_page'
+    );
 }
 
 
