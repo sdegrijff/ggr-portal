@@ -9,9 +9,25 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Verwerken van updates (POST) nog vóór de pagina rendert
+ * Verwerken van updates (POST) nog v贸贸r de pagina rendert
  */
 add_action( 'init', 'ggrp_fe_handle_account_update' );
+
+function ggrp_fe_format_nl_datetime( $timestamp_or_mysql ) {
+    if ( empty( $timestamp_or_mysql ) ) {
+        return '';
+    }
+
+    $timestamp = is_numeric( $timestamp_or_mysql )
+        ? (int) $timestamp_or_mysql
+        : strtotime( $timestamp_or_mysql );
+
+    if ( ! $timestamp ) {
+        return '';
+    }
+
+    return date_i18n( 'j F Y \o\m H:i', $timestamp );
+}
 
 function ggrp_fe_handle_account_update() {
     if (
@@ -91,7 +107,7 @@ function ggrp_fe_handle_account_update() {
             }
 
             if ( $error_code ) {
-                // Fout doorgeven via querystring �C jij kunt hier een toast / melding op baseren
+                // Fout doorgeven via querystring C jij kunt hier een toast / melding op baseren
                 $redirect = add_query_arg( 'password_error', $error_code, $redirect );
             } else {
                 // Alles ok: wachtwoord updaten
@@ -156,6 +172,8 @@ function ggrp_fe_handle_account_update() {
             return;
     }
 
+    update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
+
     $redirect = wp_get_referer();
     if ( ! $redirect ) {
         $redirect = home_url( '/mijn-account/' );
@@ -211,6 +229,13 @@ function ggrp_fe_get_account_data( $user_id ) {
     $city    = ! empty( $meta['address_city'][0] )     ? $meta['address_city'][0]     : '';
     $country = ! empty( $meta['address_country'][0] )  ? $meta['address_country'][0]  : '';
 
+    $onboarding_updated = ! empty( $meta['ggr_onboarding_updated_at'][0] )
+        ? ggrp_fe_format_nl_datetime( $meta['ggr_onboarding_updated_at'][0] )
+        : '';
+    $last_login = ! empty( $meta['ggr_last_login_at'][0] )
+        ? ggrp_fe_format_nl_datetime( $meta['ggr_last_login_at'][0] )
+        : '';
+
     return [
         'user'        => $user,
 
@@ -235,6 +260,9 @@ function ggrp_fe_get_account_data( $user_id ) {
         'zip'      => $zip,
         'city'     => $city,
         'country'  => $country,
+
+        'onboarding_updated' => $onboarding_updated,
+        'last_login'         => $last_login,
     ];
 }
 
@@ -273,7 +301,12 @@ function ggrp_fe_account_shortcode( $atts ) {
             <div>
                 <h1>Mijn Account</h1>
                 <p class="ggrp-fe-subtitle">
-                    
+                     <?php if ( $data['onboarding_updated'] ) : ?>
+                        Laatst bijgewerkt: <?php echo esc_html( $data['onboarding_updated'] ); ?>
+                    <?php endif; ?>
+                    <?php if ( $data['last_login'] ) : ?>
+                        <br />Laatste login: <?php echo esc_html( $data['last_login'] ); ?>
+                    <?php endif; ?>                   
                 </p>
             </div>
         </header>
