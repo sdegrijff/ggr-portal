@@ -1329,3 +1329,12 @@ function ggr_restrict_portal_for_leads() {
     }
 }
 
+add_action( 'wp_login', 'ggr_portal_store_last_login', 10, 2 );
+
+function ggr_portal_store_last_login( $user_login, $user ) {
+    if ( ! $user instanceof WP_User ) {
+        return;
+    }
+
+    update_user_meta( $user->ID, 'ggr_last_login_at', current_time( 'timestamp' ) );
+}
