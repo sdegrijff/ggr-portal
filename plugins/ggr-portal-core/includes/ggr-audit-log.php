@@ -154,10 +154,10 @@ function ggr_portal_get_participant_audit_snapshot( $user_id ) {
         'ggr_origin_sources'        => $origin_sources,
         'ggr_origin_notes'          => $safe_meta( 'ggr_origin_notes' ),
         'locale'                    => $safe_meta( 'locale' ),
-        'ggr_co_first_name'         => $safe_meta( 'ggr_co_first_name' ),
-        'ggr_co_last_name'          => $safe_meta( 'ggr_co_last_name' ),
-        'ggr_co_email'              => $safe_meta( 'ggr_co_email' ),
-        'ggr_co_phone'              => $safe_meta( 'ggr_co_phone' ),
+        'ggr_co_first_name'         => $safe_meta( 'ggr_co_first_name', $safe_meta( 'co_first_name' ) ),
+        'ggr_co_last_name'          => $safe_meta( 'ggr_co_last_name', $safe_meta( 'co_last_name' ) ),
+        'ggr_co_email'              => $safe_meta( 'ggr_co_email', $safe_meta( 'co_email' ) ),
+        'ggr_co_phone'              => $safe_meta( 'ggr_co_phone', $safe_meta( 'co_phone' ) ),
     );
 
     return $snapshot;
