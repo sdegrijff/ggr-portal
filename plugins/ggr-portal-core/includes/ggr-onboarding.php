@@ -1424,6 +1424,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const initializeOnboardingToast = (onboardingToast) => {
+            if (onboardingToast.dataset.toastInitialized === 'true') {
+                return;
+            }
+
+            onboardingToast.dataset.toastInitialized = 'true';
+            console.log('Initializing onboarding toast', onboardingToast);
             let isHiding = false;
 
             const removeToast = () => {
@@ -1438,12 +1444,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
 
                 isHiding = true;
+                console.log('Hiding onboarding toast', onboardingToast);
                 onboardingToast.classList.remove('is-visible');
                 onboardingToast.addEventListener('transitionend', removeToast, { once: true });
                 window.setTimeout(removeToast, 500);
             };
 
-            const closeButton = onboardingToast.querySelector('[data-toast-close]') || onboardingToast.querySelector('.ggr-onboarding-toast__close');
+            const closeButton = onboardingToast.querySelector('[data-toast-close]')
+                || onboardingToast.querySelector('.ggr-onboarding-toast__close')
+                || onboardingToast.querySelector('.ggr-login-toast__close');
             
             onboardingToast.addEventListener('keydown', (event) => {
                 if (event.key === 'Escape') {
@@ -1914,7 +1923,7 @@ function ggr_onboarding_dashboard_shortcode() {
                 $current_collecting_step = ( 'save' === $files_action ) ? 'files' : 'files';
             } else {
                 $messages['success'] = ( 'submit' === $files_action )
-                    ? 'Je documenten zijn ingediend. Wij gaan hiermee aan de slag.'
+                    ? 'Je documenten zijn opgeslagen.'
                     : 'Je documenten zijn ontvangen. Wij gaan hiermee aan de slag.';
                 update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
                 $collecting_files_done  = 1;
