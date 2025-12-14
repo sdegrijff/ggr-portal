@@ -994,6 +994,11 @@ function ggr_onboarding_register_shortcode() {
         'success' => '',
     );
 
+    $contract_signed_at      = get_user_meta( $user_id, 'ggr_contract_signed_at', true );
+    $payment_confirmation_at = get_user_meta( $user_id, 'ggr_payment_confirmation_at', true );
+    $first_trade_day         = get_user_meta( $user_id, 'ggr_first_trade_day', true );
+    $payment_received        = get_user_meta( $user_id, 'ggr_payment_received', true );
+
     $participation_profile = get_user_meta( $user_id, 'ggr_participation_profile', true );
     
     // 1. E-mailverificatie (GET) afhandelen als aanwezig
@@ -1838,7 +1843,54 @@ function ggr_onboarding_dashboard_shortcode() {
     $current_collecting_step = in_array( $requested_collecting_step, $available_collecting_steps, true )
         ? $requested_collecting_step
         : $default_collecting_step;
-        
+
+    // Overeenkomst bevestigen → volgende fase.
+    if ( 'sign_contract' === $status && isset( $_POST['ggr_sign_contract_confirm'] ) ) {
+        if ( ! isset( $_POST['ggr_sign_contract_nonce'] ) || ! wp_verify_nonce( $_POST['ggr_sign_contract_nonce'], 'ggr_sign_contract' ) ) {
+            $messages['error'][] = 'Je bevestiging kon niet worden verwerkt. Ververs de pagina en probeer het opnieuw.';
+        } else {
+            $contract_signed_at = current_time( 'mysql' );
+            update_user_meta( $user_id, 'ggr_contract_signed_at', $contract_signed_at );
+            ggr_onboarding_update_status( $user_id, 'transfer_completed' );
+            $status       = 'transfer_completed';
+            $status_label = isset( $stages[ $status ] ) ? $stages[ $status ] : $status;
+            $updated      = current_time( 'mysql' );
+            update_user_meta( $user_id, 'ggr_onboarding_updated_at', $updated );
+
+            if ( function_exists( 'ggr_meldingen_add' ) ) {
+                ggr_meldingen_add(
+                    'Overeenkomst bevestigd',
+                    sprintf( 'Gebruiker %s heeft aangegeven de overeenkomst te hebben gecontroleerd en te tekenen.', $user->display_name ),
+                    $user_id,
+                    array( 'onboarding_status' => 'transfer_completed' )
+                );
+            }
+
+            $messages['success'] = 'Bedankt! Controleer de betaalspecificaties hieronder en rond de betaling af.';
+        }
+    }
+
+    // Betaling doorgegeven door lead.
+    if ( 'transfer_completed' === $status && isset( $_POST['ggr_payment_confirm'] ) ) {
+        if ( ! isset( $_POST['ggr_payment_confirm_nonce'] ) || ! wp_verify_nonce( $_POST['ggr_payment_confirm_nonce'], 'ggr_payment_confirm' ) ) {
+            $messages['error'][] = 'Je bevestiging kon niet worden opgeslagen. Probeer het opnieuw.';
+        } else {
+            $payment_confirmation_at = current_time( 'mysql' );
+            update_user_meta( $user_id, 'ggr_payment_confirmation_at', $payment_confirmation_at );
+
+            if ( function_exists( 'ggr_meldingen_add' ) ) {
+                ggr_meldingen_add(
+                    'Betaling bevestigd door lead',
+                    sprintf( 'Gebruiker %s geeft aan het investeringsbedrag te hebben overgemaakt.', $user->display_name ),
+                    $user_id,
+                    array( 'onboarding_status' => 'transfer_completed' )
+                );
+            }
+
+            $messages['success'] = 'We hebben je bevestiging ontvangen. We controleren je betaling en laten het weten zodra deze verwerkt is.';
+        }
+    }
+    
     /**
      * Collecting-fase: POST-afhandeling
      */
@@ -1980,6 +2032,25 @@ function ggr_onboarding_dashboard_shortcode() {
             $collecting_next_step = $collecting_step_keys[ $current_index + 1 ] ?? '';
         }
     }
+
+ $amount_meta    = get_user_meta( $user_id, 'ggr_participation_amount', true );
+    $amount_display = $amount_meta !== '' ? '€ ' . number_format( (float) $amount_meta, 0, ',', '.' ) : '—';
+    $address_parts  = array_filter(
+        array(
+            get_user_meta( $user_id, 'ggr_kyc_address', true ),
+            get_user_meta( $user_id, 'ggr_kyc_postcode', true ),
+            get_user_meta( $user_id, 'ggr_kyc_city_country', true ),
+        )
+    );
+
+    $contract_summary = array(
+        'Naam'                => ggr_portal_get_nice_user_name( $user ),
+        'E-mailadres'         => $user->user_email,
+        'Participatieprofiel' => ( 'zakelijk' === $participation_profile ) ? 'Zakelijk' : 'Privé',
+        'Gewenst bedrag'      => $amount_display,
+        'Adres'               => $address_parts ? implode( ', ', $address_parts ) : '—',
+        'IBAN'                => get_user_meta( $user_id, 'ggr_kyc_iban', true ) ?: '—',
+    );
 
     ob_start();
     ?>
@@ -2161,6 +2232,50 @@ function ggr_onboarding_dashboard_shortcode() {
                                     <?php endforeach; ?>
                                 </ul>
                             <?php endif; ?>
+                        <?php endif; ?>
+
+                        <?php if ( 'sign_contract' === $status ) : ?>
+                            <div class="ggr-onboarding-step-card">
+                                <div class="ggr-onboarding-step-text">
+                                    <h3 class="ggr-onboarding-step-heading">Controleer je inschrijfformulier</h3>
+                                    <p class="ggr-onboarding-step-description">De gegevens hieronder zijn overgenomen uit je onboarding. Controleer of alles klopt en bevestig je ondertekening.</p>
+                                </div>
+                                <div class="ggr-onboarding-summary">
+                                    <dl class="ggr-onboarding-summary-grid">
+                                        <?php foreach ( $contract_summary as $label => $value ) : ?>
+                                            <dt><?php echo esc_html( $label ); ?></dt>
+                                            <dd><?php echo esc_html( $value ); ?></dd>
+                                        <?php endforeach; ?>
+                                    </dl>
+                                </div>
+                                <form method="post" class="ggr-onboarding-form">
+                                    <?php wp_nonce_field( 'ggr_sign_contract', 'ggr_sign_contract_nonce' ); ?>
+                                    <p class="ggr-onboarding-note">Met deze bevestiging ga je akkoord met de inhoud van de overeenkomst. Heb je een correctie? Neem contact op met het onboarding-team.</p>
+                                    <button type="submit" name="ggr_sign_contract_confirm" value="1" class="ggr-onboarding-button ggr-onboarding-button--primary">Ik heb gecontroleerd en teken</button>
+                                </form>
+                            </div>
+                        <?php elseif ( 'transfer_completed' === $status ) : ?>
+                            <div class="ggr-onboarding-step-card">
+                                <div class="ggr-onboarding-step-text">
+                                    <h3 class="ggr-onboarding-step-heading">Rond de betaling af</h3>
+                                    <p class="ggr-onboarding-step-description">Maak het overeengekomen bedrag over naar onze rekening. Zodra we de betaling hebben gecontroleerd, plannen we je startdatum in.</p>
+                                </div>
+                                <div class="ggr-onboarding-alert">
+                                    <p><strong>Betaalinstructie:</strong> Gebruik de gegevens uit je ontvangen overeenkomst of e-mail. Vermeld je naam en e-mailadres bij de omschrijving.</p>
+                                </div>
+                                <form method="post" class="ggr-onboarding-form">
+                                    <?php wp_nonce_field( 'ggr_payment_confirm', 'ggr_payment_confirm_nonce' ); ?>
+                                    <button type="submit" name="ggr_payment_confirm" value="1" class="ggr-onboarding-button ggr-onboarding-button--primary">Ik heb het bedrag overgemaakt</button>
+                                    <?php if ( $payment_confirmation_at ) : ?>
+                                        <p class="ggr-onboarding-muted" style="margin-top:8px;">Laatste bevestiging: <?php echo esc_html( $payment_confirmation_at ); ?>.</p>
+                                    <?php endif; ?>
+                                    <?php if ( $first_trade_day ) : ?>
+                                        <p class="ggr-onboarding-muted" style="margin-top:4px;">Geplande eerste handelsdag: <?php echo esc_html( $first_trade_day ); ?>.</p>
+                                    <?php elseif ( $payment_received ) : ?>
+                                        <p class="ggr-onboarding-muted" style="margin-top:4px;">Betaling ontvangen. De eerste handelsdag wordt binnenkort bevestigd.</p>
+                                    <?php endif; ?>
+                                </form>
+                            </div>
                         <?php endif; ?>
 
                         <?php if ( 'collecting' === $status ) : ?>
