@@ -1424,13 +1424,27 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const initializeOnboardingToast = (onboardingToast) => {
-            const hideToast = () => {
-                onboardingToast.classList.remove('is-visible');
-                onboardingToast.addEventListener('transitionend', () => onboardingToast.remove(), { once: true });
+            let isHiding = false;
+
+            const removeToast = () => {
+                if (onboardingToast.parentElement) {
+                    onboardingToast.remove();
+                }
             };
 
-            const closeButton = onboardingToast.querySelector('[data-toast-close]');
+            const hideToast = () => {
+                if (isHiding) {
+                    return;
+                }
 
+                isHiding = true;
+                onboardingToast.classList.remove('is-visible');
+                onboardingToast.addEventListener('transitionend', removeToast, { once: true });
+                window.setTimeout(removeToast, 500);
+            };
+
+            const closeButton = onboardingToast.querySelector('[data-toast-close]') || onboardingToast.querySelector('.ggr-onboarding-toast__close');
+            
             onboardingToast.addEventListener('keydown', (event) => {
                 if (event.key === 'Escape') {
                     hideToast();
