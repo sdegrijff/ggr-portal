@@ -1386,9 +1386,11 @@ document.addEventListener('DOMContentLoaded', function () {
             const isBusiness = selected && selected.value === 'zakelijk';
 
             companyFields.forEach((field) => {
+                const isRequired = field.dataset.companyRequired === 'true';
                 field.classList.toggle('is-hidden', !isBusiness);
                 field.querySelectorAll('input').forEach((input) => {
                     input.disabled = !isBusiness;
+                    input.required = isBusiness && isRequired;
                     if (!isBusiness) {
                         input.value = '';
                     }
@@ -1407,31 +1409,6 @@ document.addEventListener('DOMContentLoaded', function () {
             radio.addEventListener('change', toggleBusinessVisibility);
         });
         toggleBusinessVisibility();
-
-        const originCheckboxes = document.querySelectorAll('[data-origin-toggle]');
-        const syncOriginDetails = () => {
-            originCheckboxes.forEach((checkbox) => {
-                const targetId = checkbox.getAttribute('data-origin-toggle');
-                const target = document.getElementById(targetId);
-                const wrapper = target ? target.closest('.ggr-onboarding-origin-detail') : null;
-                const active = checkbox.checked;
-
-                if (target) {
-                    target.disabled = !active;
-                    if (!active) {
-                        target.value = '';
-                    }
-                }
-                if (wrapper) {
-                    wrapper.classList.toggle('is-visible', active);
-                }
-            });
-        };
-
-        originCheckboxes.forEach((checkbox) => {
-            checkbox.addEventListener('change', syncOriginDetails);
-        });
-        syncOriginDetails();
 
         const docForm = document.querySelector('form[data-documents-form]');
         if (docForm) {
@@ -1455,7 +1432,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 toastClose.addEventListener('click', hideToast);
             }
 
-            setTimeout(hideToast, 7000);
+            setTimeout(hideToast, 5000);
         }
     });
     </script>
@@ -2250,45 +2227,105 @@ function ggr_onboarding_dashboard_shortcode() {
                                     <form method="post" class="ggr-onboarding-form">
                                         <?php wp_nonce_field( 'ggr_collecting_personal', 'ggr_collecting_personal_nonce' ); ?>
 
+                                        <?php
+                                        $kyc_first_name   = get_user_meta( $user_id, 'ggr_kyc_first_name', true );
+                                        $kyc_last_name    = get_user_meta( $user_id, 'ggr_kyc_last_name', true );
+                                        $kyc_full_name    = get_user_meta( $user_id, 'ggr_kyc_full_name', true );
+                                        $kyc_company      = get_user_meta( $user_id, 'ggr_kyc_company', true );
+                                        $kyc_kvk          = get_user_meta( $user_id, 'ggr_kyc_kvk', true );
+                                        $company_meta     = get_user_meta( $user_id, 'company_name', true );
+                                        $kvk_meta         = get_user_meta( $user_id, 'company_kvk', true );
+                                        $user_first_name  = get_user_meta( $user_id, 'first_name', true );
+                                        $user_last_name   = get_user_meta( $user_id, 'last_name', true );
 
-                                    <div class="ggr-onboarding-grid">
+                                        if ( ! $kyc_company && $company_meta ) {
+                                            $kyc_company = $company_meta;
+                                        }
+
+                                        if ( ! $kyc_kvk && $kvk_meta ) {
+                                            $kyc_kvk = $kvk_meta;
+                                        }
+
+                                        if ( ! $kyc_first_name && ! $kyc_last_name && $kyc_full_name ) {
+                                            list( $derived_first, $derived_last ) = ggr_onboarding_split_name( $kyc_full_name );
+                                            $kyc_first_name = $kyc_first_name ? $kyc_first_name : $derived_first;
+                                            $kyc_last_name  = $kyc_last_name ? $kyc_last_name : $derived_last;
+                                        }
+
+                                        if ( ! $kyc_first_name && $user_first_name ) {
+                                            $kyc_first_name = $user_first_name;
+                                        }
+
+                                        if ( ! $kyc_last_name && $user_last_name ) {
+                                            $kyc_last_name = $user_last_name;
+                                        }
+                                        ?>
+
+                                    <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-2">
+                                        <div class="ggr-onboarding-field<?php echo ( 'zakelijk' === $participation_profile ) ? '' : ' is-hidden'; ?>" data-company-field="true" data-company-required="true">
+                                            <label for="ggr_kyc_company">Bedrijfsnaam *</label>
+                                            <input type="text" id="ggr_kyc_company" name="ggr_kyc_company"
+                                                   value="<?php echo esc_attr( $kyc_company ); ?>">
+                                        </div>
+                                        <div class="ggr-onboarding-field<?php echo ( 'zakelijk' === $participation_profile ) ? '' : ' is-hidden'; ?>" data-company-field="true" data-company-required="true">
+                                            <label for="ggr_kyc_kvk">KVK nummer *</label>
+                                            <input type="text" id="ggr_kyc_kvk" name="ggr_kyc_kvk"
+                                                   value="<?php echo esc_attr( $kyc_kvk ); ?>">
+                                        </div>
+                                    </div>
+
+                                    <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-2">
                                         <div class="ggr-onboarding-field">
-                                            <label for="ggr_kyc_full_name">Volledige naam *</label>
-                                            <input type="text" id="ggr_kyc_full_name" name="ggr_kyc_full_name"
-                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_full_name', true ) ); ?>"
+                                            <label for="ggr_kyc_first_name">Voornaam *</label>
+                                            <input type="text" id="ggr_kyc_first_name" name="ggr_kyc_first_name"
+                                                   value="<?php echo esc_attr( $kyc_first_name ); ?>"
                                                    required>
                                         </div>
+                                        <div class="ggr-onboarding-field">
+                                            <label for="ggr_kyc_last_name">Achternaam *</label>
+                                            <input type="text" id="ggr_kyc_last_name" name="ggr_kyc_last_name"
+                                                   value="<?php echo esc_attr( $kyc_last_name ); ?>"
+                                                   required>
+                                        </div>
+                                    </div>
+
+                                    <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-2">
                                         <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_birth_date">Geboortedatum *</label>
                                             <input type="date" id="ggr_kyc_birth_date" name="ggr_kyc_birth_date"
                                                    value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_birth_date', true ) ); ?>"
                                                    required>
                                         </div>
+                                        <div class="ggr-onboarding-field">
+                                            <label for="ggr_kyc_phone">Telefoonnummer *</label>
+                                            <input type="tel" id="ggr_kyc_phone" name="ggr_kyc_phone"
+                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_phone', true ) ); ?>"
+                                                   required>
+                                        </div>
                                     </div>
 
-                                    <div class="ggr-onboarding-field">
-                                        <label for="ggr_kyc_address">Adres *</label>
-                                        <input type="text" id="ggr_kyc_address" name="ggr_kyc_address"
-                                               value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_address', true ) ); ?>"
-                                               required>
-                                    </div>
-
-                                    <div class="ggr-onboarding-grid">
+                                    <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-2">
+                                        <div class="ggr-onboarding-field">
+                                            <label for="ggr_kyc_address">Adres *</label>
+                                            <input type="text" id="ggr_kyc_address" name="ggr_kyc_address"
+                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_address', true ) ); ?>"
+                                                   required>
+                                        </div>
                                         <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_postcode">Postcode *</label>
                                             <input type="text" id="ggr_kyc_postcode" name="ggr_kyc_postcode"
                                                    value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_postcode', true ) ); ?>"
                                                    required>
                                         </div>
+                                    </div>
+
+                                    <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-2">
                                         <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_city_country">Plaats *</label>
                                             <input type="text" id="ggr_kyc_city_country" name="ggr_kyc_city_country"
-                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_city_country',true ) ); ?>"
+                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_city_country', true ) ); ?>"
                                                    required>
                                         </div>
-                                    </div>
-
-                                    <div class="ggr-onboarding-grid">
                                         <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_birth_country">Land *</label>
                                             <?php
@@ -2304,15 +2341,16 @@ function ggr_onboarding_dashboard_shortcode() {
                                                 <?php endforeach; ?>
                                             </select>
                                         </div>
+                                    </div>
+
+                                    <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-2">
                                         <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_birth_place">Geboorteplaats *</label>
                                             <input type="text" id="ggr_kyc_birth_place" name="ggr_kyc_birth_place"
                                                    value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_birth_place', true ) ); ?>"
                                                    required>
                                         </div>
-                                    </div>
 
-                                    <div class="ggr-onboarding-grid">
                                         <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_nationality">Geboorteland *</label>
                                             <?php
@@ -2328,52 +2366,41 @@ function ggr_onboarding_dashboard_shortcode() {
                                                 <?php endforeach; ?>
                                             </select>
                                         </div>
+                                    </div>
+
+                                    <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-2">
                                         <div class="ggr-onboarding-field">
-                                            <label for="ggr_kyc_phone">Telefoonnummer *</label>
-                                            <input type="tel" id="ggr_kyc_phone" name="ggr_kyc_phone"
-                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_phone', true ) ); ?>"
+                                            <label for="ggr_kyc_bsn">Burgerservicenummer *</label>
+                                            <input type="text" id="ggr_kyc_bsn" name="ggr_kyc_bsn"
+                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_bsn', true ) ); ?>"
+                                                   required>
+                                        </div>
+                                        <div class="ggr-onboarding-field">
+                                            <label for="ggr_kyc_id_expiry">Geldigheidsdatum ID *</label>
+                                            <input type="date" id="ggr_kyc_id_expiry" name="ggr_kyc_id_expiry"
+                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_id_expiry', true ) ); ?>"
+                                        </div>
+                                    </div>
+
+                                    <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-2">
+                                        <div class="ggr-onboarding-field">
+                                            <label for="ggr_kyc_iban_name">Tenaamstelling IBAN *</label>
+                                            <input type="text" id="ggr_kyc_iban_name" name="ggr_kyc_iban_name"
+                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_iban_name', true ) ); ?>"
+                                                   required>
+                                        </div>
+                                        <div class="ggr-onboarding-field">
+                                            <label for="ggr_kyc_iban">IBAN *</label>
+                                            <input type="text" id="ggr_kyc_iban" name="ggr_kyc_iban"
+                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_iban', true ) ); ?>"
                                                    required>
                                         </div>
                                     </div>
 
-                                    <div class="ggr-onboarding-field">
-                                        <label for="ggr_kyc_bsn">Burgerservicenummer *</label>
-                                        <input type="text" id="ggr_kyc_bsn" name="ggr_kyc_bsn"
-                                               value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_bsn', true ) ); ?>"
-                                               required>
-                                    </div>
-
-                                    <div class="ggr-onboarding-field">
-                                        <label for="ggr_kyc_iban_name">Tenaamstelling IBAN *</label>
-                                        <input type="text" id="ggr_kyc_iban_name" name="ggr_kyc_iban_name"
-                                               value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_iban_name', true ) ); ?>"
-                                               required>
-                                    </div>
-
-                                    <div class="ggr-onboarding-field">
-                                        <label for="ggr_kyc_iban">IBAN *</label>
-                                        <input type="text" id="ggr_kyc_iban" name="ggr_kyc_iban"
-                                               value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_iban', true ) ); ?>"
-                                               required>
-                                    </div>
-
-                                    <div class="ggr-onboarding-grid">
-                                        <div class="ggr-onboarding-field<?php echo ( 'zakelijk' === $participation_profile ) ? '' : ' is-hidden'; ?>" data-company-field="true">
-                                            <label for="ggr_kyc_company">Bedrijfsnaam (optioneel)</label>
-                                            <input type="text" id="ggr_kyc_company" name="ggr_kyc_company"
-                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_company', true ) ); ?>">
-                                        </div>
-                                        <div class="ggr-onboarding-field<?php echo ( 'zakelijk' === $participation_profile ) ? '' : ' is-hidden'; ?>" data-company-field="true">
-                                            <label for="ggr_kyc_kvk">KVK nummer (optioneel)</label>
-                                            <input type="text" id="ggr_kyc_kvk" name="ggr_kyc_kvk"
-                                                   value="<?php echo esc_attr( get_user_meta( $user_id, 'ggr_kyc_kvk', true ) ); ?>">
-                                        </div>
-                                    </div>
-
-                                    <div class="ggr-onboarding-grid">
+                                    <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-2">
                                         <div class="ggr-onboarding-field">
                                             <label class="ggr-onboarding-field-label">Politiek Prominent Persoon *
-                                                <span class="ggr-onboarding-help" title="Een PEP is een persoon met een prominente publieke functie, of iemand die nauw verbonden is met zo'n persoon.">i</span>
+                                                <span class="ggr-onboarding-help" title="Een PEP is een persoon met een prominente publieke functie, of iemand die nauw verbonden is met zo'n persoon." data-tooltip="Een PEP is een persoon met een prominente publieke functie, of iemand die nauw verbonden is met zo'n persoon.">i</span>
                                             </label>
                                             <?php $pep = get_user_meta( $user_id, 'ggr_kyc_pep', true ); ?>
                                             <div class="ggr-onboarding-choice-inline">
@@ -2391,12 +2418,12 @@ function ggr_onboarding_dashboard_shortcode() {
                                         </div>
                                         <div class="ggr-onboarding-field">
                                             <label class="ggr-onboarding-field-label">US person *
-                                                <span class="ggr-onboarding-help" title="Een US person is bijvoorbeeld een Amerikaan met staatsburgerschap, verblijfsvergunning of belastingplicht in de VS.">i</span>
+                                                <span class="ggr-onboarding-help" title="Een US person is bijvoorbeeld een Amerikaan met staatsburgerschap, verblijfsvergunning of belastingplicht in de VS." data-tooltip="Een US person is bijvoorbeeld een Amerikaan met staatsburgerschap, verblijfsvergunning of belastingplicht in de VS.">i</span>
                                             </label>
                                             <?php $us = get_user_meta( $user_id, 'ggr_kyc_us_person', true ); ?>
                                             <div class="ggr-onboarding-choice-inline">
                                                 <label class="ggr-onboarding-choice ggr-onboarding-choice--pill">
-                                                    <input type="radio" name="ggr_kyc_us_person" value="ja" <?php checked( $us, 'ja' ); ?> required>
+                                                    <input type="radio" name="ggr_kyc_us_person" value="ja" <?php checked( $us,'ja' ); ?> required>
                                                     <span class="ggr-onboarding-choice__box" aria-hidden="true">✓</span>
                                                     <span class="ggr-onboarding-choice__label">Ja</span>
                                                 </label>
@@ -2537,12 +2564,12 @@ function ggr_onboarding_dashboard_shortcode() {
 
                                     <div class="ggr-onboarding-field">
                                         <label>Waar komt het te beleggen vermogen vandaan?</label>
-                                        <div class="ggr-onboarding-origin-options">
+                                        <div class="ggr-onboarding-origin-options ggr-onboarding-grid--columns-2">
                                             <?php foreach ( $origin_options as $source_key => $option ) :
                                                 $checked = in_array( $source_key, $origin_sources, true );
                                                 ?>
                                                 <label class="ggr-onboarding-choice ggr-onboarding-choice--tile <?php echo $checked ? 'is-active' : ''; ?>">
-                                                    <input type="checkbox" name="ggr_origin_sources[]" value="<?php echo esc_attr( $source_key ); ?>" data-origin-toggle="<?php echo esc_attr( $option['meta_key'] ); ?>" <?php checked( $checked ); ?>>
+                                                    <input type="checkbox" name="ggr_origin_sources[]" value="<?php echo esc_attr( $source_key ); ?>" <?php checked( $checked ); ?>>
                                                     <span class="ggr-onboarding-choice__box" aria-hidden="true">✓</span>
                                                     <span class="ggr-onboarding-choice__label">
                                                         <span class="ggr-onboarding-choice__title"><?php echo esc_html( $option['label'] ); ?></span>
@@ -2771,7 +2798,8 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
     }
 
     $required_fields = array(
-        'ggr_kyc_full_name',
+        'ggr_kyc_first_name',
+        'ggr_kyc_last_name',
         'ggr_kyc_birth_date',
         'ggr_kyc_address',
         'ggr_kyc_postcode',
@@ -2788,6 +2816,12 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
         'ggr_kyc_us_person',
     );
 
+      if ( 'zakelijk' === get_user_meta( $user_id, 'ggr_participation_profile', true ) ) {
+        $required_fields[] = 'ggr_kyc_company';
+        $required_fields[] = 'ggr_kyc_kvk';
+    }
+
+
     foreach ( $required_fields as $key ) {
         if ( empty( $_POST[ $key ] ) ) {
             return new WP_Error( 'missing_fields', 'Vul alle verplichte velden in.' );
@@ -2799,7 +2833,8 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
     $participation_profile = get_user_meta( $user_id, 'ggr_participation_profile', true );
     
     $fields = array(
-        'ggr_kyc_full_name',
+        'ggr_kyc_first_name',
+        'ggr_kyc_last_name',
         'ggr_kyc_birth_date',
         'ggr_kyc_address',
         'ggr_kyc_postcode',
@@ -2830,11 +2865,27 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
     }
 
     // Synchroniseer met bestaande participant-profielvelden.
-    $full_name = $field_values['ggr_kyc_full_name'] ?? '';
-    list( $first_name, $last_name ) = ggr_onboarding_split_name( $full_name );
+    $first_name = $field_values['ggr_kyc_first_name'] ?? '';
+    $last_name  = $field_values['ggr_kyc_last_name'] ?? '';
+    $full_name  = trim( $first_name . ' ' . $last_name );
 
     update_user_meta( $user_id, 'first_name', $first_name );
     update_user_meta( $user_id, 'last_name', $last_name );
+    update_user_meta( $user_id, 'ggr_kyc_full_name', $full_name );
+
+    if ( $first_name || $last_name ) {
+        $user_update = array(
+            'ID'         => $user_id,
+            'first_name' => $first_name,
+            'last_name'  => $last_name,
+        );
+
+        if ( $full_name ) {
+            $user_update['display_name'] = $full_name;
+        }
+
+        wp_update_user( $user_update );
+    }
     if ( isset( $field_values['ggr_kyc_phone'] ) ) {
         update_user_meta( $user_id, 'phone', $field_values['ggr_kyc_phone'] );
     }
@@ -2925,34 +2976,19 @@ function ggr_onboarding_handle_collecting_origin( $user_id ) {
         return new WP_Error( 'missing_origin', 'Selecteer minimaal één herkomstoptie.' );
     }
 
-    $missing_details = array();
-    $has_origin_detail = false;
+    $origin_notes = isset( $_POST['ggr_origin_notes'] ) ? wp_kses_post( wp_unslash( $_POST['ggr_origin_notes'] ) ) : '';
 
-    foreach ( $origin_fields as $source_key => $origin_key ) {
-        $value = isset( $_POST[ $origin_key ] ) ? wp_kses_post( wp_unslash( $_POST[ $origin_key ] ) ) : '';
-
-        if ( in_array( $source_key, $origin_sources, true ) ) {
-            if ( '' === trim( $value ) ) {
-                $missing_details[] = $origin_labels[ $source_key ] ?? $source_key;
-            } else {
-                $has_origin_detail = true;
-            }
-            update_user_meta( $user_id, $origin_key, $value );
-        } else {
-            update_user_meta( $user_id, $origin_key, '' );
-        }
+    foreach ( $origin_fields as $origin_key ) {
+        update_user_meta( $user_id, $origin_key, '' );
     }
 
-    if ( ! $origin_country || ! $has_origin_detail || ! empty( $missing_details ) ) {
-        $message = 'Vul minimaal één herkomstoptie in en geef het land van herkomst op.';
-        if ( ! empty( $missing_details ) ) {
-            $message = 'Geef een toelichting voor: ' . implode( ', ', $missing_details ) . '.';
-        }
-        return new WP_Error( 'missing_origin', $message );
+    if ( ! $origin_country || '' === trim( $origin_notes ) ) {
+        return new WP_Error( 'missing_origin', 'Selecteer minimaal één herkomstoptie, geef het land op en licht de herkomst toe.' );
     }
 
     update_user_meta( $user_id, 'ggr_origin_country', $origin_country );
     update_user_meta( $user_id, 'ggr_origin_sources', $origin_sources );
+    update_user_meta( $user_id, 'ggr_origin_notes', $origin_notes );
 
     return true;
 }
