@@ -42,10 +42,12 @@ function ggr_portal_get_nice_user_name( $user ) {
         }
     }
 
-    // 1. Voornaam
+    // 1. Voor- en achternaam
     $first_name = trim( get_user_meta( $wp_user->ID, 'first_name', true ) );
-    if ( $first_name !== '' ) {
-        return $first_name;
+    $last_name  = trim( get_user_meta( $wp_user->ID, 'last_name', true ) );
+
+    if ( '' !== $first_name || '' !== $last_name ) {
+        return trim( $first_name . ' ' . $last_name );
     }
 
     // 2. display_name
