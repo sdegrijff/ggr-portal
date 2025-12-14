@@ -351,24 +351,7 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
         return '<section class="ggrp-fe"><h1>Dashboard</h1><p>Nog geen geldige historie beschikbaar.</p></section>';
     }
 
-    // 2) Beschikbare jaren/maanden voor dropdown
-    $years_with_months = [];
-    foreach ( $monthly as $key => $snapshot ) {
-        $y = $snapshot['jaar'];
-        $m = $snapshot['maand'];
-        if ( ! isset( $years_with_months[ $y ] ) ) {
-            $years_with_months[ $y ] = [];
-        }
-        if ( ! in_array( $m, $years_with_months[ $y ], true ) ) {
-            $years_with_months[ $y ][] = $m;
-        }
-    }
-    foreach ( $years_with_months as $y => &$months ) {
-        sort( $months );
-    }
-    unset( $months );
-
-    // 3) Geselecteerde jaar/maand (default = laatste maand met data)
+    // 2) Laatste maand bepalen voor de kaarten (laatste datum met data)
     $all_keys = array_keys( $monthly );
     sort( $all_keys ); // chrono
 
@@ -376,15 +359,9 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
     $last_year      = (int) substr( $last_key, 0, 4 );
     $last_month_int = (int) substr( $last_key, 5, 2 );
 
-    $selected_year  = isset( $_GET['ggr_year'] ) ? (int) $_GET['ggr_year'] : $last_year;
-    $selected_month = isset( $_GET['ggr_month'] ) ? (int) $_GET['ggr_month'] : $last_month_int;
-
-    $selected_key = sprintf( '%04d-%02d', $selected_year, $selected_month );
-    if ( ! isset( $monthly[ $selected_key ] ) ) {
-        $selected_key   = $last_key;
-        $selected_year  = (int) substr( $last_key, 0, 4 );
-        $selected_month = (int) substr( $last_key, 5, 2 );
-    }
+    $selected_year  = $last_year;
+    $selected_month = $last_month_int;
+    $selected_key   = $last_key;
 
     // Snapshot voor de kaartjes = laatste dag in de gekozen maand (of laatste dag overall als die maand geen data heeft)
     $current_card_snapshot = null;
@@ -506,21 +483,6 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
         $prev_cumul_dividend = $cumul;
     }
 
-    // Hulp labels voor dropdown
-    $month_names = [
-        1  => 'januari',
-        2  => 'februari',
-        3  => 'maart',
-        4  => 'april',
-        5  => 'mei',
-        6  => 'juni',
-        7  => 'juli',
-        8  => 'augustus',
-        9  => 'september',
-        10 => 'oktober',
-        11 => 'november',
-        12 => 'december',
-    ];
 
     /**
      * Laatst bijgewerkte GGR stock price ophalen
@@ -567,53 +529,6 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
                         om <?php echo esc_html( $laatste_tijd_display ); ?>
                     <?php endif; ?>
                 </p>
-            </div>
-            <div class="ggrp-fe-header-year">
-                <form method="get" class="ggrp-fe-filter-form">
-                    <?php
-                    // alle andere GET-params behouden
-                    foreach ( $_GET as $key => $val ) {
-                        if ( in_array( $key, ['ggr_year', 'ggr_month'], true ) ) {
-                            continue;
-                        }
-                        if ( is_array( $val ) ) {
-                            continue;
-                        }
-                        echo '<input type="hidden" name="' . esc_attr( $key ) . '" value="' . esc_attr( $val ) . '">';
-                    }
-                    ?>
-
-                    <!-- Jaar dropdown -->
-                    <div class="ggrp-fe-year-select-wrapper">
-                        <select name="ggr_year"
-                                class="ggrp-fe-year-select"
-                                onchange="this.form.submit()">
-                            <?php foreach ( array_keys( $years_with_months ) as $year ) : ?>
-                                <option value="<?php echo (int) $year; ?>" <?php selected( $year, $selected_year ); ?>>
-                                    <?php echo (int) $year; ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <span class="ggrp-fe-year-select-caret">▾</span>
-                    </div>
-
-                    <!-- Maand dropdown -->
-                    <div class="ggrp-fe-year-select-wrapper">
-                        <select name="ggr_month"
-                                class="ggrp-fe-year-select"
-                                onchange="this.form.submit()">
-                            <?php
-                            $months_for_year = $years_with_months[ $selected_year ] ?? [];
-                            foreach ( $months_for_year as $m ) :
-                                ?>
-                                <option value="<?php echo (int) $m; ?>" <?php selected( $m, $selected_month ); ?>>
-                                    <?php echo esc_html( ucfirst( $month_names[ $m ] ) ); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <span class="ggrp-fe-year-select-caret">▾</span>
-                    </div>
-                </form>
             </div>
         </header>
 
@@ -683,6 +598,13 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
         <section class="ggrp-fe-panel">
             <div class="ggrp-fe-panel-header">
                 <h2>Positiewaarde</h2>
+                <div class="ggrp-fe-range-buttons" aria-label="Filter grafiekperiode">
+                    <button type="button" class="ggrp-fe-range-button" data-range="1">1D</button>
+                    <button type="button" class="ggrp-fe-range-button" data-range="7">7D</button>
+                    <button type="button" class="ggrp-fe-range-button" data-range="30">30D</button>
+                    <button type="button" class="ggrp-fe-range-button" data-range="365">1J</button>
+                    <button type="button" class="ggrp-fe-range-button is-active" data-range="all">ALLES</button>
+                </div>
             </div>
             <div class="ggrp-fe-panel-body ggrp-fe-panel-body--chart">
                 <?php if ( ! empty( $posDates ) && ! empty( $posValues ) ) : ?>
@@ -809,6 +731,104 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
             const posLabels  = posDates.map(formatMonthShortFromYMD);
             const divLabels  = divMonthKeys.map(formatMonthShortFromYM);
 
+            // Helpers voor range-filter op de positiesgrafiek
+            const basePosDates  = posDates.slice();
+            const basePosValues = posValues.slice();
+            let posChart        = null;
+
+            function getFilteredPosData(rangeKey) {
+                if (!basePosDates.length) {
+                    return { dates: [], values: [], labels: [], tickLimit: 6 };
+                }
+
+                if (rangeKey === 'all') {
+                    return {
+                        dates: basePosDates,
+                        values: basePosValues,
+                        labels: basePosDates.map(formatMonthShortFromYMD),
+                        tickLimit: 10,
+                    };
+                }
+
+                const days = parseInt(rangeKey, 10);
+                if (Number.isNaN(days) || days <= 0) {
+                    return {
+                        dates: basePosDates,
+                        values: basePosValues,
+                        labels: basePosDates.map(formatMonthShortFromYMD),
+                        tickLimit: 10,
+                    };
+                }
+
+                const lastDateString = basePosDates[basePosDates.length - 1];
+                const lastDate = new Date(lastDateString);
+                if (Number.isNaN(lastDate.getTime())) {
+                    return {
+                        dates: basePosDates,
+                        values: basePosValues,
+                        labels: basePosDates.map(formatMonthShortFromYMD),
+                        tickLimit: 10,
+                    };
+                }
+
+                const cutoff = new Date(lastDate);
+                cutoff.setDate(cutoff.getDate() - (days - 1));
+
+                const filteredDates = [];
+                const filteredValues = [];
+                basePosDates.forEach((dateStr, idx) => {
+                    const parsed = new Date(dateStr);
+                    if (!Number.isNaN(parsed.getTime()) && parsed >= cutoff) {
+                        filteredDates.push(dateStr);
+                        filteredValues.push(basePosValues[idx]);
+                    }
+                });
+
+                // Zorg dat we altijd minstens 2 punten tonen; anders fallback naar alles
+                if (filteredDates.length < 2) {
+                    return {
+                        dates: basePosDates,
+                        values: basePosValues,
+                        labels: basePosDates.map(formatMonthShortFromYMD),
+                        tickLimit: 10,
+                    };
+                }
+
+                let tickLimit = 10;
+                switch (days) {
+                    case 1:
+                        tickLimit = 3;
+                        break;
+                    case 7:
+                        tickLimit = 7;
+                        break;
+                    case 30:
+                        tickLimit = 8;
+                        break;
+                    case 365:
+                        tickLimit = 12;
+                        break;
+                    default:
+                        tickLimit = 10;
+                }
+
+                return {
+                    dates: filteredDates,
+                    values: filteredValues,
+                    labels: filteredDates.map(formatMonthShortFromYMD),
+                    tickLimit,
+                };
+            }
+
+            function updatePosChart(rangeKey) {
+                if (!posChart) return;
+                const filtered = getFilteredPosData(rangeKey);
+                posChart.data.labels = filtered.labels;
+                posChart.data.datasets[0].data = filtered.values;
+                posChart.options.scales.x.ticks.maxTicksLimit = filtered.tickLimit;
+                posChart.update();
+            }
+
             // Gedeelde y-as: geen grid/rand, wel euro-format
             const yAxisEuro = {
                 grid: {
@@ -832,7 +852,7 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
 
             // ----- 1) Positie grafiek (line) -----
             const ctxPos = document.getElementById('<?php echo esc_js( $canvas_pos_id ); ?>').getContext('2d');
-            new Chart(ctxPos, {
+            posChart = new Chart(ctxPos, {
                 type: 'line',
                 data: {
                     labels: posLabels,
@@ -879,7 +899,7 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
                     scales: {
                         x: {
                             offset: false,
-                            ticks: { maxTicksLimit: 6 },
+                            ticks: { maxTicksLimit: 10 },
                             grid: {
                                 display: false,
                                 drawBorder: false
@@ -890,6 +910,17 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
                 }
             });
 
+            const rangeButtons = document.querySelectorAll('.ggrp-fe-range-button');
+            rangeButtons.forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    rangeButtons.forEach((b) => b.classList.remove('is-active'));
+                    btn.classList.add('is-active');
+                    updatePosChart(btn.dataset.range || 'all');
+                });
+            });
+
+            updatePosChart('all');
+            
             // ----- 2) Dividend cumulatief (line) -----
             const ctxDivCum = document.getElementById('<?php echo esc_js( $canvas_div_cum_id ); ?>').getContext('2d');
             new Chart(ctxDivCum, {
