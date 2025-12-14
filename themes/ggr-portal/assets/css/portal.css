@@ -130,8 +130,8 @@
     border-radius: 999px;
     font-size: 11px;
     font-weight: 600;
-    background: #ff00001f;
-    color: #ff2a2a;
+    background: #ff00000f;
+    color: #ff2a2aab;
 }
 
 .ggrp-fe-chip--up {
@@ -163,6 +163,35 @@
     font-size: 14px;
     font-weight: 600;
     color: #111827;
+}
+
+.ggrp-fe-range-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.ggrp-fe-range-button {
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+    color: #111827;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.ggrp-fe-range-button:hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+}
+
+.ggrp-fe-range-button.is-active {
+    background: #111827;
+    color: #ffffff;
+    border-color: #111827;
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
 }
 
 .ggrp-fe-panel-body {
@@ -197,6 +226,104 @@
 
 .ggrp-fe-chart-row .ggrp-fe-panel {
     flex: 1;
+}
+
+/* ====== Investeren formulier ====== */
+.ggrp-fe--investeren h1 {
+    margin-bottom: 8px;
+}
+
+.ggrp-fe-invest-step {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.ggrp-fe-invest-summary {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 12px;
+}
+
+.ggrp-fe-invest-summary li {
+    margin-bottom: 6px;
+}
+
+.ggrp-fe-invest-details ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 10px;
+}
+
+.ggrp-fe-invest-details li {
+    margin-bottom: 6px;
+}
+
+.ggrp-fe-invest-note {
+    font-size: 13px;
+    color: #6b7280;
+    margin: 0;
+}
+
+.ggrp-fe-form {
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.ggrp-fe-form-row label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.ggrp-fe-form-row input,
+.ggrp-fe-form-row textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    font-size: 14px;
+    background: #f9fafb;
+}
+
+.ggrp-fe-form-row input:focus,
+.ggrp-fe-form-row textarea:focus {
+    outline: none;
+    border-color: #111827;
+    box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.08);
+}
+
+.ggrp-fe-button {
+    background: #111827;
+    color: #ffffff;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ggrp-fe-button:hover {
+    background: #0f172a;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+}
+
+.ggrp-fe-alert {
+    padding: 12px 14px;
+    border-radius: 12px;
+    margin-bottom: 14px;
+}
+
+.ggrp-fe-alert--error {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
 }
 
 /* === Transacties lay-out === */
@@ -444,47 +571,6 @@
     color: #6b7280;
 }
 
-/* Year selector rechtsboven */
-.ggrp-fe-year-filter-form {
-    margin: 0;
-}
-
-.ggrp-fe-year-select-wrapper {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.55rem 0.9rem;
-    border-radius: 999px;
-    background: #ffffff;
-    border: 1px solid #d1d5db;
-    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06);
-    font-size: 0.85rem;
-}
-
-.ggrp-fe-year-select-icon {
-    font-size: 1rem;
-}
-
-.ggrp-fe-year-select {
-    border: none;
-    background: transparent;
-    appearance: none;
-    padding-right: 1.1rem;
-    font-size: 0.9rem;
-    cursor: pointer;
-}
-
-.ggrp-fe-year-select:focus {
-    outline: none;
-}
-
-.ggrp-fe-year-select-caret {
-    position: absolute;
-    right: 0.65rem;
-    font-size: 0.75rem;
-    pointer-events: none;
-}
 
 /* ---------------------------------------------
    GGR Portal - Berichten styling
