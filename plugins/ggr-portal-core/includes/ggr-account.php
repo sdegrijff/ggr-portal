@@ -43,7 +43,13 @@ function ggrp_fe_handle_account_update() {
 
     $user_id = get_current_user_id();
     $section = sanitize_text_field( wp_unslash( $_POST['ggr_account_section'] ) );
+    
+    $before_snapshot = function_exists( 'ggr_portal_get_participant_audit_snapshot' )
+        ? ggr_portal_get_participant_audit_snapshot( $user_id )
+        : array();
 
+    $profile_changed = false;
+    
     switch ( $section ) {
 
         /**
@@ -65,6 +71,8 @@ function ggrp_fe_handle_account_update() {
                     'user_email' => $email,
                 ] );
             }
+
+            $profile_changed = true;
             break;
             
           /**
@@ -119,6 +127,10 @@ function ggrp_fe_handle_account_update() {
                 // Let op: dit logt in de praktijk sessies uit.
                 // Dat is juist goed voor security, maar check of je dat wilt.
                 $redirect = add_query_arg( 'password_updated', '1', $redirect );
+
+                if ( function_exists( 'ggr_portal_log_participant_action' ) ) {
+                    ggr_portal_log_participant_action( $user_id, 'password_reset', 'Wachtwoord aangepast.', array() );
+                }
             }
 
             wp_safe_redirect( $redirect );
@@ -137,6 +149,7 @@ function ggrp_fe_handle_account_update() {
             update_user_meta( $user_id, 'co_last_name',  $co_last );
             update_user_meta( $user_id, 'co_email',      $co_email );
             update_user_meta( $user_id, 'co_phone',      $co_phone );
+            $profile_changed = true;
             break;
 
         case 'bank':
@@ -145,6 +158,7 @@ function ggrp_fe_handle_account_update() {
 
             update_user_meta( $user_id, 'bank_account_iban', $iban );
             update_user_meta( $user_id, 'bank_account_name', $iban_name );
+            $profile_changed = true;
             break;
 
         case 'company':
@@ -154,6 +168,7 @@ function ggrp_fe_handle_account_update() {
             update_user_meta( $user_id, 'company_name', $company_name );
             update_user_meta( $user_id, 'company_kvk',  $company_kvk );
             update_user_meta( $user_id, 'billing_company', $company_name );
+            $profile_changed = true;
             break;
 
         case 'address':
@@ -166,6 +181,7 @@ function ggrp_fe_handle_account_update() {
             update_user_meta( $user_id, 'address_postcode', $zip );
             update_user_meta( $user_id, 'address_city',     $city );
             update_user_meta( $user_id, 'address_country',  $country );
+            $profile_changed = true;
             break;
 
         default:
@@ -173,6 +189,10 @@ function ggrp_fe_handle_account_update() {
     }
 
     update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
+
+    if ( $profile_changed && function_exists( 'ggr_portal_log_participant_profile_changes' ) ) {
+        ggr_portal_log_participant_profile_changes( $user_id, $before_snapshot );
+    }
 
     $redirect = wp_get_referer();
     if ( ! $redirect ) {
