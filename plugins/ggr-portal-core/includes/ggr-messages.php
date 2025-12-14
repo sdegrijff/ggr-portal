@@ -922,9 +922,17 @@ function ggr_portal_handle_message_pdf_download() {
     }
 
     $html = ggr_portal_render_message_pdf_html( $post, $user_id );
+    
+    // Laad dompdf autoloader indien beschikbaar
+    if ( ! class_exists( '\\Dompdf\\Dompdf' ) ) {
+        $dompdf_autoload = trailingslashit( GGR_PORTAL_CORE_PATH ) . 'dompdf/autoload.inc.php';
+        if ( file_exists( $dompdf_autoload ) ) {
+            require_once $dompdf_autoload;
+        }
+    }
 
     // Als dompdf beschikbaar is: echte PDF renderen
-    if ( class_exists( '\Dompdf\Dompdf' ) ) {
+    if ( class_exists( '\\Dompdf\\Dompdf' ) ) {
         $options = new \Dompdf\Options();
         $options->set( 'isRemoteEnabled', true );
 
