@@ -1423,8 +1423,8 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
-        const onboardingToast = document.querySelector('[data-ggr-onboarding-toast]');
-        if (onboardingToast) {
+        const onboardingToasts = document.querySelectorAll('[data-ggr-onboarding-toast]');
+        onboardingToasts.forEach((onboardingToast) => {
             const hideToast = () => onboardingToast.classList.remove('is-visible');
             const closeButton = onboardingToast.querySelector('[data-toast-close]');
 
@@ -1433,13 +1433,22 @@ document.addEventListener('DOMContentLoaded', function () {
                     hideToast();
                 }
             });
+            
+            onboardingToast.addEventListener('click', (event) => {
+                if (event.target === onboardingToast) {
+                    hideToast();
+                }
+            });
 
             if (closeButton) {
-                closeButton.addEventListener('click', hideToast);
+                closeButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    hideToast();
+                });
             }
 
-            setTimeout(hideToast, 5000);
-        }
+            window.setTimeout(hideToast, 5000);
+        });
     });
     </script>
     <?php
