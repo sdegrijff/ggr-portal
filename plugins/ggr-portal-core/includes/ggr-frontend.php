@@ -599,10 +599,6 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
             <div class="ggrp-fe-panel-header">
                 <h2>Positiewaarde</h2>
                 <div class="ggrp-fe-range-buttons" aria-label="Filter grafiekperiode">
-                    <button type="button" class="ggrp-fe-range-button" data-range="1">1D</button>
-                    <button type="button" class="ggrp-fe-range-button" data-range="7">7D</button>
-                    <button type="button" class="ggrp-fe-range-button" data-range="30">30D</button>
-                    <button type="button" class="ggrp-fe-range-button" data-range="365">1J</button>
                     <button type="button" class="ggrp-fe-range-button is-active" data-range="all">ALLES</button>
                 </div>
             </div>
