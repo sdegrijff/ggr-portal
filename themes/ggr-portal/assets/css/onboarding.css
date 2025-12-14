@@ -140,9 +140,17 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.ggr-onboarding-grid--columns-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 @media (max-width: 900px) {
     .ggr-onboarding-grid--columns-2 {
         grid-template-columns: 1fr;
+    }
+    
+    .ggr-onboarding-grid--columns-3 {
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     }
 }
 
@@ -153,9 +161,7 @@ body {
     background: #fff;
     padding: 20px;
     border-right: 1px solid var(--ggr-border-soft);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
     position: sticky;
-    top: 18px;
     min-height: 100vh;
     height: calc(100vh - 36px);
     overflow: auto;
@@ -371,7 +377,7 @@ body {
 .ggr-onboarding-field label {
     display: block;
     font-weight: 600;
-    margin-top: 10px;
+    margin-top: 20px;
     color: var(--ggr-text-main);
 }
 
@@ -383,7 +389,6 @@ body {
 .ggr-onboarding-table input[type="tel"],
 .ggr-onboarding-table input[type="date"] {
     width: 100%;
-    max-width: 550px;
     margin-top: 10px;
     padding: 10px 12px;
     border-radius: 8px;
@@ -556,7 +561,8 @@ body {
     font-size: 12px;
     line-height: 1.4;
     white-space: pre-line;
-    max-width: 260px;
+    max-width: 200px;
+    width: 200px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
     opacity: 0;
     pointer-events: none;
@@ -606,7 +612,7 @@ body {
 
 .ggr-onboarding-origin-options {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
 }
 
@@ -614,6 +620,22 @@ body {
     .ggr-onboarding-origin-options {
     grid-template-columns: 1fr;
     }
+}
+
+.ggr-onboarding-origin-options .ggr-onboarding-choice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.ggr-onboarding-origin-options .ggr-onboarding-choice__box {
+    margin-top: 2px;
+}
+
+.ggr-onboarding-origin-options .ggr-onboarding-choice__label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .ggr-onboarding-highlight {
@@ -700,13 +722,11 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: #fff7ed;
-    color: #c2410c;
-    border: 1px solid rgba(242, 158, 117, 0.5);
-    border-radius: 8px;
+    background: rgba(242, 158, 117, 0.1);
+    color: var(--ggr-accent);
+    border-radius: 5px;
     padding: 4px 8px;
     font-size: 12px;
-    font-weight: 600;
     margin-bottom: 6px;
 }
 
@@ -797,7 +817,7 @@ body {
 
 .ggr-onboarding-button--accent {
     background: #f29e75;
-    color: #111827;
+    color: #fff;
     border-color: #f29e75;
 }
 
