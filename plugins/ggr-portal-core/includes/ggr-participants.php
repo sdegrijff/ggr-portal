@@ -142,6 +142,18 @@ function ggr_portal_add_history_entry( $user_id, $datum, $inlegbedrag, $opnamebe
         return false;
     }
 
+    // Automatische melding bij een (extra) inleg.
+    if ( function_exists( 'ggr_meldingen_add' ) && $inlegbedrag > 0 ) {
+        ggr_meldingen_add(
+            'Nieuwe inleg geregistreerd',
+            sprintf( 'Er is een inleg van %s toegevoegd voor %s.', ggrp_fe_format_money( $inlegbedrag ), ggr_portal_get_nice_user_name( $user_id ) ),
+            $user_id,
+            array(
+                'melding_type' => 'inleg',
+            )
+        );
+    }
+
     return true;
 }
 
