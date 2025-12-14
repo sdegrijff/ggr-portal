@@ -1337,4 +1337,28 @@ function ggr_portal_store_last_login( $user_login, $user ) {
     }
 
     update_user_meta( $user->ID, 'ggr_last_login_at', current_time( 'timestamp' ) );
+
+    if ( function_exists( 'ggr_portal_log_participant_action' ) ) {
+        $ip_address = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+        $user_agent = isset( $_SERVER['HTTP_USER_AGENT'] ) ? wp_strip_all_tags( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
+
+        $details = array();
+
+        if ( $ip_address ) {
+            $details[] = sprintf( 'IP-adres: "%s"', ggr_portal_format_audit_value( $ip_address ) );
+        }
+
+        if ( $user_agent ) {
+            $details[] = sprintf( 'User agent: "%s"', ggr_portal_format_audit_value( $user_agent ) );
+        }
+
+        ggr_portal_log_participant_action(
+            $user->ID,
+            'login',
+            'Succesvolle login.',
+            array(
+                'changes' => $details,
+            )
+        );
+    }
 }
