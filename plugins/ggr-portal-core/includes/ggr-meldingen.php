@@ -196,21 +196,47 @@ function ggr_meldingen_render_admin_page() {
     if ( 'POST' === $_SERVER['REQUEST_METHOD'] ) {
         ggr_meldingen_handle_status_update();
     }
+    
+    $hide_done = isset( $_GET['hide_done'] ) && '1' === $_GET['hide_done'];
 
     $statuses   = ggr_meldingen_get_statuses();
-    $meldingen  = get_posts(
-        array(
-            'post_type'      => 'ggr_melding',
-            'posts_per_page' => 200,
-            'orderby'        => 'date',
-            'order'          => 'DESC',
-        )
+    $query_args = array(
+        'post_type'      => 'ggr_melding',
+        'posts_per_page' => 200,
+        'orderby'        => 'date',
+        'order'          => 'DESC',
     );
+
+    if ( $hide_done ) {
+        $query_args['meta_query'] = array(
+            'relation' => 'OR',
+            array(
+                'key'     => 'ggr_melding_status',
+                'compare' => 'NOT EXISTS',
+            ),
+            array(
+                'key'     => 'ggr_melding_status',
+                'value'   => 'gedaan',
+                'compare' => '!=',
+            ),
+        );
+    }
+
+    $meldingen = get_posts( $query_args );
 
     ?>
     <div class="wrap ggr-meldingen-page">
         <h1>Meldingen</h1>
         <p>Overzicht van automatische meldingen. Je kunt alleen de status aanpassen.</p>
+
+        <form method="get" class="ggr-meldingen-filter" style="margin: 10px 0;">
+            <input type="hidden" name="page" value="ggr-meldingen" />
+            <label>
+                <input type="checkbox" name="hide_done" value="1" <?php checked( $hide_done ); ?> />
+                Verberg meldingen met status "Gedaan"
+            </label>
+            <button class="button">Toepassen</button>
+        </form>
 
         <table class="widefat fixed striped">
             <thead>
