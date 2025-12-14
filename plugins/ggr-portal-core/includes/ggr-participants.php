@@ -1675,7 +1675,6 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
                                 <option value=""><?php esc_html_e( 'Maak een keuze', 'ggr-portal' ); ?></option>
                                 <option value="private" <?php selected( $account_type, 'private' ); ?>>Privé</option>
                                 <option value="business" <?php selected( $account_type, 'business' ); ?>>Zakelijk</option>
-                                <option value="company" <?php selected( $account_type, 'company' ); ?>>Bedrijf (legacy)</option>
                             </select>
                         </div>
 
@@ -2558,7 +2557,6 @@ function ggr_portal_render_participant_profile_page() {
                                         <option value=""><?php esc_html_e( 'Maak een keuze', 'ggr-portal' ); ?></option>
                                         <option value="private" <?php selected( $account_type, 'private' ); ?>>Privé</option>
                                         <option value="business" <?php selected( $account_type, 'business' ); ?>>Zakelijk</option>
-                                        <option value="company" <?php selected( $account_type, 'company' ); ?>>Bedrijf (legacy)</option>
                                     </select>
                                 </div>
 
