@@ -1423,9 +1423,12 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
-        const onboardingToasts = document.querySelectorAll('[data-ggr-onboarding-toast]');
-        onboardingToasts.forEach((onboardingToast) => {
-            const hideToast = () => onboardingToast.classList.remove('is-visible');
+        const initializeOnboardingToast = (onboardingToast) => {
+            const hideToast = () => {
+                onboardingToast.classList.remove('is-visible');
+                onboardingToast.addEventListener('transitionend', () => onboardingToast.remove(), { once: true });
+            };
+
             const closeButton = onboardingToast.querySelector('[data-toast-close]');
 
             onboardingToast.addEventListener('keydown', (event) => {
@@ -1448,7 +1451,27 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             window.setTimeout(hideToast, 5000);
+        };
+
+        document.querySelectorAll('[data-ggr-onboarding-toast]').forEach(initializeOnboardingToast);
+
+        const toastObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (!(node instanceof HTMLElement)) {
+                        return;
+                    }
+
+                    if (node.matches('[data-ggr-onboarding-toast]')) {
+                        initializeOnboardingToast(node);
+                    } else {
+                        node.querySelectorAll('[data-ggr-onboarding-toast]').forEach(initializeOnboardingToast);
+                    }
+                });
+            });
         });
+
+        toastObserver.observe(document.body, { childList: true, subtree: true });
     });
     </script>
     <?php
@@ -2372,7 +2395,7 @@ function ggr_onboarding_dashboard_shortcode() {
                                         $co_required = ( 'ja' === $has_co_participant );
                                         ?>
 
-                                    <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-3">
+                                    <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-2">
                                         <div class="ggr-onboarding-field<?php echo ( 'zakelijk' === $participation_profile ) ? '' : ' is-hidden'; ?>" data-company-field="true" data-company-required="true">
                                             <label for="ggr_kyc_company">Bedrijfsnaam *</label>
                                             <input type="text" id="ggr_kyc_company" name="ggr_kyc_company"
@@ -2382,12 +2405,6 @@ function ggr_onboarding_dashboard_shortcode() {
                                             <label for="ggr_kyc_kvk">KVK nummer *</label>
                                             <input type="text" id="ggr_kyc_kvk" name="ggr_kyc_kvk"
                                                    value="<?php echo esc_attr( $kyc_kvk ); ?>">
-                                        </div>
-                                        <div class="ggr-onboarding-field">
-                                            <label for="ggr_kyc_phone">Telefoonnummer *</label>
-                                            <input type="tel" id="ggr_kyc_phone" name="ggr_kyc_phone"
-                                                   value="<?php echo esc_attr( $kyc_phone ); ?>"
-                                                   required>
                                         </div>
                                     </div>
 
@@ -2401,7 +2418,7 @@ function ggr_onboarding_dashboard_shortcode() {
 
                                     <input type="hidden" name="ggr_has_co_participant" value="<?php echo esc_attr( $has_co_participant ); ?>">
 
-                                    <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-3">
+                                    <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-4">
                                         <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_first_name">Voornaam *</label>
                                             <input type="text" id="ggr_kyc_first_name" name="ggr_kyc_first_name"
@@ -2412,6 +2429,12 @@ function ggr_onboarding_dashboard_shortcode() {
                                             <label for="ggr_kyc_last_name">Achternaam *</label>
                                             <input type="text" id="ggr_kyc_last_name" name="ggr_kyc_last_name"
                                                    value="<?php echo esc_attr( $kyc_last_name ); ?>"
+                                                   required>
+                                        </div>
+                                            <div class="ggr-onboarding-field">
+                                            <label for="ggr_kyc_phone">Telefoonnummer *</label>
+                                            <input type="tel" id="ggr_kyc_phone" name="ggr_kyc_phone"
+                                                   value="<?php echo esc_attr( $kyc_phone ); ?>"
                                                    required>
                                         </div>
                                         <div class="ggr-onboarding-field">                                        
@@ -2544,18 +2567,17 @@ function ggr_onboarding_dashboard_shortcode() {
                                                        value="<?php echo esc_attr( $co_last_name ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
                                             </div>
                                             <div class="ggr-onboarding-field">
-                                                <label for="ggr_co_birth_date">Geboortedatum *</label>
-                                                <input type="date" id="ggr_co_birth_date" name="ggr_co_birth_date"
-                                                       value="<?php echo esc_attr( $co_birth_date ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
-                                            </div>
-                                        </div>
-
-                                        <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-3">
-                                            <div class="ggr-onboarding-field">
                                                 <label for="ggr_co_phone">Telefoonnummer *</label>
                                                 <input type="tel" id="ggr_co_phone" name="ggr_co_phone"
                                                        value="<?php echo esc_attr( $co_phone ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
                                             </div>
+                                                <div class="ggr-onboarding-field">
+                                                <label for="ggr_co_bsn">Burgerservicenummer *</label>
+                                                <input type="text" id="ggr_co_bsn" name="ggr_co_bsn"
+                                                       value="<?php echo esc_attr( $co_bsn ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
+                                            </div
+
+                                        <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-3">
                                             <div class="ggr-onboarding-field">
                                                 <label for="ggr_co_address">Adres *</label>
                                                 <input type="text" id="ggr_co_address" name="ggr_co_address"
@@ -2566,10 +2588,7 @@ function ggr_onboarding_dashboard_shortcode() {
                                                 <input type="text" id="ggr_co_postcode" name="ggr_co_postcode"
                                                        value="<?php echo esc_attr( $co_postcode ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
                                             </div>
-                                        </div>
-
-                                        <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-3">
-                                            <div class="ggr-onboarding-field">
+                                                <div class="ggr-onboarding-field">
                                                 <label for="ggr_co_city_country">Plaats *</label>
                                                 <input type="text" id="ggr_co_city_country" name="ggr_co_city_country"
                                                        value="<?php echo esc_attr( $co_city_country ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
@@ -2584,14 +2603,19 @@ function ggr_onboarding_dashboard_shortcode() {
                                                     <?php endforeach; ?>
                                                 </select>
                                             </div>
+                                        </div>
+                                        
+                                        <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-3">
                                             <div class="ggr-onboarding-field">
+                                                <label for="ggr_co_birth_date">Geboortedatum *</label>
+                                                <input type="date" id="ggr_co_birth_date" name="ggr_co_birth_date"
+                                                       value="<?php echo esc_attr( $co_birth_date ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
+                                            </div>
+                                                <div class="ggr-onboarding-field">
                                                 <label for="ggr_co_birth_place">Geboorteplaats *</label>
                                                 <input type="text" id="ggr_co_birth_place" name="ggr_co_birth_place"
                                                        value="<?php echo esc_attr( $co_birth_place ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
                                             </div>
-                                        </div>
-
-                                        <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-3">
                                             <div class="ggr-onboarding-field">
                                                 <label for="ggr_co_nationality">Geboorteland *</label>
                                                 <select id="ggr_co_nationality" name="ggr_co_nationality" <?php echo $co_required ? 'required' : ''; ?>>
@@ -2602,11 +2626,7 @@ function ggr_onboarding_dashboard_shortcode() {
                                                     <?php endforeach; ?>
                                                 </select>
                                             </div>
-                                            <div class="ggr-onboarding-field">
-                                                <label for="ggr_co_bsn">Burgerservicenummer *</label>
-                                                <input type="text" id="ggr_co_bsn" name="ggr_co_bsn"
-                                                       value="<?php echo esc_attr( $co_bsn ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
-                                            </div>
+
                                         </div>
 
                                         <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-2">
