@@ -1996,6 +1996,20 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
                 );
             }
 
+            if ( function_exists( 'ggr_portal_log_participant_action' ) ) {
+                ggr_portal_log_participant_action(
+                    $user_id,
+                    'document_review',
+                    'Documenten goedgekeurd',
+                    array(
+                        'changes' => array(
+                            'Documentstatus: "afgekeurd" → "goedgekeurd"',
+                            'Feedback: "' . ggr_portal_format_audit_value( $doc_feedback ? $doc_feedback : '—' ) . '"',
+                        ),
+                    )
+                );
+            }
+
         } elseif ( 'reject' === $doc_action ) {
             $status_override = 'collecting';
 
@@ -2021,6 +2035,20 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
                     ),
                     $user_id,
                     array( 'onboarding_status' => 'collecting' )
+                );
+            }
+
+            if ( function_exists( 'ggr_portal_log_participant_action' ) ) {
+                ggr_portal_log_participant_action(
+                    $user_id,
+                    'document_review',
+                    'Documenten afgekeurd',
+                    array(
+                        'changes' => array(
+                            'Documentstatus: "goedgekeurd" → "afgekeurd"',
+                            'Feedback: "' . ggr_portal_format_audit_value( $doc_feedback ? $doc_feedback : '—' ) . '"',
+                        ),
+                    )
                 );
             }
         }
@@ -2176,6 +2204,10 @@ function ggr_portal_save_account_fields_in_profile( $user_id ) {
     if ( ! current_user_can( 'promote_users' ) && ! current_user_can( 'edit_user', $user_id ) ) {
         return;
     }
+    
+    $before_snapshot = function_exists( 'ggr_portal_get_participant_audit_snapshot' )
+        ? ggr_portal_get_participant_audit_snapshot( $user_id )
+        : array();
 
     ggr_portal_store_participant_profile_data( $user_id );
 
@@ -2186,6 +2218,10 @@ function ggr_portal_save_account_fields_in_profile( $user_id ) {
             'ID'        => $user_id,
             'user_pass' => $new_pass,
         ] );
+
+        if ( function_exists( 'ggr_portal_log_participant_action' ) ) {
+            ggr_portal_log_participant_action( $user_id, 'password_reset', 'Wachtwoord aangepast.', array() );
+        }
     }
 
     // Rol
@@ -2199,6 +2235,10 @@ function ggr_portal_save_account_fields_in_profile( $user_id ) {
             }
             $user_obj->add_role( $new_role );
         }
+    }
+
+    if ( function_exists( 'ggr_portal_log_participant_profile_changes' ) ) {
+        ggr_portal_log_participant_profile_changes( $user_id, $before_snapshot );
     }
 }
 
@@ -2220,7 +2260,11 @@ function ggr_portal_handle_participant_profile_save() {
     if ( ! $user ) {
         return;
     }
-
+    
+    $before_snapshot = function_exists( 'ggr_portal_get_participant_audit_snapshot' )
+        ? ggr_portal_get_participant_audit_snapshot( $user_id )
+        : array();
+        
     ggr_portal_store_participant_profile_data( $user_id );
 
     // Wachtwoord
@@ -2230,6 +2274,10 @@ function ggr_portal_handle_participant_profile_save() {
             'ID'        => $user_id,
             'user_pass' => $new_pass,
         ] );
+
+        if ( function_exists( 'ggr_portal_log_participant_action' ) ) {
+            ggr_portal_log_participant_action( $user_id, 'password_reset', 'Wachtwoord aangepast.', array() );
+        }
     }
 
     // Rol
@@ -2243,6 +2291,10 @@ function ggr_portal_handle_participant_profile_save() {
             }
             $user_obj->add_role( $new_role );
         }
+    }
+    
+    if ( function_exists( 'ggr_portal_log_participant_profile_changes' ) ) {
+        ggr_portal_log_participant_profile_changes( $user_id, $before_snapshot );
     }
 
     // Redirect
