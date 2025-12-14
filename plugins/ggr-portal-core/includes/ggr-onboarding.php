@@ -3001,42 +3001,70 @@ function ggr_onboarding_dashboard_shortcode() {
                                     <form method="post" enctype="multipart/form-data" class="ggr-onboarding-form" data-documents-form="true">
                                         <?php wp_nonce_field( 'ggr_collecting_files', 'ggr_collecting_files_nonce' ); ?>
 
+                                        <?php
+                                        $documents_user_id = isset( $user_id ) ? (int) $user_id : get_current_user_id();
+                                        $existing_documents = array(
+                                            'ggr_doc_id'             => get_user_meta( $documents_user_id, 'ggr_doc_id', true ),
+                                            'ggr_doc_funds'          => get_user_meta( $documents_user_id, 'ggr_doc_funds', true ),
+                                            'ggr_doc_registration'   => get_user_meta( $documents_user_id, 'ggr_doc_registration', true ),
+                                            'ggr_doc_ubo'            => get_user_meta( $documents_user_id, 'ggr_doc_ubo', true ),
+                                            'ggr_doc_share_register' => get_user_meta( $documents_user_id, 'ggr_doc_share_register', true ),
+                                            'ggr_doc_other'          => get_user_meta( $documents_user_id, 'ggr_doc_other', true ),
+                                        );
+
+                                        $render_existing_doc = function( $key ) use ( $existing_documents ) {
+                                            if ( empty( $existing_documents[ $key ] ) ) {
+                                                return;
+                                            }
+
+                                            echo '<p class="ggr-onboarding-small-print">Reeds geüpload: ';
+                                            echo '<a href="' . esc_url( $existing_documents[ $key ] ) . '" target="_blank" rel="noopener noreferrer">Bekijken</a>';
+                                            echo '</p>';
+                                        };
+                                        ?>
+
                                     <div class="ggr-onboarding-file-grid">
                                         <div class="ggr-onboarding-field ggr-onboarding-field--file">
                                             <span class="ggr-onboarding-file-tag">Privé</span>
                                             <label for="ggr_doc_id">Identiteitsbewijs (paspoort / ID-kaart) *</label>
-                                            <input type="file" id="ggr_doc_id" name="ggr_doc_id" accept=".pdf,.jpg,.jpeg,.png" required>
+                                            <input type="file" id="ggr_doc_id" name="ggr_doc_id" accept=".pdf,.jpg,.jpeg,.png" <?php echo empty( $existing_documents['ggr_doc_id'] ) ? 'required' : ''; ?>>
+                                            <?php $render_existing_doc( 'ggr_doc_id' ); ?>
                                         </div>
                                         
                                         <div class="ggr-onboarding-field ggr-onboarding-field--file">
                                             <span class="ggr-onboarding-file-tag">Privé</span>
                                             <label for="ggr_doc_funds">Bewijs herkomst middelen (bijv. bankafschrift) *</label>
-                                            <input type="file" id="ggr_doc_funds" name="ggr_doc_funds" accept=".pdf,.jpg,.jpeg,.png" required>
+                                            <input type="file" id="ggr_doc_funds" name="ggr_doc_funds" accept=".pdf,.jpg,.jpeg,.png" <?php echo empty( $existing_documents['ggr_doc_funds'] ) ? 'required' : ''; ?>>
+                                            <?php $render_existing_doc( 'ggr_doc_funds' ); ?>
                                         </div>
                                         
 
                                         <div class="ggr-onboarding-field ggr-onboarding-field--file<?php echo ( 'zakelijk' === $participation_profile ) ? '' : ' is-hidden'; ?>" data-business-doc="true">
                                             <span class="ggr-onboarding-file-tag">Zakelijk</span>
                                             <label for="ggr_doc_registration">Recent uittreksel Kamer van Koophandel *</label>
-                                            <input type="file" id="ggr_doc_registration" name="ggr_doc_registration" accept=".pdf,.jpg,.jpeg,.png">
+                                            <input type="file" id="ggr_doc_registration" name="ggr_doc_registration" accept=".pdf,.jpg,.jpeg,.png" <?php echo ( 'zakelijk' === $participation_profile && empty( $existing_documents['ggr_doc_registration'] ) ) ? 'required' : ''; ?>>
+                                            <?php $render_existing_doc( 'ggr_doc_registration' ); ?>
                                         </div>
                                         
                                         <div class="ggr-onboarding-field ggr-onboarding-field--file<?php echo ( 'zakelijk' === $participation_profile ) ? '' : ' is-hidden'; ?>" data-business-doc="true">
                                             <span class="ggr-onboarding-file-tag">Zakelijk</span>
                                             <label for="ggr_doc_ubo">Uittreksel UBO-register / aandeelhouderslijst *</label>
-                                            <input type="file" id="ggr_doc_ubo" name="ggr_doc_ubo" accept=".pdf,.jpg,.jpeg,.png">
+                                            <input type="file" id="ggr_doc_ubo" name="ggr_doc_ubo" accept=".pdf,.jpg,.jpeg,.png" <?php echo ( 'zakelijk' === $participation_profile && empty( $existing_documents['ggr_doc_ubo'] ) ) ? 'required' : ''; ?>>
+                                            <?php $render_existing_doc( 'ggr_doc_ubo' ); ?>
                                         </div>
 
                                         <div class="ggr-onboarding-field ggr-onboarding-field--file<?php echo ( 'zakelijk' === $participation_profile ) ? '' : ' is-hidden'; ?>" data-business-doc="true">
                                             <span class="ggr-onboarding-file-tag">Zakelijk</span>
                                             <label for="ggr_doc_share_register">Aandeelhoudersregister of overeenkomst (optioneel)</label>
                                             <input type="file" id="ggr_doc_share_register" name="ggr_doc_share_register" accept=".pdf,.jpg,.jpeg,.png">
+                                            <?php $render_existing_doc( 'ggr_doc_share_register' ); ?>                                            
                                         </div>
 
                                         <div class="ggr-onboarding-field ggr-onboarding-field--file">
                                             <span class="ggr-onboarding-file-tag">Aanvullend</span>
                                             <label for="ggr_doc_other">Overige documenten</label>
                                             <input type="file" id="ggr_doc_other" name="ggr_doc_other" accept=".pdf,.jpg,.jpeg,.png">
+                                            <?php $render_existing_doc( 'ggr_doc_other' ); ?>                                            
                                         </div>
                                     </div>
 
@@ -3475,20 +3503,29 @@ function ggr_onboarding_handle_collecting_files( $user_id ) {
     
     $participation_profile = get_user_meta( $user_id, 'ggr_participation_profile', true );
 
+    $existing_docs = array(
+        'ggr_doc_id'             => get_user_meta( $user_id, 'ggr_doc_id', true ),
+        'ggr_doc_funds'          => get_user_meta( $user_id, 'ggr_doc_funds', true ),
+        'ggr_doc_registration'   => get_user_meta( $user_id, 'ggr_doc_registration', true ),
+        'ggr_doc_ubo'            => get_user_meta( $user_id, 'ggr_doc_ubo', true ),
+        'ggr_doc_share_register' => get_user_meta( $user_id, 'ggr_doc_share_register', true ),
+        'ggr_doc_other'          => get_user_meta( $user_id, 'ggr_doc_other', true ),
+    );
+
     // Minimaal: identiteitsbewijs en herkomst middelen.
     $missing_required = array();
-    if ( empty( $_FILES['ggr_doc_id']['name'] ) ) {
+    if ( empty( $_FILES['ggr_doc_id']['name'] ) && empty( $existing_docs['ggr_doc_id'] ) ) {
         $missing_required[] = 'identiteitsbewijs';
     }
-    if ( empty( $_FILES['ggr_doc_funds']['name'] ) ) {
+    if ( empty( $_FILES['ggr_doc_funds']['name'] ) && empty( $existing_docs['ggr_doc_funds'] ) ) {
         $missing_required[] = 'bewijs van herkomst middelen';
     }
 
     if ( 'zakelijk' === $participation_profile ) {
-        if ( empty( $_FILES['ggr_doc_registration']['name'] ) ) {
+        if ( empty( $_FILES['ggr_doc_registration']['name'] ) && empty( $existing_docs['ggr_doc_registration'] ) ) {
             $missing_required[] = 'uittreksel Kamer van Koophandel';
         }
-        if ( empty( $_FILES['ggr_doc_ubo']['name'] ) ) {
+        if ( empty( $_FILES['ggr_doc_ubo']['name'] ) && empty( $existing_docs['ggr_doc_ubo'] ) ) {
             $missing_required[] = 'UBO-registratie of aandeelhouderslijst';
         }
     }
