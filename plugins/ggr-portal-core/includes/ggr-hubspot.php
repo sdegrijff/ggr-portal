@@ -122,6 +122,57 @@ function ggr_hubspot_request( $method, $endpoint, $body = array() ) {
 }
 
 /**
+ * Haal bestaande HubSpot properties op voor een object type en cache ze tijdelijk.
+ */
+function ggr_hubspot_get_known_properties( $object_type ) {
+    $cache_key = 'ggr_hubspot_known_properties_' . $object_type;
+    $cached    = get_transient( $cache_key );
+
+    if ( false !== $cached && is_array( $cached ) ) {
+        return $cached;
+    }
+
+    $response = ggr_hubspot_request( 'GET', '/crm/v3/properties/' . $object_type );
+
+    if ( is_wp_error( $response ) || empty( $response['results'] ) ) {
+        return array();
+    }
+
+    $properties = wp_list_pluck( $response['results'], 'name' );
+
+    set_transient( $cache_key, $properties, HOUR_IN_SECONDS );
+
+    return $properties;
+}
+
+/**
+ * Filter properties die niet bestaan in HubSpot om 400 fouten te voorkomen.
+ */
+function ggr_hubspot_filter_known_properties( $properties, $object_type ) {
+    if ( empty( $properties ) || ! is_array( $properties ) ) {
+        return $properties;
+    }
+
+    $known_properties = ggr_hubspot_get_known_properties( $object_type );
+
+    if ( empty( $known_properties ) ) {
+        return $properties;
+    }
+
+    $missing = array_diff( array_keys( $properties ), $known_properties );
+
+    if ( ! empty( $missing ) ) {
+        foreach ( $missing as $property_name ) {
+            unset( $properties[ $property_name ] );
+        }
+
+        error_log( 'HubSpot ' . $object_type . ' properties overgeslagen (niet gevonden): ' . implode( ', ', $missing ) );
+    }
+
+    return $properties;
+}
+
+/**
  * Contact ID opzoeken via e-mailadres
  */
 function ggr_hubspot_find_contact_id_by_email( $email ) {
@@ -204,6 +255,8 @@ function ggr_hubspot_upsert_contact( $user_id ) {
             return $value !== '' && $value !== null;
         }
     );
+
+    $properties = ggr_hubspot_filter_known_properties( $properties, 'contacts' );
 
     if ( $contact_id ) {
         $response = ggr_hubspot_request(
@@ -313,6 +366,8 @@ function ggr_hubspot_upsert_deal( $user_id, $contact_id, $status ) {
     $properties = array_filter(
         apply_filters( 'ggr_hubspot_deal_properties', $properties, $user_id, $status )
     );
+    
+    $properties = ggr_hubspot_filter_known_properties( $properties, 'deals' );
 
     if ( $deal_id ) {
 
@@ -419,6 +474,8 @@ function ggr_hubspot_sync_last_login( $user_id ) {
         ),
     );
 
+    $payload['properties'] = ggr_hubspot_filter_known_properties( $payload['properties'], 'contacts' );
+    
     $response = ggr_hubspot_request( 'PATCH', '/crm/v3/objects/contacts/' . $contact_id, $payload );
 
     if ( is_wp_error( $response ) ) {
