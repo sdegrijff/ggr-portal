@@ -1561,12 +1561,11 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
     $kyc_birth_date    = get_user_meta( $user->ID, 'ggr_kyc_birth_date', true );
     $kyc_birth_place   = get_user_meta( $user->ID, 'ggr_kyc_birth_place', true );
     $kyc_birth_country = get_user_meta( $user->ID, 'ggr_kyc_birth_country', true );
-    $kyc_nationality   = get_user_meta( $user->ID, 'ggr_kyc_nationality', true );
+    $kyc_country       = get_user_meta( $user->ID, 'ggr_kyc_country', true );
     $kyc_bsn           = get_user_meta( $user->ID, 'ggr_kyc_bsn', true );
     $kyc_id_expiry     = get_user_meta( $user->ID, 'ggr_kyc_id_expiry', true );
     $kyc_pep           = get_user_meta( $user->ID, 'ggr_kyc_pep', true );
     $kyc_us_person     = get_user_meta( $user->ID, 'ggr_kyc_us_person', true );
-    $origin_country    = get_user_meta( $user->ID, 'ggr_origin_country', true );
     $origin_sources    = get_user_meta( $user->ID, 'ggr_origin_sources', true );
     if ( ! is_array( $origin_sources ) ) {
         $origin_sources = array();
@@ -1765,9 +1764,9 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
                         </div>
 
                         <div class="ggr-admin-inline-field">
-                            <label for="ggr_p_country">Land</label>
-                            <input type="text" name="ggr_p_country" id="ggr_p_country"
-                                   value="<?php echo esc_attr( $p_country ); ?>" />
+                            <label for="ggr_kyc_country">Land</label>
+                            <input type="text" name="ggr_kyc_country" id="ggr_kyc_country"
+                                   value="<?php echo esc_attr( $kyc_country ? $kyc_country : $p_country ); ?>" />
                         </div>
                     </div>
 
@@ -1826,15 +1825,9 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
                         </div>
 
                         <div class="ggr-admin-inline-field">
-                            <label for="ggr_kyc_birth_country">Land</label>
+                            <label for="ggr_kyc_birth_country">Geboorteland</label>
                             <input type="text" name="ggr_kyc_birth_country" id="ggr_kyc_birth_country"
                                    value="<?php echo esc_attr( $kyc_birth_country ); ?>" />
-                        </div>
-
-                        <div class="ggr-admin-inline-field">
-                            <label for="ggr_kyc_nationality">Geboorteland</label>
-                            <input type="text" name="ggr_kyc_nationality" id="ggr_kyc_nationality"
-                                   value="<?php echo esc_attr( $kyc_nationality ); ?>" />
                         </div>
 
                         <div class="ggr-admin-inline-field">
@@ -1868,7 +1861,7 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
                         <div class="ggr-admin-inline-field">
                             <label for="ggr_origin_country">Land van herkomst</label>
                             <input type="text" name="ggr_origin_country" id="ggr_origin_country"
-                                   value="<?php echo esc_attr( $origin_country ); ?>" />
+                                   value="<?php echo esc_attr( $kyc_country ? $kyc_country : $p_country ); ?>" disabled />
                         </div>
 
                         <div class="ggr-admin-inline-field">
@@ -2107,7 +2100,7 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
         'ggr_kyc_birth_date',
         'ggr_kyc_birth_place',
         'ggr_kyc_birth_country',
-        'ggr_kyc_nationality',
+        'ggr_kyc_country',
         'ggr_kyc_address',
         'ggr_kyc_postcode',
         'ggr_kyc_city_country',
@@ -2128,7 +2121,7 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     update_user_meta( $user_id, 'address_street', $sanitize_text( 'ggr_kyc_address' ) );
     update_user_meta( $user_id, 'address_postcode', $sanitize_text( 'ggr_kyc_postcode' ) );
     update_user_meta( $user_id, 'address_city', $sanitize_text( 'ggr_kyc_city_country' ) );
-    update_user_meta( $user_id, 'address_country', $sanitize_text( 'ggr_kyc_birth_country' ) );
+    update_user_meta( $user_id, 'address_country', $sanitize_text( 'ggr_kyc_country' ) );
     update_user_meta( $user_id, 'bank_account_name', $sanitize_text( 'ggr_kyc_iban_name' ) );
     update_user_meta( $user_id, 'bank_account_iban', $sanitize_text( 'ggr_kyc_iban' ) );
 
@@ -2159,10 +2152,10 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
             'ggr_co_birth_date'  => 'ggr_co_birth_date',
             'ggr_co_birth_place' => 'ggr_co_birth_place',
             'ggr_co_birth_country' => 'ggr_co_birth_country',
-            'ggr_co_nationality' => 'ggr_co_nationality',
             'ggr_co_address'     => 'ggr_co_address',
             'ggr_co_postcode'    => 'ggr_co_postcode',
             'ggr_co_city_country'=> 'ggr_co_city_country',
+            'ggr_co_country'     => 'ggr_co_country',            
             'ggr_co_bsn'         => 'ggr_co_bsn',
             'ggr_co_pep'         => 'ggr_co_pep',
             'ggr_co_us_person'   => 'ggr_co_us_person',
@@ -2183,10 +2176,10 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
             'ggr_co_birth_date',
             'ggr_co_birth_place',
             'ggr_co_birth_country',
-            'ggr_co_nationality',
             'ggr_co_address',
             'ggr_co_postcode',
             'ggr_co_city_country',
+            'ggr_co_country',
             'ggr_co_bsn',
             'ggr_co_pep',
             'ggr_co_us_person',
@@ -2195,11 +2188,6 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
         foreach ( $co_clear_fields as $meta_key ) {
             update_user_meta( $user_id, $meta_key, '' );
         }
-    }
-
-    // Stap 4: herkomst
-    if ( isset( $_POST['ggr_origin_country'] ) ) {
-        update_user_meta( $user_id, 'ggr_origin_country', sanitize_text_field( wp_unslash( $_POST['ggr_origin_country'] ) ) );
     }
 
     $origin_sources = isset( $_POST['ggr_origin_sources'] ) ? (array) wp_unslash( $_POST['ggr_origin_sources'] ) : array();
@@ -2424,9 +2412,8 @@ function ggr_portal_render_participant_profile_page() {
     $kyc_address      = isset( $meta['ggr_kyc_address'][0] )      ? $meta['ggr_kyc_address'][0]      : $p_street;
     $kyc_postcode     = isset( $meta['ggr_kyc_postcode'][0] )     ? $meta['ggr_kyc_postcode'][0]     : $p_zip;
     $kyc_city_country = isset( $meta['ggr_kyc_city_country'][0] ) ? $meta['ggr_kyc_city_country'][0] : $p_city;
-    $kyc_birth_country= isset( $meta['ggr_kyc_birth_country'][0] )? $meta['ggr_kyc_birth_country'][0]: $p_country;
+    $kyc_country      = isset( $meta['ggr_kyc_country'][0] )      ? $meta['ggr_kyc_country'][0]      : $p_country;
     $kyc_birth_place  = isset( $meta['ggr_kyc_birth_place'][0] )  ? $meta['ggr_kyc_birth_place'][0]  : '';
-    $kyc_nationality  = isset( $meta['ggr_kyc_nationality'][0] )  ? $meta['ggr_kyc_nationality'][0]  : '';
     $kyc_bsn          = isset( $meta['ggr_kyc_bsn'][0] )          ? $meta['ggr_kyc_bsn'][0]          : '';
     $kyc_iban_name    = isset( $meta['ggr_kyc_iban_name'][0] )    ? $meta['ggr_kyc_iban_name'][0]    : $bank_name;
     $kyc_iban         = isset( $meta['ggr_kyc_iban'][0] )         ? $meta['ggr_kyc_iban'][0]         : $bank_iban;
@@ -2442,9 +2429,9 @@ function ggr_portal_render_participant_profile_page() {
     $co_address    = isset( $meta['ggr_co_address'][0] )    ? $meta['ggr_co_address'][0]    : '';
     $co_postcode   = isset( $meta['ggr_co_postcode'][0] )   ? $meta['ggr_co_postcode'][0]   : '';
     $co_city       = isset( $meta['ggr_co_city_country'][0] ) ? $meta['ggr_co_city_country'][0] : '';
-    $co_country    = isset( $meta['ggr_co_birth_country'][0] ) ? $meta['ggr_co_birth_country'][0] : '';
+    $co_country    = isset( $meta['ggr_co_country'][0] ) ? $meta['ggr_co_country'][0] : '';
+    $co_birth_country = isset( $meta['ggr_co_birth_country'][0] ) ? $meta['ggr_co_birth_country'][0] : '';
     $co_birth_place= isset( $meta['ggr_co_birth_place'][0] ) ? $meta['ggr_co_birth_place'][0] : '';
-    $co_nationality= isset( $meta['ggr_co_nationality'][0] ) ? $meta['ggr_co_nationality'][0] : '';
     $co_bsn        = isset( $meta['ggr_co_bsn'][0] ) ? $meta['ggr_co_bsn'][0] : '';
     $co_pep        = isset( $meta['ggr_co_pep'][0] ) ? $meta['ggr_co_pep'][0] : '';
     $co_us_person  = isset( $meta['ggr_co_us_person'][0] ) ? $meta['ggr_co_us_person'][0] : '';
@@ -2747,18 +2734,10 @@ function ggr_portal_render_participant_profile_page() {
                                     <input name="ggr_kyc_birth_place" id="ggr_kyc_birth_place" type="text" value="<?php echo esc_attr( $kyc_birth_place ); ?>" />
                                 </div>
                                 <div class="ggr-admin-inline-field">
-                                    <label for="ggr_kyc_birth_country">Land</label>
+                                    <label for="ggr_kyc_birth_country">Geboorteland</label>
                                     <select name="ggr_kyc_birth_country" id="ggr_kyc_birth_country">
                                         <?php foreach ( $countries as $country ) : ?>
                                             <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $kyc_birth_country, $country ); ?>><?php echo esc_html( $country ); ?></option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                                <div class="ggr-admin-inline-field">
-                                    <label for="ggr_kyc_nationality">Nationaliteit</label>
-                                    <select name="ggr_kyc_nationality" id="ggr_kyc_nationality">
-                                        <?php foreach ( $countries as $country ) : ?>
-                                            <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $kyc_nationality, $country ); ?>><?php echo esc_html( $country ); ?></option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
@@ -2773,6 +2752,14 @@ function ggr_portal_render_participant_profile_page() {
                                 <div class="ggr-admin-inline-field">
                                     <label for="ggr_kyc_city_country">Plaats</label>
                                     <input name="ggr_kyc_city_country" id="ggr_kyc_city_country" type="text" value="<?php echo esc_attr( $kyc_city_country ); ?>" />
+                                </div>
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_kyc_country">Land</label>
+                                    <select name="ggr_kyc_country" id="ggr_kyc_country">
+                                        <?php foreach ( $countries as $country ) : ?>
+                                            <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $kyc_country, $country ); ?>><?php echo esc_html( $country ); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
                                 </div>
                                 <div class="ggr-admin-inline-field">
                                     <label for="ggr_kyc_bsn">BSN</label>
@@ -2837,18 +2824,10 @@ function ggr_portal_render_participant_profile_page() {
                                     <input name="ggr_co_birth_place" id="ggr_co_birth_place" type="text" value="<?php echo esc_attr( $co_birth_place ); ?>" />
                                 </div>
                                 <div class="ggr-admin-inline-field">
-                                    <label for="ggr_co_birth_country">Land</label>
+                                    <label for="ggr_co_birth_country">Geboorteland</label>
                                     <select name="ggr_co_birth_country" id="ggr_co_birth_country">
                                         <?php foreach ( $countries as $country ) : ?>
-                                            <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $co_country, $country ); ?>><?php echo esc_html( $country ); ?></option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                                <div class="ggr-admin-inline-field">
-                                    <label for="ggr_co_nationality">Nationaliteit</label>
-                                    <select name="ggr_co_nationality" id="ggr_co_nationality">
-                                        <?php foreach ( $countries as $country ) : ?>
-                                            <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $co_nationality, $country ); ?>><?php echo esc_html( $country ); ?></option>
+                                            <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $co_birth_country, $country ); ?>><?php echo esc_html( $country ); ?></option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
@@ -2863,6 +2842,14 @@ function ggr_portal_render_participant_profile_page() {
                                 <div class="ggr-admin-inline-field">
                                     <label for="ggr_co_city_country">Plaats</label>
                                     <input name="ggr_co_city_country" id="ggr_co_city_country" type="text" value="<?php echo esc_attr( $co_city ); ?>" />
+                                </div>
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_co_country">Land</label>
+                                    <select name="ggr_co_country" id="ggr_co_country">
+                                        <?php foreach ( $countries as $country ) : ?>
+                                            <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $co_country, $country ); ?>><?php echo esc_html( $country ); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
                                 </div>
                                 <div class="ggr-admin-inline-field">
                                     <label for="ggr_co_bsn">BSN</label>
@@ -2903,12 +2890,8 @@ function ggr_portal_render_participant_profile_page() {
                     <td>
                         <?php if ( ! is_array( $origin_sources ) ) { $origin_sources = array(); } ?>                        
                         <div class="ggr-admin-inline-field">
-                            <label for="ggr_origin_country">Land van herkomst</label>
-                            <select name="ggr_origin_country" id="ggr_origin_country">
-                                <?php foreach ( $countries as $country ) : ?>
-                                    <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $origin_country, $country ); ?>><?php echo esc_html( $country ); ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                            <label>Land van herkomst</label>
+                            <p class="description"><?php echo esc_html( $kyc_country ); ?></p>
                         </div>
                         <div class="ggr-admin-inline-field">
                             <label>Bronnen</label>
