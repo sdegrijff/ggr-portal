@@ -359,6 +359,31 @@ function ggr_portal_send_templated_email( $template_key, $user_id, $extra_placeh
 }
 
 /**
+ * Notificatie wanneer een account de rol participant krijgt.
+ */
+add_action( 'set_user_role', 'ggr_portal_send_participant_activation_email', 10, 3 );
+function ggr_portal_send_participant_activation_email( $user_id, $role, $old_roles ) {
+    if ( 'participant' !== $role ) {
+        return;
+    }
+
+    if ( in_array( 'participant', (array) $old_roles, true ) ) {
+        return;
+    }
+
+    $dashboard_url = home_url( '/dashboard/' );
+
+    ggr_portal_send_templated_email(
+        'account_activated',
+        $user_id,
+        array(
+            'portal_link' => $dashboard_url,
+            'login_link'  => wp_login_url( $dashboard_url ),
+        )
+    );
+}
+
+/**
  * 7. Admin notice na test-e-mail
  */
 add_action( 'admin_notices', 'ggr_portal_email_template_test_notice' );
@@ -671,6 +696,3 @@ function ggr_portal_send_new_message_notification( $user_id, WP_Post $post ) {
         $extra_placeholders
     );
 }
-
-
-
