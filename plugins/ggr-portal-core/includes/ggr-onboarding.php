@@ -73,6 +73,10 @@ function ggr_onboarding_update_status( $user_id, $status ) {
 
     update_user_meta( $user_id, 'ggr_onboarding_status', $status );
     update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
+
+    if ( function_exists( 'ggr_hubspot_sync_user' ) ) {
+        ggr_hubspot_sync_user( $user_id, $status );
+    }
 }
 
 /**
@@ -1771,6 +1775,10 @@ function ggr_onboarding_handle_registration_submit() {
             $user_id,
             $extra_placeholders
         );
+    }
+
+    if ( function_exists( 'ggr_hubspot_sync_user' ) ) {
+        ggr_hubspot_sync_user( $user_id, 'register' );
     }
 
     return true;
