@@ -558,7 +558,7 @@ add_action( 'added_user_meta',   'ggr_hubspot_contact_meta_changed', 10, 4 );
 
 function ggr_hubspot_contact_meta_changed( $meta_id, $user_id, $meta_key, $meta_value ) {
 
-    // elke WP meta keys moeten een contact-sync triggeren?
+    // Standaard velden + alle ggr_* meta velden moeten een sync triggeren.
     $watched = array(
         'phone',
         'address_country',
@@ -574,10 +574,25 @@ function ggr_hubspot_contact_meta_changed( $meta_id, $user_id, $meta_key, $meta_
         'ggr_last_login_at',
     );
 
-    if ( ! in_array( $meta_key, $watched, true ) ) {
+    $is_ggr_field = strpos( $meta_key, 'ggr_' ) === 0;
+
+    if ( ! $is_ggr_field && ! in_array( $meta_key, $watched, true ) ) {
         return;
     }
 
+    ggr_hubspot_trigger_contact_sync( (int) $user_id );
+}
+
+add_action( 'profile_update', 'ggr_hubspot_user_profile_updated', 10, 2 );
+
+function ggr_hubspot_user_profile_updated( $user_id, $old_user_data ) {
+    ggr_hubspot_trigger_contact_sync( (int) $user_id );
+}
+
+/**
+ * Start een (gethrottelde) contact sync als HubSpot tokens aanwezig zijn.
+ */
+function ggr_hubspot_trigger_contact_sync( $user_id ) {
     if ( ! ggr_hubspot_get_private_token() ) {
         return;
     }
