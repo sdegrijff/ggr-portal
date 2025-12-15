@@ -193,8 +193,9 @@ function ggr_hubspot_upsert_contact( $user_id ) {
         'country'               => ggr_hubspot_get_contact_country( $user_id ),
         'account_type'          => get_user_meta( $user_id, 'ggr_account_type', true ),
         'investment_amount'     => get_user_meta( $user_id, 'ggr_participation_amount', true ),
-        'onboarding_status' => function_exists( 'onboarding_get_status' ) ? onboarding_get_status( $user_id ) : '',
-        'last_login_at'     => $last_login_g,
+        'onboarding_status'     => function_exists( 'onboarding_get_status' ) ? onboarding_get_status( $user_id ) : '',
+        'last_login_at'         => $last_login_g,
+        'date_of_birth'         => ggr_hubspot_get_birth_date( $user_id ),
     );
 
     $properties = array_filter(
@@ -245,6 +246,34 @@ function ggr_hubspot_get_contact_country( $user_id ) {
         if ( $value ) {
             return $value;
         }
+    }
+
+    return '';
+}
+
+/**
+ * Ophalen en normaliseren van geboortedatum voor HubSpot contacts.
+ */
+function ggr_hubspot_get_birth_date( $user_id ) {
+    $birth_fields = array(
+        'ggr_kyc_birth_date',
+        'birth_date',
+    );
+
+    foreach ( $birth_fields as $field ) {
+        $value = get_user_meta( $user_id, $field, true );
+
+        if ( ! $value ) {
+            continue;
+        }
+
+        $timestamp = strtotime( $value );
+
+        if ( $timestamp ) {
+            return gmdate( 'Y-m-d', $timestamp );
+        }
+
+        return $value;
     }
 
     return '';
@@ -475,12 +504,17 @@ function ggr_hubspot_contact_meta_changed( $meta_id, $user_id, $meta_key, $meta_
     // elke WP meta keys moeten een contact-sync triggeren?
     $watched = array(
         'phone',
-        'nationality',
-        'account_type',
-        'investment_amount',
+        'address_country',
+        'ggr_kyc_country',
+        'ggr_kyc_birth_country',
+        'ggr_nationality',
+        'ggr_account_type',
+        'ggr_participation_amount',
+        'ggr_kyc_birth_date',
+        'birth_date',
         'first_name',
         'last_name',
-        'last_login_at',
+        'ggr_last_login_at',
     );
 
     if ( ! in_array( $meta_key, $watched, true ) ) {
