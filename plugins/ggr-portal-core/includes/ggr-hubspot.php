@@ -178,8 +178,8 @@ function ggr_hubspot_filter_known_properties( $properties, $object_type ) {
 function ggr_hubspot_property_key( $object_type, $property_key ) {
     $defaults = array(
         'contacts' => array(
-            'last_login_at' => 'last_login_at',
-            'date_of_birth' => 'date_of_birth',
+            'last_login_at' => 'ggr_last_login_at',
+            'geboortedatum' => 'kyc_birth_date',
         ),
         'deals'    => array(
             'account_type' => 'account_type',
@@ -188,8 +188,8 @@ function ggr_hubspot_property_key( $object_type, $property_key ) {
 
     $mapping = array(
         'contacts' => array(
-            'last_login_at' => defined( 'GGR_HUBSPOT_CONTACT_LAST_LOGIN_PROPERTY' ) ? GGR_HUBSPOT_CONTACT_LAST_LOGIN_PROPERTY : $defaults['contacts']['last_login_at'],
-            'date_of_birth' => defined( 'GGR_HUBSPOT_CONTACT_BIRTH_DATE_PROPERTY' ) ? GGR_HUBSPOT_CONTACT_BIRTH_DATE_PROPERTY : $defaults['contacts']['date_of_birth'],
+            'ggr_last_login_at' => defined( 'GGR_HUBSPOT_CONTACT_LAST_LOGIN_PROPERTY' ) ? GGR_HUBSPOT_CONTACT_LAST_LOGIN_PROPERTY : $defaults['contacts']['last_login_at'],
+            'kyc_birth_date' => defined( 'GGR_HUBSPOT_CONTACT_BIRTH_DATE_PROPERTY' ) ? GGR_HUBSPOT_CONTACT_BIRTH_DATE_PROPERTY : $defaults['contacts']['geboortedatum'],
         ),
         'deals'    => array(
             'account_type' => defined( 'GGR_HUBSPOT_DEAL_ACCOUNT_TYPE_PROPERTY' ) ? GGR_HUBSPOT_DEAL_ACCOUNT_TYPE_PROPERTY : $defaults['deals']['account_type'],
@@ -277,7 +277,7 @@ function ggr_hubspot_upsert_contact( $user_id ) {
         'investment_amount'     => get_user_meta( $user_id, 'ggr_participation_amount', true ),
         'onboarding_status'     => function_exists( 'onboarding_get_status' ) ? onboarding_get_status( $user_id ) : '',
         ggr_hubspot_property_key( 'contacts', 'last_login_at' ) => $last_login,
-        ggr_hubspot_property_key( 'contacts', 'date_of_birth' ) => ggr_hubspot_get_birth_date( $user_id ),
+        ggr_hubspot_property_key( 'contacts', 'geboortedatum' ) => ggr_hubspot_get_birth_date( $user_id ),
     );
 
     $properties = array_filter(
@@ -662,4 +662,5 @@ function ggr_hubspot_trigger_contact_sync( $user_id ) {
     if ( is_wp_error( $contact_id ) ) {
         error_log( 'HubSpot contact sync (meta change) mislukt: ' . $contact_id->get_error_message() );
     }
+}
 }
