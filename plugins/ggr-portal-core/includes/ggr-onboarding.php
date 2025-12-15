@@ -2234,7 +2234,23 @@ function ggr_onboarding_dashboard_shortcode() {
                             <?php endif; ?>
                         <?php endif; ?>
 
-                        <?php if ( 'sign_contract' === $status ) : ?>
+                        <?php if ( 'validating' === $status ) : ?>
+                            <div class="ggr-onboarding-step-card">
+                                <div class="ggr-onboarding-step-text">
+                                    <h3 class="ggr-onboarding-step-heading">Documentatie controleren</h3>
+                                    <p class="ggr-onboarding-step-description">We hebben je documenten ontvangen. Hieronder vind je een overzicht van de ingevulde gegevens. We nemen contact op zodra de controle is afgerond.</p>
+                                </div>
+                                <div class="ggr-onboarding-summary">
+                                    <dl class="ggr-onboarding-summary-grid">
+                                        <?php foreach ( $contract_summary as $label => $value ) : ?>
+                                            <dt><?php echo esc_html( $label ); ?></dt>
+                                            <dd><?php echo esc_html( $value ); ?></dd>
+                                        <?php endforeach; ?>
+                                    </dl>
+                                </div>
+                                <p class="ggr-onboarding-muted" style="margin-top: 8px;">We controleren alle gegevens en laten het je weten zodra alles is goedgekeurd.</p>
+                            </div>
+                        <?php elseif ( 'sign_contract' === $status ) : ?>
                             <div class="ggr-onboarding-step-card">
                                 <div class="ggr-onboarding-step-text">
                                     <h3 class="ggr-onboarding-step-heading">Controleer je inschrijfformulier</h3>
