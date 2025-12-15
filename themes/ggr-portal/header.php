@@ -56,8 +56,8 @@ if ( function_exists( 'ggr_portal_is_onboarding_page' ) && ggr_portal_is_onboard
 
             <nav class="ggr-shell-nav ggr-shell-nav--primary">
                 <?php
-                $investeren_url    = home_url( '/investeren/' );
-                $investeren_active = ggr_is_page_slug( 'investeren' );
+                $investeren_url    = home_url( '/wijziging/' );
+                $investeren_active = ggr_is_page_slug( 'wijziging' ) || ggr_is_page_slug( 'investeren' );
                 ?>
                 <a href="<?php echo esc_url( $investeren_url ); ?>"
                    class="ggr-shell-nav-item ggr-shell-nav-item--cta <?php echo $investeren_active ? 'is-active' : ''; ?>"
@@ -65,7 +65,7 @@ if ( function_exists( 'ggr_portal_is_onboarding_page' ) && ggr_portal_is_onboard
                     <span class="ggr-shell-nav-icon">
                         <i class="ri-funds-box-line"></i>
                     </span>
-                    <span>Investeren</span>
+                    <span>Wijziging</span>
                 </a>
 
                 <?php
