@@ -1684,7 +1684,7 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
                             <label for="ggr_account_type">Account type</label>
                             <select name="ggr_account_type" id="ggr_account_type">
                                 <option value=""><?php esc_html_e( 'Maak een keuze', 'ggr-portal' ); ?></option>
-                                <option value="private" <?php selected( $account_type, 'private' ); ?>>Privé</option>
+                                <option value="private" <?php selected( $account_type, 'private' ); ?>>Particulier</option>
                                 <option value="business" <?php selected( $account_type, 'business' ); ?>>Zakelijk</option>
                             </select>
                         </div>
