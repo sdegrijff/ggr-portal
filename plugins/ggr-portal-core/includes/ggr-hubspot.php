@@ -1,0 +1,431 @@
+<?php
+/**
+ * HubSpot integratie voor GGR Portal
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+/**
+ * Ophalen van de HubSpot private app token
+ */
+function ggr_hubspot_get_private_token() {
+    if ( defined( 'GGR_HUBSPOT_PRIVATE_APP_TOKEN' ) && GGR_HUBSPOT_PRIVATE_APP_TOKEN ) {
+        return trim( GGR_HUBSPOT_PRIVATE_APP_TOKEN );
+    }
+
+    $token = get_option( 'ggr_hubspot_private_app_token' );
+
+    return is_string( $token ) ? trim( $token ) : '';
+}
+
+/**
+ * Ophalen van de onboarding pipeline ID
+ */
+function ggr_hubspot_get_pipeline_id() {
+    if ( defined( 'GGR_HUBSPOT_PIPELINE_ID' ) && GGR_HUBSPOT_PIPELINE_ID ) {
+        return trim( GGR_HUBSPOT_PIPELINE_ID );
+    }
+
+    $pipeline = get_option( 'ggr_hubspot_pipeline_id' );
+
+    return is_string( $pipeline ) ? trim( $pipeline ) : '';
+}
+
+/**
+ * Mapping van onboarding statuses naar HubSpot dealstages
+ */
+function ggr_hubspot_get_stage_mapping() {
+    $mapping = array(
+        'register'           => defined( 'GGR_HUBSPOT_STAGE_REGISTER' ) ? GGR_HUBSPOT_STAGE_REGISTER : '',
+        'confirmed'          => defined( 'GGR_HUBSPOT_STAGE_CONFIRMED' ) ? GGR_HUBSPOT_STAGE_CONFIRMED : '',
+        'collecting'         => defined( 'GGR_HUBSPOT_STAGE_COLLECTING' ) ? GGR_HUBSPOT_STAGE_COLLECTING : '',
+        'validating'         => defined( 'GGR_HUBSPOT_STAGE_VALIDATING' ) ? GGR_HUBSPOT_STAGE_VALIDATING : '',
+        'sign_contract'      => defined( 'GGR_HUBSPOT_STAGE_SIGN_CONTRACT' ) ? GGR_HUBSPOT_STAGE_SIGN_CONTRACT : '',
+        'transfer_completed' => defined( 'GGR_HUBSPOT_STAGE_TRANSFER_COMPLETED' ) ? GGR_HUBSPOT_STAGE_TRANSFER_COMPLETED : '',
+        'active_participant' => defined( 'GGR_HUBSPOT_STAGE_ACTIVE_PARTICIPANT' ) ? GGR_HUBSPOT_STAGE_ACTIVE_PARTICIPANT : '',
+    );
+
+    $option_mapping = get_option( 'ggr_hubspot_stage_mapping' );
+
+    if ( is_array( $option_mapping ) ) {
+        $mapping = array_merge( $mapping, $option_mapping );
+    }
+
+    return apply_filters( 'ggr_hubspot_stage_mapping', $mapping );
+}
+
+/**
+ * Ophalen van optionele webhook secret
+ */
+function ggr_hubspot_get_webhook_secret() {
+    if ( defined( 'GGR_HUBSPOT_WEBHOOK_SECRET' ) && GGR_HUBSPOT_WEBHOOK_SECRET ) {
+        return trim( GGR_HUBSPOT_WEBHOOK_SECRET );
+    }
+
+    $secret = get_option( 'ggr_hubspot_webhook_secret' );
+
+    return is_string( $secret ) ? trim( $secret ) : '';
+}
+
+/**
+ * Algemene helper om HubSpot requests te doen
+ */
+function ggr_hubspot_request( $method, $endpoint, $body = array() ) {
+    $token = ggr_hubspot_get_private_token();
+
+    if ( ! $token ) {
+        return new WP_Error( 'hubspot_missing_token', 'HubSpot token ontbreekt.' );
+    }
+
+    $url  = 'https://api.hubapi.com' . $endpoint;
+    $args = array(
+        'method'  => $method,
+        'timeout' => 20,
+        'headers' => array(
+            'Authorization' => 'Bearer ' . $token,
+            'Content-Type'  => 'application/json',
+        ),
+    );
+
+    if ( ! empty( $body ) ) {
+        $args['body'] = wp_json_encode( $body );
+    }
+
+    $response = wp_remote_request( $url, $args );
+
+    if ( is_wp_error( $response ) ) {
+        return $response;
+    }
+
+    $code = wp_remote_retrieve_response_code( $response );
+    $data = json_decode( wp_remote_retrieve_body( $response ), true );
+
+    if ( $code < 200 || $code >= 300 ) {
+        return new WP_Error(
+            'hubspot_http_error',
+            'HubSpot request mislukte.',
+            array(
+                'status' => $code,
+                'body'   => $data,
+            )
+        );
+    }
+
+    return $data ? $data : array();
+}
+
+/**
+ * Contact ID opzoeken via e-mailadres
+ */
+function ggr_hubspot_find_contact_id_by_email( $email ) {
+    if ( ! $email ) {
+        return 0;
+    }
+
+    $response = ggr_hubspot_request(
+        'POST',
+        '/crm/v3/objects/contacts/search',
+        array(
+            'filterGroups' => array(
+                array(
+                    'filters' => array(
+                        array(
+                            'propertyName' => 'email',
+                            'operator'     => 'EQ',
+                            'value'        => $email,
+                        ),
+                    ),
+                ),
+            ),
+            'limit' => 1,
+        )
+    );
+
+    if ( is_wp_error( $response ) ) {
+        return $response;
+    }
+
+    return ! empty( $response['results'][0]['id'] ) ? (int) $response['results'][0]['id'] : 0;
+}
+
+/**
+ * Contact upserten
+ */
+function ggr_hubspot_upsert_contact( $user_id ) {
+    $user = get_user_by( 'id', $user_id );
+
+    if ( ! $user ) {
+        return new WP_Error( 'invalid_user', 'Gebruiker niet gevonden.' );
+    }
+
+    $email = $user->user_email;
+
+    if ( ! $email ) {
+        return new WP_Error( 'missing_email', 'Gebruiker heeft geen e-mailadres.' );
+    }
+
+    $contact_id = get_user_meta( $user_id, 'ggr_hubspot_contact_id', true );
+
+    if ( ! $contact_id ) {
+        $contact_id = ggr_hubspot_find_contact_id_by_email( $email );
+
+        if ( is_wp_error( $contact_id ) ) {
+            return $contact_id;
+        }
+    }
+
+    $last_login   = get_user_meta( $user_id, 'ggr_last_login_at', true );
+    $last_login   = $last_login ? (int) $last_login : 0;
+    $last_login_g = $last_login ? gmdate( 'c', $last_login ) : '';
+
+    $properties = array(
+        'firstname'             => $user->first_name,
+        'lastname'              => $user->last_name,
+        'email'                 => $email,
+        'phone'                 => get_user_meta( $user_id, 'ggr_phone', true ),
+        'nationality'           => get_user_meta( $user_id, 'ggr_nationality', true ),
+        'account_type'          => get_user_meta( $user_id, 'ggr_account_type', true ),
+        'investment_amount'     => get_user_meta( $user_id, 'ggr_investment_amount', true ),
+        'ggr_onboarding_status' => function_exists( 'ggr_onboarding_get_status' ) ? ggr_onboarding_get_status( $user_id ) : '',
+        'ggr_last_login_at'     => $last_login_g,
+    );
+
+    $properties = array_filter(
+        apply_filters( 'ggr_hubspot_contact_properties', $properties, $user_id ),
+        function( $value ) {
+            return $value !== '' && $value !== null;
+        }
+    );
+
+    if ( $contact_id ) {
+        $response = ggr_hubspot_request(
+            'PATCH',
+            '/crm/v3/objects/contacts/' . $contact_id,
+            array( 'properties' => $properties )
+        );
+    } else {
+        $response = ggr_hubspot_request(
+            'POST',
+            '/crm/v3/objects/contacts',
+            array( 'properties' => $properties )
+        );
+
+        if ( ! is_wp_error( $response ) && ! empty( $response['id'] ) ) {
+            $contact_id = (int) $response['id'];
+            update_user_meta( $user_id, 'ggr_hubspot_contact_id', $contact_id );
+        }
+    }
+
+    if ( is_wp_error( $response ) ) {
+        return $response;
+    }
+
+    return $contact_id ? $contact_id : ( ! empty( $response['id'] ) ? (int) $response['id'] : 0 );
+}
+
+/**
+ * Deal upserten / dealstage bijwerken
+ */
+function ggr_hubspot_upsert_deal( $user_id, $contact_id, $status ) {
+    $pipeline = ggr_hubspot_get_pipeline_id();
+
+    if ( ! $pipeline ) {
+        return new WP_Error( 'missing_pipeline', 'HubSpot pipeline ID ontbreekt.' );
+    }
+
+    $stage_mapping = ggr_hubspot_get_stage_mapping();
+    $deal_stage    = isset( $stage_mapping[ $status ] ) ? $stage_mapping[ $status ] : '';
+
+    if ( ! $deal_stage ) {
+        return new WP_Error( 'missing_stage_mapping', 'Geen HubSpot stage mapping gevonden voor status ' . $status );
+    }
+
+    $deal_id = get_user_meta( $user_id, 'ggr_hubspot_deal_id', true );
+    $user    = get_user_by( 'id', $user_id );
+
+    $properties = array(
+        'dealname'             => $user ? $user->display_name : 'Nieuwe lead',
+        'pipeline'             => $pipeline,
+        'dealstage'            => $deal_stage,
+        'ggr_onboarding_stage' => $status,
+    );
+
+    $properties = array_filter(
+        apply_filters( 'ggr_hubspot_deal_properties', $properties, $user_id, $status ),
+        function( $value ) {
+            return $value !== '' && $value !== null;
+        }
+    );
+
+    if ( $deal_id ) {
+        $response = ggr_hubspot_request(
+            'PATCH',
+            '/crm/v3/objects/deals/' . $deal_id,
+            array( 'properties' => $properties )
+        );
+    } else {
+        $associations = array();
+
+        if ( $contact_id ) {
+            $associations[] = array(
+                'to'   => array( 'id' => $contact_id ),
+                'types' => array(
+                    array(
+                        'associationCategory' => 'HUBSPOT_DEFINED',
+                        'associationTypeId'   => 3, // Deal ↔ Contact
+                    ),
+                ),
+            );
+        }
+
+        $response = ggr_hubspot_request(
+            'POST',
+            '/crm/v3/objects/deals',
+            array(
+                'properties'   => $properties,
+                'associations' => $associations,
+            )
+        );
+
+        if ( ! is_wp_error( $response ) && ! empty( $response['id'] ) ) {
+            $deal_id = (int) $response['id'];
+            update_user_meta( $user_id, 'ggr_hubspot_deal_id', $deal_id );
+        }
+    }
+
+    if ( is_wp_error( $response ) ) {
+        return $response;
+    }
+
+    return $deal_id ? $deal_id : ( ! empty( $response['id'] ) ? (int) $response['id'] : 0 );
+}
+
+/**
+ * Volledige sync uitvoeren: contact + deal
+ */
+function ggr_hubspot_sync_user( $user_id, $status = null ) {
+    if ( ! ggr_hubspot_get_private_token() ) {
+        return;
+    }
+
+    $status = $status ? $status : ( function_exists( 'ggr_onboarding_get_status' ) ? ggr_onboarding_get_status( $user_id ) : '' );
+
+    $contact_id = ggr_hubspot_upsert_contact( $user_id );
+
+    if ( is_wp_error( $contact_id ) ) {
+        error_log( 'HubSpot contact sync mislukt: ' . $contact_id->get_error_message() );
+        return;
+    }
+
+    if ( $status ) {
+        $deal = ggr_hubspot_upsert_deal( $user_id, $contact_id, $status );
+
+        if ( is_wp_error( $deal ) ) {
+            error_log( 'HubSpot deal sync mislukt: ' . $deal->get_error_message() );
+        }
+    }
+}
+
+/**
+ * Alleen laatste login pushen (zonder stage bij te werken)
+ */
+function ggr_hubspot_sync_last_login( $user_id ) {
+    if ( ! ggr_hubspot_get_private_token() ) {
+        return;
+    }
+
+    $contact_id = get_user_meta( $user_id, 'ggr_hubspot_contact_id', true );
+
+    if ( ! $contact_id ) {
+        $contact_id = ggr_hubspot_upsert_contact( $user_id );
+
+        if ( is_wp_error( $contact_id ) || ! $contact_id ) {
+            error_log( 'HubSpot contact sync (login) mislukt.' );
+            return;
+        }
+    }
+
+    $last_login = get_user_meta( $user_id, 'ggr_last_login_at', true );
+    $payload    = array(
+        'properties' => apply_filters(
+            'ggr_hubspot_last_login_properties',
+            array(
+                'ggr_last_login_at' => $last_login ? gmdate( 'c', (int) $last_login ) : gmdate( 'c' ),
+            ),
+            $user_id
+        ),
+    );
+
+    $response = ggr_hubspot_request( 'PATCH', '/crm/v3/objects/contacts/' . $contact_id, $payload );
+
+    if ( is_wp_error( $response ) ) {
+        error_log( 'HubSpot last login sync mislukt: ' . $response->get_error_message() );
+    }
+}
+
+/**
+ * REST endpoint voor healthcheck of handmatige sync
+ */
+add_action( 'rest_api_init', function() {
+    register_rest_route(
+        'ggr-portal/v1',
+        '/hubspot-webhook',
+        array(
+            array(
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => function() {
+                    return array( 'status' => 'ok', 'timestamp' => current_time( 'mysql' ) );
+                },
+                'permission_callback' => '__return_true',
+            ),
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => 'ggr_hubspot_rest_sync',
+                'permission_callback' => 'ggr_hubspot_validate_rest_request',
+                'args'                => array(
+                    'user_id' => array(
+                        'validate_callback' => 'is_numeric',
+                        'required'          => false,
+                    ),
+                    'status'  => array(
+                        'required' => false,
+                    ),
+                ),
+            ),
+        )
+    );
+} );
+
+function ggr_hubspot_validate_rest_request( $request ) {
+    $secret = ggr_hubspot_get_webhook_secret();
+
+    if ( ! $secret ) {
+        return true;
+    }
+
+    $provided = $request->get_header( 'x-ggr-webhook-secret' );
+
+    if ( ! $provided ) {
+        $provided = $request->get_param( 'token' );
+    }
+
+    return hash_equals( $secret, (string) $provided );
+}
+
+function ggr_hubspot_rest_sync( WP_REST_Request $request ) {
+    $user_id = (int) $request->get_param( 'user_id' );
+    $status  = $request->get_param( 'status' );
+
+    if ( $user_id ) {
+        ggr_hubspot_sync_user( $user_id, $status );
+
+        return array(
+            'synced_user' => $user_id,
+            'status'      => $status ? $status : ( function_exists( 'ggr_onboarding_get_status' ) ? ggr_onboarding_get_status( $user_id ) : '' ),
+        );
+    }
+
+    return array( 'message' => 'Geen gebruiker-id opgegeven.' );
+}
