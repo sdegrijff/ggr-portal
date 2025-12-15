@@ -181,7 +181,7 @@ function ggr_hubspot_upsert_contact( $user_id ) {
         }
     }
 
-    $last_login   = get_user_meta( $user_id, 'last_login_at', true );
+    $last_login   = get_user_meta( $user_id, 'ggr_last_login_at', true );
     $last_login   = $last_login ? (int) $last_login : 0;
     $last_login_g = $last_login ? gmdate( 'c', $last_login ) : '';
 
@@ -190,9 +190,9 @@ function ggr_hubspot_upsert_contact( $user_id ) {
         'lastname'              => $user->last_name,
         'email'                 => $email,
         'phone'                 => get_user_meta( $user_id, 'phone', true ),
-        'country'               => get_user_meta( $user_id, 'nationality', true ),
-        'account_type'          => get_user_meta( $user_id, 'account_type', true ),
-        'investment_amount'     => get_user_meta( $user_id, 'investment_amount', true ),
+        'country'               => ggr_hubspot_get_contact_country( $user_id ),
+        'account_type'          => get_user_meta( $user_id, 'ggr_account_type', true ),
+        'investment_amount'     => get_user_meta( $user_id, 'ggr_participation_amount', true ),
         'onboarding_status' => function_exists( 'onboarding_get_status' ) ? onboarding_get_status( $user_id ) : '',
         'last_login_at'     => $last_login_g,
     );
@@ -231,6 +231,26 @@ function ggr_hubspot_upsert_contact( $user_id ) {
 }
 
 /**
+ * Bepaal het land voor HubSpot contact records.
+ */
+function ggr_hubspot_get_contact_country( $user_id ) {
+    $country_fields = array(
+        'address_country',
+        'ggr_kyc_country',
+        'ggr_kyc_birth_country',
+    );
+
+    foreach ( $country_fields as $field ) {
+        $value = get_user_meta( $user_id, $field, true );
+        if ( $value ) {
+            return $value;
+        }
+    }
+
+    return '';
+}
+
+/**
  * Deal upserten / dealstage bijwerken
  */
 function ggr_hubspot_upsert_deal( $user_id, $contact_id, $status ) {
@@ -256,7 +276,9 @@ function ggr_hubspot_upsert_deal( $user_id, $contact_id, $status ) {
     $properties = array(
         'dealname'  => $user ? $user->display_name : 'Nieuwe lead',
         'pipeline'  => $pipeline,
-        'dealstage' => $deal_stage, // ✅ native HubSpot stage
+        'dealstage' => $deal_stage, 
+        'amount'    => get_user_meta( $user_id, 'ggr_participation_amount', true ),
+        'account_type' => get_user_meta( $user_id, 'ggr_account_type', true ),
     );
 
     $properties = array_filter(
@@ -357,7 +379,7 @@ function ggr_hubspot_sync_last_login( $user_id ) {
         }
     }
 
-    $last_login = get_user_meta( $user_id, 'last_login_at', true );
+    $last_login = get_user_meta( $user_id, 'ggr_last_login_at', true );
     $payload    = array(
         'properties' => apply_filters(
             'ggr_hubspot_last_login_properties',
