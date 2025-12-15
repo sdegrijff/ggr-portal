@@ -28,7 +28,7 @@ if ( function_exists( 'ggr_portal_is_onboarding_page' ) && ggr_portal_is_onboard
                 // URLs
                 $dash_url       = home_url( '/dashboard/' );
                 $tx_url         = home_url( '/transacties/' );
-                $investeren_url = home_url( '/investeren/' );
+                $investeren_url = home_url( '/wijziging/' );
 
                 // Active states – gebruikt de helper uit header.php als die bestaat
                 $dash_active = function_exists( 'ggr_is_page_slug' ) ? ggr_is_page_slug( 'dashboard' ) : is_page( 'dashboard' );
