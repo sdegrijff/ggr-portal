@@ -43,7 +43,7 @@ function ggr_hubspot_get_stage_mapping() {
         'collecting'         => defined( 'GGR_HUBSPOT_STAGE_COLLECTING' ) ? GGR_HUBSPOT_STAGE_COLLECTING : '',
         'validating'         => defined( 'GGR_HUBSPOT_STAGE_VALIDATING' ) ? GGR_HUBSPOT_STAGE_VALIDATING : '',
         'sign_contract'      => defined( 'GGR_HUBSPOT_STAGE_SIGN_CONTRACT' ) ? GGR_HUBSPOT_STAGE_SIGN_CONTRACT : '',
-        'transfer_completed' => defined( 'GGR_HUBSPOT_STAGE_TRANSFER_COMPLETED' ) ? GGR_HUBSPOT_STAGE_TRANSFER_COMPLETED : '',
+        'transfer_funds' => defined( 'GGR_HUBSPOT_STAGE_TRANSFER_FUNDS' ) ? GGR_HUBSPOT_STAGE_TRANSFER_FUNDS : '',
         'active_participant' => defined( 'GGR_HUBSPOT_STAGE_ACTIVE_PARTICIPANT' ) ? GGR_HUBSPOT_STAGE_ACTIVE_PARTICIPANT : '',
     );
 
@@ -103,15 +103,20 @@ function ggr_hubspot_request( $method, $endpoint, $body = array() ) {
     $data = json_decode( wp_remote_retrieve_body( $response ), true );
 
     if ( $code < 200 || $code >= 300 ) {
+        $raw_body = wp_remote_retrieve_body( $response );
+    
         return new WP_Error(
             'hubspot_http_error',
             'HubSpot request mislukte.',
             array(
-                'status' => $code,
-                'body'   => $data,
+                'status'   => $code,
+                'endpoint' => $endpoint,
+                'method'   => $method,
+                'body'     => $data ? $data : $raw_body,
             )
         );
     }
+
 
     return $data ? $data : array();
 }
@@ -176,7 +181,7 @@ function ggr_hubspot_upsert_contact( $user_id ) {
         }
     }
 
-    $last_login   = get_user_meta( $user_id, 'ggr_last_login_at', true );
+    $last_login   = get_user_meta( $user_id, 'last_login_at', true );
     $last_login   = $last_login ? (int) $last_login : 0;
     $last_login_g = $last_login ? gmdate( 'c', $last_login ) : '';
 
@@ -184,12 +189,12 @@ function ggr_hubspot_upsert_contact( $user_id ) {
         'firstname'             => $user->first_name,
         'lastname'              => $user->last_name,
         'email'                 => $email,
-        'phone'                 => get_user_meta( $user_id, 'ggr_phone', true ),
-        'nationality'           => get_user_meta( $user_id, 'ggr_nationality', true ),
-        'account_type'          => get_user_meta( $user_id, 'ggr_account_type', true ),
-        'investment_amount'     => get_user_meta( $user_id, 'ggr_investment_amount', true ),
-        'ggr_onboarding_status' => function_exists( 'ggr_onboarding_get_status' ) ? ggr_onboarding_get_status( $user_id ) : '',
-        'ggr_last_login_at'     => $last_login_g,
+        'phone'                 => get_user_meta( $user_id, 'phone', true ),
+        'country'               => get_user_meta( $user_id, 'nationality', true ),
+        'account_type'          => get_user_meta( $user_id, 'account_type', true ),
+        'investment_amount'     => get_user_meta( $user_id, 'investment_amount', true ),
+        'onboarding_status' => function_exists( 'onboarding_get_status' ) ? onboarding_get_status( $user_id ) : '',
+        'last_login_at'     => $last_login_g,
     );
 
     $properties = array_filter(
@@ -239,38 +244,42 @@ function ggr_hubspot_upsert_deal( $user_id, $contact_id, $status ) {
     $deal_stage    = isset( $stage_mapping[ $status ] ) ? $stage_mapping[ $status ] : '';
 
     if ( ! $deal_stage ) {
-        return new WP_Error( 'missing_stage_mapping', 'Geen HubSpot stage mapping gevonden voor status ' . $status );
+        return new WP_Error(
+            'missing_stage_mapping',
+            'Geen HubSpot dealstage mapping voor status: ' . $status
+        );
     }
 
     $deal_id = get_user_meta( $user_id, 'ggr_hubspot_deal_id', true );
     $user    = get_user_by( 'id', $user_id );
 
     $properties = array(
-        'dealname'             => $user ? $user->display_name : 'Nieuwe lead',
-        'pipeline'             => $pipeline,
-        'dealstage'            => $deal_stage,
-        'ggr_onboarding_stage' => $status,
+        'dealname'  => $user ? $user->display_name : 'Nieuwe lead',
+        'pipeline'  => $pipeline,
+        'dealstage' => $deal_stage, // ✅ native HubSpot stage
     );
 
     $properties = array_filter(
-        apply_filters( 'ggr_hubspot_deal_properties', $properties, $user_id, $status ),
-        function( $value ) {
-            return $value !== '' && $value !== null;
-        }
+        apply_filters( 'ggr_hubspot_deal_properties', $properties, $user_id, $status )
     );
 
     if ( $deal_id ) {
+
+        // Update bestaande deal
         $response = ggr_hubspot_request(
             'PATCH',
             '/crm/v3/objects/deals/' . $deal_id,
             array( 'properties' => $properties )
         );
+
     } else {
+
+        // Nieuwe deal + associatie met contact
         $associations = array();
 
         if ( $contact_id ) {
             $associations[] = array(
-                'to'   => array( 'id' => $contact_id ),
+                'to' => array( 'id' => $contact_id ),
                 'types' => array(
                     array(
                         'associationCategory' => 'HUBSPOT_DEFINED',
@@ -290,8 +299,7 @@ function ggr_hubspot_upsert_deal( $user_id, $contact_id, $status ) {
         );
 
         if ( ! is_wp_error( $response ) && ! empty( $response['id'] ) ) {
-            $deal_id = (int) $response['id'];
-            update_user_meta( $user_id, 'ggr_hubspot_deal_id', $deal_id );
+            update_user_meta( $user_id, 'ggr_hubspot_deal_id', (int) $response['id'] );
         }
     }
 
@@ -299,7 +307,7 @@ function ggr_hubspot_upsert_deal( $user_id, $contact_id, $status ) {
         return $response;
     }
 
-    return $deal_id ? $deal_id : ( ! empty( $response['id'] ) ? (int) $response['id'] : 0 );
+    return ! empty( $response['id'] ) ? (int) $response['id'] : (int) $deal_id;
 }
 
 /**
@@ -310,7 +318,7 @@ function ggr_hubspot_sync_user( $user_id, $status = null ) {
         return;
     }
 
-    $status = $status ? $status : ( function_exists( 'ggr_onboarding_get_status' ) ? ggr_onboarding_get_status( $user_id ) : '' );
+    $status = $status ? $status : ( function_exists( 'onboarding_get_status' ) ? onboarding_get_status( $user_id ) : '' );
 
     $contact_id = ggr_hubspot_upsert_contact( $user_id );
 
@@ -324,6 +332,8 @@ function ggr_hubspot_sync_user( $user_id, $status = null ) {
 
         if ( is_wp_error( $deal ) ) {
             error_log( 'HubSpot deal sync mislukt: ' . $deal->get_error_message() );
+            error_log( 'HubSpot deal sync error data: ' . print_r( $deal->get_error_data(), true ) );
+
         }
     }
 }
@@ -347,12 +357,12 @@ function ggr_hubspot_sync_last_login( $user_id ) {
         }
     }
 
-    $last_login = get_user_meta( $user_id, 'ggr_last_login_at', true );
+    $last_login = get_user_meta( $user_id, 'last_login_at', true );
     $payload    = array(
         'properties' => apply_filters(
             'ggr_hubspot_last_login_properties',
             array(
-                'ggr_last_login_at' => $last_login ? gmdate( 'c', (int) $last_login ) : gmdate( 'c' ),
+                'last_login_at' => $last_login ? gmdate( 'c', (int) $last_login ) : gmdate( 'c' ),
             ),
             $user_id
         ),
@@ -386,8 +396,10 @@ add_action( 'rest_api_init', function() {
                 'permission_callback' => 'ggr_hubspot_validate_rest_request',
                 'args'                => array(
                     'user_id' => array(
-                        'validate_callback' => 'is_numeric',
                         'required'          => false,
+                        'validate_callback' => function( $value, $request, $param ) {
+                            return is_numeric( $value );
+                        },
                     ),
                     'status'  => array(
                         'required' => false,
@@ -423,9 +435,51 @@ function ggr_hubspot_rest_sync( WP_REST_Request $request ) {
 
         return array(
             'synced_user' => $user_id,
-            'status'      => $status ? $status : ( function_exists( 'ggr_onboarding_get_status' ) ? ggr_onboarding_get_status( $user_id ) : '' ),
+            'status'      => $status ? $status : ( function_exists( 'onboarding_get_status' ) ? onboarding_get_status( $user_id ) : '' ),
         );
     }
 
     return array( 'message' => 'Geen gebruiker-id opgegeven.' );
+}
+
+/**
+ * Trigger HubSpot contact sync bij wijzigingen in relevante user_meta velden.
+ */
+add_action( 'updated_user_meta', 'ggr_hubspot_contact_meta_changed', 10, 4 );
+add_action( 'added_user_meta',   'ggr_hubspot_contact_meta_changed', 10, 4 );
+
+function ggr_hubspot_contact_meta_changed( $meta_id, $user_id, $meta_key, $meta_value ) {
+
+    // elke WP meta keys moeten een contact-sync triggeren?
+    $watched = array(
+        'phone',
+        'nationality',
+        'account_type',
+        'investment_amount',
+        'first_name',
+        'last_name',
+        'last_login_at',
+    );
+
+    if ( ! in_array( $meta_key, $watched, true ) ) {
+        return;
+    }
+
+    if ( ! ggr_hubspot_get_private_token() ) {
+        return;
+    }
+
+    // Throttle per user om spam/rate limits te voorkomen
+    $lock_key = 'ggr_hubspot_contact_sync_lock_' . (int) $user_id;
+    if ( get_transient( $lock_key ) ) {
+        return;
+    }
+    set_transient( $lock_key, 1, 30 );
+
+    // Alleen contact updaten (geen dealstage nodig bij elke profielwijziging)
+    $contact_id = ggr_hubspot_upsert_contact( (int) $user_id );
+
+    if ( is_wp_error( $contact_id ) ) {
+        error_log( 'HubSpot contact sync (meta change) mislukt: ' . $contact_id->get_error_message() );
+    }
 }
