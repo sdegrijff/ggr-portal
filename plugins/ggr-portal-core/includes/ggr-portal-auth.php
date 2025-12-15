@@ -1337,6 +1337,10 @@ function ggr_portal_store_last_login( $user_login, $user ) {
     }
 
     update_user_meta( $user->ID, 'ggr_last_login_at', current_time( 'timestamp' ) );
+    
+    if ( function_exists( 'ggr_hubspot_sync_last_login' ) ) {
+        ggr_hubspot_sync_last_login( $user->ID );
+    }
 
     if ( function_exists( 'ggr_portal_log_participant_action' ) ) {
         $ip_address = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
