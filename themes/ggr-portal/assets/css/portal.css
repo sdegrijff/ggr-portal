@@ -327,6 +327,176 @@
     border: 1px solid #fecaca;
 }
 
+.ggrp-fe-alert--success {
+    background: #ecfdf3;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.ggrp-fe-subtitle {
+    margin: 0;
+    color: #6b7280;
+}
+
+.ggrp-fe-wijziging-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.ggrp-fe-wijziging-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.ggrp-fe-wijziging-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ggrp-fe-wijziging-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.ggrp-fe-kicker {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    margin: 0 0 2px;
+}
+
+.ggrp-fe-card-text {
+    margin: 6px 0 0;
+    color: #4b5563;
+}
+
+.ggrp-fe-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #f2f7f8;
+    font-size: 22px;
+}
+
+.ggrp-fe-form--stacked {
+    width: 100%;
+    margin-top: 4px;
+}
+
+.ggrp-fe-form-row--inline {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.ggrp-fe-radio {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    font-weight: 600;
+    color: #111827;
+}
+
+.ggrp-fe--help h1 {
+    margin: 0 0 6px;
+}
+
+.ggrp-fe-help-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.ggrp-fe-help-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ggrp-fe-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    text-decoration: none;
+    color: #111827;
+    background: #fff;
+    font-weight: 600;
+}
+
+.ggrp-fe-pill:hover {
+    background: #f9fafb;
+}
+
+.ggrp-fe-help-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+}
+
+.ggrp-fe-help-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ggrp-fe-contact-list {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0 0;
+    color: #4b5563;
+}
+
+.ggrp-fe-contact-list li {
+    margin-bottom: 6px;
+}
+
+.ggrp-fe-faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ggrp-fe-faq-item {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: #f9fafb;
+}
+
+.ggrp-fe-faq-item h3 {
+    margin: 0 0 6px;
+}
+
+.ggrp-fe-faq-body {
+    color: #4b5563;
+}
+
 /* === Transacties lay-out === */
 
 .ggrp-fe--transacties {
