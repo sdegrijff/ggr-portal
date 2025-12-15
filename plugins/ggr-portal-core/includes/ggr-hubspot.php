@@ -173,6 +173,39 @@ function ggr_hubspot_filter_known_properties( $properties, $object_type ) {
 }
 
 /**
+ * Haal de juiste HubSpot property key op, met ondersteuning voor overrides via constants en filters.
+ */
+function ggr_hubspot_property_key( $object_type, $property_key ) {
+    $defaults = array(
+        'contacts' => array(
+            'last_login_at' => 'last_login_at',
+            'date_of_birth' => 'date_of_birth',
+        ),
+        'deals'    => array(
+            'account_type' => 'account_type',
+        ),
+    );
+
+    $mapping = array(
+        'contacts' => array(
+            'last_login_at' => defined( 'GGR_HUBSPOT_CONTACT_LAST_LOGIN_PROPERTY' ) ? GGR_HUBSPOT_CONTACT_LAST_LOGIN_PROPERTY : $defaults['contacts']['last_login_at'],
+            'date_of_birth' => defined( 'GGR_HUBSPOT_CONTACT_BIRTH_DATE_PROPERTY' ) ? GGR_HUBSPOT_CONTACT_BIRTH_DATE_PROPERTY : $defaults['contacts']['date_of_birth'],
+        ),
+        'deals'    => array(
+            'account_type' => defined( 'GGR_HUBSPOT_DEAL_ACCOUNT_TYPE_PROPERTY' ) ? GGR_HUBSPOT_DEAL_ACCOUNT_TYPE_PROPERTY : $defaults['deals']['account_type'],
+        ),
+    );
+
+    $mapping = apply_filters( 'ggr_hubspot_property_mapping', $mapping, $object_type, $property_key );
+
+    if ( isset( $mapping[ $object_type ][ $property_key ] ) && $mapping[ $object_type ][ $property_key ] ) {
+        return $mapping[ $object_type ][ $property_key ];
+    }
+
+    return $property_key;
+}
+
+/**
  * Contact ID opzoeken via e-mailadres
  */
 function ggr_hubspot_find_contact_id_by_email( $email ) {
@@ -232,9 +265,7 @@ function ggr_hubspot_upsert_contact( $user_id ) {
         }
     }
 
-    $last_login   = get_user_meta( $user_id, 'ggr_last_login_at', true );
-    $last_login   = $last_login ? (int) $last_login : 0;
-    $last_login_g = $last_login ? gmdate( 'c', $last_login ) : '';
+    $last_login   = ggr_hubspot_get_last_login_display( get_user_meta( $user_id, 'ggr_last_login_at', true ) );
 
     $properties = array(
         'firstname'             => $user->first_name,
@@ -245,8 +276,8 @@ function ggr_hubspot_upsert_contact( $user_id ) {
         'account_type'          => get_user_meta( $user_id, 'ggr_account_type', true ),
         'investment_amount'     => get_user_meta( $user_id, 'ggr_participation_amount', true ),
         'onboarding_status'     => function_exists( 'onboarding_get_status' ) ? onboarding_get_status( $user_id ) : '',
-        'last_login_at'         => $last_login_g,
-        'date_of_birth'         => ggr_hubspot_get_birth_date( $user_id ),
+        ggr_hubspot_property_key( 'contacts', 'last_login_at' ) => $last_login,
+        ggr_hubspot_property_key( 'contacts', 'date_of_birth' ) => ggr_hubspot_get_birth_date( $user_id ),
     );
 
     $properties = array_filter(
@@ -323,13 +354,32 @@ function ggr_hubspot_get_birth_date( $user_id ) {
         $timestamp = strtotime( $value );
 
         if ( $timestamp ) {
-            return gmdate( 'Y-m-d', $timestamp );
+        if ( ! $timestamp ) {
+            continue;
         }
 
-        return $value;
+        // portal data formattere naar hubspot data oftewel DD-MM-YYYY (contact value).
+        return gmdate( 'd-m-Y', $timestamp );
     }
 
     return '';
+}
+
+/**
+ * Format last login als DD-MM-YYYY HH:MM voor HubSpot contact properties.
+ */
+function ggr_hubspot_get_last_login_display( $value ) {
+    if ( ! $value ) {
+        return '';
+    }
+
+    $timestamp = is_numeric( $value ) ? (int) $value : strtotime( $value );
+
+    if ( ! $timestamp ) {
+        return '';
+    }
+
+    return gmdate( 'd-m-Y H:i', $timestamp );
 }
 
 /**
@@ -358,7 +408,7 @@ function ggr_hubspot_upsert_deal( $user_id, $contact_id, $status ) {
     $properties = array(
         'dealname'  => $user ? $user->display_name : 'Nieuwe lead',
         'pipeline'  => $pipeline,
-        'dealstage' => $deal_stage, 
+        'dealstage' => $deal_stage,
         'amount'    => get_user_meta( $user_id, 'ggr_participation_amount', true ),
         'account_type' => get_user_meta( $user_id, 'ggr_account_type', true ),
     );
@@ -468,7 +518,9 @@ function ggr_hubspot_sync_last_login( $user_id ) {
         'properties' => apply_filters(
             'ggr_hubspot_last_login_properties',
             array(
-                'last_login_at' => $last_login ? gmdate( 'c', (int) $last_login ) : gmdate( 'c' ),
+                ggr_hubspot_property_key( 'contacts', 'last_login_at' ) => ggr_hubspot_get_last_login_display(
+                    $last_login ? $last_login : current_time( 'timestamp', true )
+                ),
             ),
             $user_id
         ),
