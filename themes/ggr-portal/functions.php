@@ -83,7 +83,8 @@ function ggr_portal_is_portal_page() {
         'mijn-portefeuille',
         'transacties',
         'berichten',
-        'mijn-account',
+        'help-vragen',
+        'wijziging',
         // etc...
     ];
 
