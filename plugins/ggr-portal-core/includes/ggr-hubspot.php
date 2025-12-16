@@ -369,7 +369,7 @@ function ggr_hubspot_get_birth_date( $user_id ) {
 }
 
 /**
- * Format last login als DD-MM-YYYY HH:MM voor HubSpot contact properties.
+ * Converteer laatste login naar een HubSpot datetime (milliseconden sinds epoch, UTC).
  */
 function ggr_hubspot_get_last_login_display( $value ) {
     if ( ! $value ) {
@@ -382,18 +382,16 @@ function ggr_hubspot_get_last_login_display( $value ) {
         return '';
     }
 
-    $timezone   = wp_timezone();
-    $datetime   = ( new DateTimeImmutable( '@' . $timestamp ) )->setTimezone( $timezone );
-    $offset     = $datetime->getOffset();
-    $offset_abs = abs( $offset );
-    $offset_str = sprintf(
-        'GMT%s%d%s',
-        $offset >= 0 ? '+' : '-',
-        floor( $offset_abs / HOUR_IN_SECONDS ),
-        $offset_abs % HOUR_IN_SECONDS ? sprintf( ':%02d', floor( $offset_abs % HOUR_IN_SECONDS / MINUTE_IN_SECONDS ) ) : ''
-    );
+    // Normaliseer naar seconden indien een millisecondestamp werd opgeslagen.
+    if ( $timestamp > 9999999999 ) {
+        $timestamp = (int) round( $timestamp / 1000 );
+    }
 
-    return $datetime->format( 'd-m-Y H:i' ) . ' ' . $offset_str;
+    $timezone       = wp_timezone();
+    $datetime_local = ( new DateTimeImmutable( '@' . $timestamp ) )->setTimezone( $timezone );
+    $utc_timestamp  = $datetime_local->getTimestamp() - $datetime_local->getOffset();
+
+    return $utc_timestamp * 1000;
 }
 
 /**
