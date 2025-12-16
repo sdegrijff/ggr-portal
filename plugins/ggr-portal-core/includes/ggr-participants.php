@@ -2460,6 +2460,10 @@ function ggr_portal_render_participant_profile_page() {
             return '';
         }
 
+        if ( function_exists( 'ggr_portal_format_datetime_nl' ) ) {
+            return ggr_portal_format_datetime_nl( $value );
+        }
+
         if ( function_exists( 'ggrp_fe_format_nl_datetime' ) ) {
             return ggrp_fe_format_nl_datetime( $value );
         }
@@ -2470,7 +2474,25 @@ function ggr_portal_render_participant_profile_page() {
             return '';
         }
 
-        return date_i18n( 'j F Y \o\m H:i', $timestamp );
+        return date_i18n( 'd-m-Y H:i', $timestamp );
+    };
+
+    $format_date_only = function( $value ) use ( $format_datetime ) {
+        if ( ! $value ) {
+            return '';
+        }
+
+        if ( function_exists( 'ggr_portal_format_date_nl' ) ) {
+            return ggr_portal_format_date_nl( $value );
+        }
+
+        $timestamp = is_numeric( $value ) ? (int) $value : strtotime( $value );
+
+        if ( ! $timestamp ) {
+            return '';
+        }
+
+        return date_i18n( 'd-m-Y', $timestamp );
     };
 
     $onboarding_updated_label = $format_datetime( $onboarding_updated );
@@ -2559,6 +2581,11 @@ function ggr_portal_render_participant_profile_page() {
             .ggr-admin-doc-list li {
                 margin-bottom: 6px;
             }
+            .ggr-admin-top-actions {
+                display: flex;
+                justify-content: flex-end;
+                margin: 0 0 12px;
+            }
         </style>
 
         <!-- Snel wisselen -->
@@ -2605,8 +2632,10 @@ function ggr_portal_render_participant_profile_page() {
         <form method="post" class="ggr-participant-form">
             <?php wp_nonce_field( 'ggr_participant_profile_save', 'ggr_participant_profile_nonce' ); ?>
             <input type="hidden" name="ggr_participant_user_id" value="<?php echo (int) $user_id; ?>" />
-
-                        <h2 class="title">Overzicht</h2>
+            <div class="ggr-admin-top-actions">
+                <button type="submit" class="button button-primary">Wijzigingen opslaan</button>
+            </div>
+                        <h2 class="title">Overzicht</h2>           
             <table class="form-table" role="presentation">
                 <tr>
                     <th scope="row">Status & voorkeuren</th>
@@ -2992,9 +3021,8 @@ function ggr_portal_render_participant_profile_page() {
                             <p class="description">Gebruik dit veld voor een opgeslagen handtekening of referentie naar het ondertekende document.</p>
                         </div>
 
-                        <?php if ( $contract_signed_at ) : ?>
-                            <p class="ggr-admin-meta-note">Lead heeft de overeenkomst bevestigd op: <?php echo esc_html( $contract_signed_at ); ?>.</p>
-                        <?php endif; ?>
+                        <?php if ( $contract_signed_label ) : ?>
+                            <p class="ggr-admin-meta-note">Lead heeft de overeenkomst bevestigd op: <?php echo esc_html( $contract_signed_label ); ?>.</p>
                         <?php if ( $existing_signature_image = get_user_meta( $user_id, 'ggr_contract_signature', true ) ) : ?>
                             <p class="ggr-admin-meta-note">Opgeslagen handtekening van deelnemer:</p>
                             <img src="<?php echo esc_url( $existing_signature_image ); ?>" alt="Handtekening" style="max-width:320px; border:1px solid #e5e7eb; padding:6px; border-radius:4px; background:#fff;">
@@ -3014,16 +3042,19 @@ function ggr_portal_render_participant_profile_page() {
                         <label style="display:block; margin-bottom:8px;">
                             <input type="checkbox" name="ggr_payment_received" value="1" <?php checked( $payment_received, 1 ); ?> /> Betaling ontvangen en gecontroleerd
                         </label>
-                        <?php if ( $payment_confirmation_at ) : ?>
-                            <p class="ggr-admin-meta-note">Lead gaf aan betaald te hebben op: <?php echo esc_html( $payment_confirmation_at ); ?>.</p>
+                        <?php if ( $payment_confirmation_label ) : ?>
+                            <p class="ggr-admin-meta-note">Lead gaf aan betaald te hebben op: <?php echo esc_html( $payment_confirmation_label ); ?>.</p>
                         <?php endif; ?>                        
                         <div class="ggr-admin-inline-field">
                             <label for="ggr_first_trade_day">Eerste handelsdag</label>
                             <input type="date" id="ggr_first_trade_day" name="ggr_first_trade_day" value="<?php echo esc_attr( $first_trade_day ); ?>" />
                             <p class="description">Wordt gebruikt om de actieve startdatum van de participant vast te leggen.</p>
+                            <?php if ( $first_trade_day_label ) : ?>
+                                <p class="description">Weergave: <?php echo esc_html( $first_trade_day_label ); ?></p>
+                            <?php endif; ?>
                         </div>
-                        <?php if ( $payment_received_at ) : ?>
-                            <p class="ggr-admin-meta-note">Ontvangen gemarkeerd op: <?php echo esc_html( $payment_received_at ); ?>.</p>
+                        <?php if ( $payment_received_at_label ) : ?>
+                            <p class="ggr-admin-meta-note">Ontvangen gemarkeerd op: <?php echo esc_html( $payment_received_at_label ); ?>.</p>
                         <?php endif; ?>
                     </td>
                 </tr>
