@@ -38,7 +38,7 @@ if ( function_exists( 'ggr_portal_is_onboarding_page' ) && ggr_portal_is_onboard
             <div class="ggr-shell-logo">
                 <a href="<?php echo esc_url( home_url( '/dashboard/' ) ); ?>">
                     <img
-                        src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20MIF%20full%20logo%20-%20Blue%20-%20Black.png"
+                        src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20full%20logo%20-%20Blue%20-%20Black.png"
                         alt="GGR Income Fund"
                         class="ggr-logo-img"
                     />
