@@ -2796,26 +2796,23 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                 $memorandum_pdf_url  = ggr_onboarding_get_pdf_download_url( 'memorandum', $user_id );
                                 $eid_pdf_url         = ggr_onboarding_get_pdf_download_url( 'eid', $user_id );
                                 $disclaimer_pdf_url  = ggr_onboarding_get_pdf_download_url( 'disclaimer', $user_id );
-                                ?>                                
-                                <?php foreach ( $review_sections as $section ) : ?>
-                                    <div class="ggr-onboarding-summary">
-                                        <p class="ggr-onboarding-summary__title"><?php echo esc_html( $section['title'] ); ?></p>
-                                        <dl class="ggr-onboarding-summary-grid">
-                                            <?php foreach ( $section['items'] as $label => $value ) : ?>
-                                                <dt><?php echo esc_html( $label ); ?></dt>
-                                                <dd><?php echo esc_html( $value ); ?></dd>
-                                            <?php endforeach; ?>
-                                        </dl>
+                                ?>
+                                <?php if ( $application_pdf_url ) : ?>
+                                    <div class="ggr-onboarding-field">
+                                        <label>Inschrijfformulier</label>
+                                        <p class="ggr-onboarding-note">Bekijk het ingevulde inschrijfformulier direct hieronder. Dit is dezelfde PDF die je ontvangt na afronding van de onboarding.</p>
+                                        <div class="ggr-onboarding-pdf-preview" aria-label="Inschrijfformulier voorbeeld">
+                                            <iframe src="<?php echo esc_url( $application_pdf_url ); ?>" title="Inschrijfformulier" loading="lazy"></iframe>
+                                        </div>
+                                        <div class="ggr-onboarding-form-actions">
+                                            <a class="ggr-onboarding-button ggr-onboarding-button--ghost" href="<?php echo esc_url( $application_pdf_url ); ?>" target="_blank" rel="noopener noreferrer">
+                                                Download inschrijfformulier (PDF)
+                                            </a>
+                                        </div>
                                     </div>
-                                <?php endforeach; ?>
-                                
-                                <div class="ggr-onboarding-summary">
-                                    <p class="ggr-onboarding-summary__title">Download documenten</p>
-                                    <p class="ggr-onboarding-note">We hebben een ingevuld inschrijfformulier met lopende tekst voor je klaargezet. De onderstaande knoppen openen de documenten in een nieuw tabblad zodat je ze direct als PDF kunt bekijken.</p>
-                                    <div class="ggr-onboarding-form-actions-buttons">
-                                        <a class="ggr-onboarding-button ggr-onboarding-button--ghost" href="<?php echo esc_url( $application_pdf_url ); ?>" target="_blank" rel="noopener noreferrer">
-                                            Download inschrijfformulier (PDF)
-                                        </a>
+                                <?php endif; ?>
+                                <div class="ggr-onboarding-form-actions">
+                                    <p class="ggr-onboarding-note">Download en lees de documenten voor je tekent.</p>
                                     </div>
                                     <div class="ggr-onboarding-form-actions-buttons">
                                         <a class="ggr-onboarding-button ggr-onboarding-button--ghost" href="<?php echo esc_url( $memorandum_pdf_url ); ?>" target="_blank" rel="noopener noreferrer">
