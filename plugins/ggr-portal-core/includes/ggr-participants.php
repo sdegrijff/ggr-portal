@@ -1859,9 +1859,14 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
                         <h4>Herkomst middelen</h4>
 
                         <div class="ggr-admin-inline-field">
-                            <label for="ggr_origin_country">Land van herkomst</label>
-                            <input type="text" name="ggr_origin_country" id="ggr_origin_country"
-                                   value="<?php echo esc_attr( $kyc_country ? $kyc_country : $p_country ); ?>" disabled />
+                            <label for="ggr_origin_country_preview">Land van herkomst</label>
+                            <select id="ggr_origin_country_preview" disabled>
+                                <option value="" <?php selected( '', $origin_country ); ?>>Maak een keuze</option>
+                                <?php foreach ( $countries as $country ) : ?>
+                                    <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $origin_country, $country ); ?>><?php echo esc_html( $country ); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="description">Bepaal de waarde bij stap 4 hieronder.</p>
                         </div>
 
                         <div class="ggr-admin-inline-field">
@@ -1958,7 +1963,37 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
         update_user_meta( $user_id, 'ggr_account_type', $account_type );
     }
 
+    $co_field_map = array(
+        'ggr_co_first_name'    => 'co_first_name',
+        'ggr_co_last_name'     => 'co_last_name',
+        'ggr_co_email'         => 'co_email',
+        'ggr_co_phone'         => 'co_phone',
+        'ggr_co_birth_date'    => 'ggr_co_birth_date',
+        'ggr_co_birth_place'   => 'ggr_co_birth_place',
+        'ggr_co_birth_country' => 'ggr_co_birth_country',
+        'ggr_co_address'       => 'ggr_co_address',
+        'ggr_co_postcode'      => 'ggr_co_postcode',
+        'ggr_co_city_country'  => 'ggr_co_city_country',
+        'ggr_co_country'       => 'ggr_co_country',
+        'ggr_co_bsn'           => 'ggr_co_bsn',
+        'ggr_co_pep'           => 'ggr_co_pep',
+        'ggr_co_us_person'     => 'ggr_co_us_person',
+    );
+
+    $co_values      = array();
+    $co_has_values  = false;
+    foreach ( $co_field_map as $form_key => $meta_key ) {
+        $value                  = isset( $_POST[ $form_key ] ) ? sanitize_text_field( wp_unslash( $_POST[ $form_key ] ) ) : '';
+        $co_values[ $meta_key ] = $value;
+        if ( '' !== $value ) {
+            $co_has_values = true;
+        }
+    }
+
     $has_co = isset( $_POST['ggr_has_co_participant'] ) ? sanitize_key( wp_unslash( $_POST['ggr_has_co_participant'] ) ) : 'nee';
+    if ( 'nee' === $has_co && $co_has_values ) {
+        $has_co = 'ja';
+    }    
     update_user_meta( $user_id, 'ggr_has_co_participant', $has_co );
 
     // Marketing opt-in
@@ -2158,48 +2193,11 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
 
     // Mede-participant
     if ( 'ja' === $has_co ) {
-        $co_fields = array(
-            'ggr_co_first_name'  => 'co_first_name',
-            'ggr_co_last_name'   => 'co_last_name',
-            'ggr_co_email'       => 'co_email',
-            'ggr_co_phone'       => 'co_phone',
-            'ggr_co_birth_date'  => 'ggr_co_birth_date',
-            'ggr_co_birth_place' => 'ggr_co_birth_place',
-            'ggr_co_birth_country' => 'ggr_co_birth_country',
-            'ggr_co_address'     => 'ggr_co_address',
-            'ggr_co_postcode'    => 'ggr_co_postcode',
-            'ggr_co_city_country'=> 'ggr_co_city_country',
-            'ggr_co_country'     => 'ggr_co_country',            
-            'ggr_co_bsn'         => 'ggr_co_bsn',
-            'ggr_co_pep'         => 'ggr_co_pep',
-            'ggr_co_us_person'   => 'ggr_co_us_person',
-        );
-
-        foreach ( $co_fields as $form_key => $meta_key ) {
-            if ( isset( $_POST[ $form_key ] ) ) {
-                $value = sanitize_text_field( wp_unslash( $_POST[ $form_key ] ) );
-                update_user_meta( $user_id, $meta_key, $value );
-            }
+        foreach ( $co_values as $meta_key => $value ) {
+            update_user_meta( $user_id, $meta_key, $value );
         }
     } else {
-        $co_clear_fields = array(
-            'co_first_name',
-            'co_last_name',
-            'co_email',
-            'co_phone',
-            'ggr_co_birth_date',
-            'ggr_co_birth_place',
-            'ggr_co_birth_country',
-            'ggr_co_address',
-            'ggr_co_postcode',
-            'ggr_co_city_country',
-            'ggr_co_country',
-            'ggr_co_bsn',
-            'ggr_co_pep',
-            'ggr_co_us_person',
-        );
-
-        foreach ( $co_clear_fields as $meta_key ) {
+        foreach ( array_keys( $co_values ) as $meta_key ) {
             update_user_meta( $user_id, $meta_key, '' );
         }
     }
@@ -2207,6 +2205,8 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     $origin_sources = isset( $_POST['ggr_origin_sources'] ) ? (array) wp_unslash( $_POST['ggr_origin_sources'] ) : array();
     $origin_sources = array_map( 'sanitize_key', $origin_sources );
     update_user_meta( $user_id, 'ggr_origin_sources', $origin_sources );
+    $origin_country = isset( $_POST['ggr_origin_country'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_origin_country'] ) ) : '';
+    update_user_meta( $user_id, 'ggr_origin_country', $origin_country );
     update_user_meta( $user_id, 'ggr_origin_notes', $sanitize_text( 'ggr_origin_notes' ) );
 
     // Taal
@@ -2456,6 +2456,7 @@ function ggr_portal_render_participant_profile_page() {
     if ( ! is_array( $origin_sources ) ) {
         $origin_sources = array();
     }
+    $origin_country = isset( $meta['ggr_origin_country'][0] ) ? $meta['ggr_origin_country'][0] : ( $kyc_country ? $kyc_country : $p_country );
     
     $profile_updated_raw = isset( $meta['ggr_profile_updated_at'][0] ) ? $meta['ggr_profile_updated_at'][0] : '';
     $last_login_raw      = isset( $meta['ggr_last_login_at'][0] )     ? $meta['ggr_last_login_at'][0]     : '';
@@ -2943,8 +2944,13 @@ function ggr_portal_render_participant_profile_page() {
                     <td>
                         <?php if ( ! is_array( $origin_sources ) ) { $origin_sources = array(); } ?>                        
                         <div class="ggr-admin-inline-field">
-                            <label>Land van herkomst</label>
-                            <p class="description"><?php echo esc_html( $kyc_country ); ?></p>
+                            <label for="ggr_origin_country">Land van herkomst</label>
+                            <select name="ggr_origin_country" id="ggr_origin_country">
+                                <option value="" <?php selected( '', $origin_country ); ?>>Maak een keuze</option>
+                                <?php foreach ( $countries as $country ) : ?>
+                                    <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $origin_country, $country ); ?>><?php echo esc_html( $country ); ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                         <div class="ggr-admin-inline-field">
                             <label>Bronnen</label>
