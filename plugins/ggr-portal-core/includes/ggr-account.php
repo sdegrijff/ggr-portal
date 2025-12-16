@@ -47,6 +47,14 @@ function ggrp_fe_handle_account_update() {
 
     $user_id = get_current_user_id();
     $section = sanitize_text_field( wp_unslash( $_POST['ggr_account_section'] ) );
+
+    $user           = get_userdata( $user_id );
+    $roles          = $user instanceof WP_User ? (array) $user->roles : array();
+    $can_edit_data  = in_array( 'lead', $roles, true ) || current_user_can( 'manage_options' );
+
+    if ( ! $can_edit_data && 'password' !== $section ) {
+        return;
+    }
     
     $before_snapshot = function_exists( 'ggr_portal_get_participant_audit_snapshot' )
         ? ggr_portal_get_participant_audit_snapshot( $user_id )
@@ -315,6 +323,9 @@ function ggrp_fe_account_shortcode( $atts ) {
 
     $laatste_datum = do_shortcode( '[ggr_latest_datum]' );
 
+    $roles            = (array) $data['user']->roles;
+    $can_edit_profile = in_array( 'lead', $roles, true ) || current_user_can( 'manage_options' );
+    
     $participant_name   = trim( $data['first_name'] . ' ' . $data['last_name'] );
     $co_participant_name = trim( $data['co_first_name'] . ' ' . $data['co_last_name'] );
 
@@ -330,8 +341,13 @@ function ggrp_fe_account_shortcode( $atts ) {
                     <?php endif; ?>
                     <?php if ( $data['last_login'] ) : ?>
                         <br />Laatste login: <?php echo esc_html( $data['last_login'] ); ?>
-                    <?php endif; ?>                   
+                    <?php endif; ?>              
                 </p>
+                <?php if ( ! $can_edit_profile ) : ?>
+                    <p class="ggrp-fe-subtitle ggrp-fe-subtitle--muted">
+                        De gegevens op deze pagina zijn ter inzage en kunnen niet worden aangepast.
+                    </p>
+                <?php endif; ?>
             </div>
         </header>
 
@@ -353,43 +369,47 @@ function ggrp_fe_account_shortcode( $atts ) {
                             <div><?php echo esc_html( $data['email'] ?: '-' ); ?></div>
                             <div><?php echo esc_html( $data['phone'] ?: '-' ); ?></div>
                         </div>
-                        <a href="#" class="ggrp-fe-account-row-edit">Edit</a>
+                        <?php if ( $can_edit_profile ) : ?>
+                            <a href="#" class="ggrp-fe-account-row-edit">Edit</a>
+                        <?php endif; ?>
                     </div>
 
                     <!-- Participant (form) -->
-                    <div class="ggrp-fe-account-row-form" data-section="participant_contact">
-                        <form method="post" class="ggrp-fe-account-form">
-                            <?php wp_nonce_field( 'ggr_account_update', 'ggr_account_nonce' ); ?>
-                            <input type="hidden" name="ggr_account_section" value="participant_contact" />
+                    <?php if ( $can_edit_profile ) : ?>
+                        <div class="ggrp-fe-account-row-form" data-section="participant_contact">
+                            <form method="post" class="ggrp-fe-account-form">
+                                <?php wp_nonce_field( 'ggr_account_update', 'ggr_account_nonce' ); ?>
+                                <input type="hidden" name="ggr_account_section" value="participant_contact" />
 
-                            <div class="ggrp-fe-account-label"> </div>
-                            <div class="ggrp-fe-account-form-fields">
-                                <div class="ggrp-fe-account-form-row">
-                                    <label>Voornaam</label>
-                                    <input type="text" name="first_name" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['first_name'] ); ?>" />
+                                <div class="ggrp-fe-account-label"> </div>
+                                <div class="ggrp-fe-account-form-fields">
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>Voornaam</label>
+                                        <input type="text" name="first_name" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['first_name'] ); ?>" />
+                                    </div>
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>Achternaam</label>
+                                        <input type="text" name="last_name" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['last_name'] ); ?>" />
+                                    </div>
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>E-mailadres</label>
+                                        <input type="email" name="email" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['email'] ); ?>" />
+                                    </div>
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>Telefoonnummer</label>
+                                        <input type="text" name="phone" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['phone'] ); ?>" />
+                                    </div>
                                 </div>
-                                <div class="ggrp-fe-account-form-row">
-                                    <label>Achternaam</label>
-                                    <input type="text" name="last_name" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['last_name'] ); ?>" />
-                                </div>
-                                <div class="ggrp-fe-account-form-row">
-                                    <label>E-mailadres</label>
-                                    <input type="email" name="email" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['email'] ); ?>" />
-                                </div>
-                                <div class="ggrp-fe-account-form-row">
-                                    <label>Telefoonnummer</label>
-                                    <input type="text" name="phone" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['phone'] ); ?>" />
-                                </div>
-                            </div>
 
-                            <div class="ggrp-fe-account-actions">
-                                <button type="submit" class="ggrp-fe-account-btn ggrp-fe-account-btn--primary">Opslaan</button>
-                                <button type="button" class="ggrp-fe-account-btn ggrp-fe-account-btn--ghost ggrp-fe-account-cancel">
-                                    Annuleren
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                                <div class="ggrp-fe-account-actions">
+                                    <button type="submit" class="ggrp-fe-account-btn ggrp-fe-account-btn--primary">Opslaan</button>
+                                    <button type="button" class="ggrp-fe-account-btn ggrp-fe-account-btn--ghost ggrp-fe-account-cancel">
+                                        Annuleren
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    <?php endif; ?>
 
                     <!-- Wachtwoord (view) -->
                     <div class="ggrp-fe-account-row" data-section="password">
@@ -480,47 +500,51 @@ function ggrp_fe_account_shortcode( $atts ) {
                             <div><?php echo esc_html( $data['co_email'] ?: '-' ); ?></div>
                             <div><?php echo esc_html( $data['co_phone'] ?: '-' ); ?></div>
                         </div>
-                        <a href="#" class="ggrp-fe-account-row-edit">Edit</a>
+                        <?php if ( $can_edit_profile ) : ?>
+                            <a href="#" class="ggrp-fe-account-row-edit">Edit</a>
+                        <?php endif; ?>
                     </div>
 
                     <!-- Mede-participant (form) -->
-                    <div class="ggrp-fe-account-row-form" data-section="co_contact">
-                        <form method="post" class="ggrp-fe-account-form">
-                            <?php wp_nonce_field( 'ggr_account_update', 'ggr_account_nonce' ); ?>
-                            <input type="hidden" name="ggr_account_section" value="co_contact" />
+                    <?php if ( $can_edit_profile ) : ?>
+                        <div class="ggrp-fe-account-row-form" data-section="co_contact">
+                            <form method="post" class="ggrp-fe-account-form">
+                                <?php wp_nonce_field( 'ggr_account_update', 'ggr_account_nonce' ); ?>
+                                <input type="hidden" name="ggr_account_section" value="co_contact" />
 
-                            <div class="ggrp-fe-account-label"> </div>
-                            <div class="ggrp-fe-account-form-fields">
-                                <div class="ggrp-fe-account-form-row">
-                                    <label>Voornaam</label>
-                                    <input type="text" name="co_first_name" class="ggrp-fe-account-input"
-                                           value="<?php echo esc_attr( $data['co_first_name'] ); ?>" />
+                                <div class="ggrp-fe-account-label"> </div>
+                                <div class="ggrp-fe-account-form-fields">
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>Voornaam</label>
+                                        <input type="text" name="co_first_name" class="ggrp-fe-account-input"
+                                               value="<?php echo esc_attr( $data['co_first_name'] ); ?>" />
+                                    </div>
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>Achternaam</label>
+                                        <input type="text" name="co_last_name" class="ggrp-fe-account-input"
+                                               value="<?php echo esc_attr( $data['co_last_name'] ); ?>" />
+                                    </div>
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>E-mailadres</label>
+                                        <input type="email" name="co_email" class="ggrp-fe-account-input"
+                                               value="<?php echo esc_attr( $data['co_email'] ); ?>" />
+                                    </div>
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>Telefoonnummer</label>
+                                        <input type="text" name="co_phone" class="ggrp-fe-account-input"
+                                               value="<?php echo esc_attr( $data['co_phone'] ); ?>" />
+                                    </div>
                                 </div>
-                                <div class="ggrp-fe-account-form-row">
-                                    <label>Achternaam</label>
-                                    <input type="text" name="co_last_name" class="ggrp-fe-account-input"
-                                           value="<?php echo esc_attr( $data['co_last_name'] ); ?>" />
-                                </div>
-                                <div class="ggrp-fe-account-form-row">
-                                    <label>E-mailadres</label>
-                                    <input type="email" name="co_email" class="ggrp-fe-account-input"
-                                           value="<?php echo esc_attr( $data['co_email'] ); ?>" />
-                                </div>
-                                <div class="ggrp-fe-account-form-row">
-                                    <label>Telefoonnummer</label>
-                                    <input type="text" name="co_phone" class="ggrp-fe-account-input"
-                                           value="<?php echo esc_attr( $data['co_phone'] ); ?>" />
-                                </div>
-                            </div>
 
-                            <div class="ggrp-fe-account-actions">
-                                <button type="submit" class="ggrp-fe-account-btn ggrp-fe-account-btn--primary">Opslaan</button>
-                                <button type="button" class="ggrp-fe-account-btn ggrp-fe-account-btn--ghost ggrp-fe-account-cancel">
-                                    Annuleren
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                                <div class="ggrp-fe-account-actions">
+                                    <button type="submit" class="ggrp-fe-account-btn ggrp-fe-account-btn--primary">Opslaan</button>
+                                    <button type="button" class="ggrp-fe-account-btn ggrp-fe-account-btn--ghost ggrp-fe-account-cancel">
+                                        Annuleren
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    <?php endif; ?>
 
                 </div>
             </article>
@@ -540,46 +564,51 @@ function ggrp_fe_account_shortcode( $atts ) {
                             <div><?php echo esc_html( $data['city'] ?: '-' ); ?></div>
                             <div><?php echo esc_html( $data['country'] ?: '-' ); ?></div>
                         </div>
-                        <a href="#" class="ggrp-fe-account-row-edit">Edit</a>
+                        <?php if ( $can_edit_profile ) : ?>
+                            <a href="#" class="ggrp-fe-account-row-edit">Edit</a>
+                        <?php endif; ?>
                     </div>
 
-                    <div class="ggrp-fe-account-row-form" data-section="address">
-                        <form method="post" class="ggrp-fe-account-form">
-                            <?php wp_nonce_field( 'ggr_account_update', 'ggr_account_nonce' ); ?>
-                            <input type="hidden" name="ggr_account_section" value="address" />
+                    <?php if ( $can_edit_profile ) : ?>
+                        <div class="ggrp-fe-account-row-form" data-section="address">
+                            <form method="post" class="ggrp-fe-account-form">
+                                <?php wp_nonce_field( 'ggr_account_update', 'ggr_account_nonce' ); ?>
+                                <input type="hidden" name="ggr_account_section" value="address" />
 
-                            <div class="ggrp-fe-account-label"> </div>
-                            <div class="ggrp-fe-account-form-fields">
-                                <div class="ggrp-fe-account-form-row">
-                                    <label>Straat + huisnummer</label>
-                                    <input type="text" name="address_street" class="ggrp-fe-account-input"
-                                           value="<?php echo esc_attr( $data['street'] ); ?>" />
+                                <div class="ggrp-fe-account-label"> </div>
+                                <div class="ggrp-fe-account-form-fields">
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>Straat + huisnummer</label>
+                                        <input type="text" name="address_street" class="ggrp-fe-account-input"
+                                               value="<?php echo esc_attr( $data['street'] ); ?>" />
+                                    </div>
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>Postcode</label>
+                                        <input type="text" name="address_postcode" class="ggrp-fe-account-input"
+                                               value="<?php echo esc_attr( $data['zip'] ); ?>" />
+                                    </div>
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>Plaats</label>
+                                        <input type="text" name="address_city" class="ggrp-fe-account-input"
+                                               value="<?php echo esc_attr( $data['city'] ); ?>" />
+                                    </div>
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>Land</label>
+                                        <input type="text" name="address_country" class="ggrp-fe-account-input"
+                                               value="<?php echo esc_attr( $data['country'] ); ?>" />
+                                    </div>
                                 </div>
-                                <div class="ggrp-fe-account-form-row">
-                                    <label>Postcode</label>
-                                    <input type="text" name="address_postcode" class="ggrp-fe-account-input"
-                                           value="<?php echo esc_attr( $data['zip'] ); ?>" />
-                                </div>
-                                <div class="ggrp-fe-account-form-row">
-                                    <label>Plaats</label>
-                                    <input type="text" name="address_city" class="ggrp-fe-account-input"
-                                           value="<?php echo esc_attr( $data['city'] ); ?>" />
-                                </div>
-                                <div class="ggrp-fe-account-form-row">
-                                    <label>Land</label>
-                                    <input type="text" name="address_country" class="ggrp-fe-account-input"
-                                           value="<?php echo esc_attr( $data['country'] ); ?>" />
-                                </div>
-                            </div>
 
-                            <div class="ggrp-fe-account-actions">
-                                <button type="submit" class="ggrp-fe-account-btn ggrp-fe-account-btn--primary">Opslaan</button>
-                                <button type="button" class="ggrp-fe-account-btn ggrp-fe-account-btn--ghost ggrp-fe-account-cancel">
-                                    Annuleren
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+
+                                <div class="ggrp-fe-account-actions">
+                                    <button type="submit" class="ggrp-fe-account-btn ggrp-fe-account-btn--primary">Opslaan</button>
+                                    <button type="button" class="ggrp-fe-account-btn ggrp-fe-account-btn--ghost ggrp-fe-account-cancel">
+                                        Annuleren
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </article>
 
@@ -596,36 +625,40 @@ function ggrp_fe_account_shortcode( $atts ) {
                             <div><?php echo esc_html( $data['bank_iban'] ?: '-' ); ?></div>
                             <div><?php echo esc_html( $data['bank_name'] ?: '-' ); ?></div>
                         </div>
-                        <a href="#" class="ggrp-fe-account-row-edit">Edit</a>
+                        <?php if ( $can_edit_profile ) : ?>
+                            <a href="#" class="ggrp-fe-account-row-edit">Edit</a>
+                        <?php endif; ?>
                     </div>
 
-                    <div class="ggrp-fe-account-row-form" data-section="bank">
-                        <form method="post" class="ggrp-fe-account-form">
-                            <?php wp_nonce_field( 'ggr_account_update', 'ggr_account_nonce' ); ?>
-                            <input type="hidden" name="ggr_account_section" value="bank" />
+                    <?php if ( $can_edit_profile ) : ?>
+                        <div class="ggrp-fe-account-row-form" data-section="bank">
+                            <form method="post" class="ggrp-fe-account-form">
+                                <?php wp_nonce_field( 'ggr_account_update', 'ggr_account_nonce' ); ?>
+                                <input type="hidden" name="ggr_account_section" value="bank" />
 
-                            <div class="ggrp-fe-account-label"> </div>
-                            <div class="ggrp-fe-account-form-fields">
-                                <div class="ggrp-fe-account-form-row">
-                                    <label>Rekeningnummer (IBAN)</label>
-                                    <input type="text" name="bank_account_iban" class="ggrp-fe-account-input"
-                                           value="<?php echo esc_attr( $data['bank_iban'] ); ?>" />
+                                <div class="ggrp-fe-account-label"> </div>
+                                <div class="ggrp-fe-account-form-fields">
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>Rekeningnummer (IBAN)</label>
+                                        <input type="text" name="bank_account_iban" class="ggrp-fe-account-input"
+                                               value="<?php echo esc_attr( $data['bank_iban'] ); ?>" />
+                                    </div>
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>Tenaamstelling rekening</label>
+                                        <input type="text" name="bank_account_name" class="ggrp-fe-account-input"
+                                               value="<?php echo esc_attr( $data['bank_name'] ); ?>" />
+                                    </div>
                                 </div>
-                                <div class="ggrp-fe-account-form-row">
-                                    <label>Tenaamstelling rekening</label>
-                                    <input type="text" name="bank_account_name" class="ggrp-fe-account-input"
-                                           value="<?php echo esc_attr( $data['bank_name'] ); ?>" />
-                                </div>
-                            </div>
 
-                            <div class="ggrp-fe-account-actions">
-                                <button type="submit" class="ggrp-fe-account-btn ggrp-fe-account-btn--primary">Opslaan</button>
-                                <button type="button" class="ggrp-fe-account-btn ggrp-fe-account-btn--ghost ggrp-fe-account-cancel">
-                                    Annuleren
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                                <div class="ggrp-fe-account-actions">
+                                    <button type="submit" class="ggrp-fe-account-btn ggrp-fe-account-btn--primary">Opslaan</button>
+                                    <button type="button" class="ggrp-fe-account-btn ggrp-fe-account-btn--ghost ggrp-fe-account-cancel">
+                                        Annuleren
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </article>
 
@@ -642,36 +675,40 @@ function ggrp_fe_account_shortcode( $atts ) {
                             <div><?php echo esc_html( $data['company_name'] ?: '-' ); ?></div>
                             <div><?php echo esc_html( $data['company_kvk'] ?: '-' ); ?></div>
                         </div>
-                        <a href="#" class="ggrp-fe-account-row-edit">Edit</a>
+                        <?php if ( $can_edit_profile ) : ?>
+                            <a href="#" class="ggrp-fe-account-row-edit">Edit</a>
+                        <?php endif; ?>
                     </div>
 
-                    <div class="ggrp-fe-account-row-form" data-section="company">
-                        <form method="post" class="ggrp-fe-account-form">
-                            <?php wp_nonce_field( 'ggr_account_update', 'ggr_account_nonce' ); ?>
-                            <input type="hidden" name="ggr_account_section" value="company" />
+                    <?php if ( $can_edit_profile ) : ?>
+                        <div class="ggrp-fe-account-row-form" data-section="company">
+                            <form method="post" class="ggrp-fe-account-form">
+                                <?php wp_nonce_field( 'ggr_account_update', 'ggr_account_nonce' ); ?>
+                                <input type="hidden" name="ggr_account_section" value="company" />
 
-                            <div class="ggrp-fe-account-label"> </div>
-                            <div class="ggrp-fe-account-form-fields">
-                                <div class="ggrp-fe-account-form-row">
-                                    <label>Bedrijfsnaam</label>
-                                    <input type="text" name="company_name" class="ggrp-fe-account-input"
-                                           value="<?php echo esc_attr( $data['company_name'] ); ?>" />
+                                <div class="ggrp-fe-account-label"> </div>
+                                <div class="ggrp-fe-account-form-fields">
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>Bedrijfsnaam</label>
+                                        <input type="text" name="company_name" class="ggrp-fe-account-input"
+                                               value="<?php echo esc_attr( $data['company_name'] ); ?>" />
+                                    </div>
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>KvK-nummer</label>
+                                        <input type="text" name="company_kvk" class="ggrp-fe-account-input"
+                                               value="<?php echo esc_attr( $data['company_kvk'] ); ?>" />
+                                    </div>
                                 </div>
-                                <div class="ggrp-fe-account-form-row">
-                                    <label>KvK-nummer</label>
-                                    <input type="text" name="company_kvk" class="ggrp-fe-account-input"
-                                           value="<?php echo esc_attr( $data['company_kvk'] ); ?>" />
-                                </div>
-                            </div>
 
-                            <div class="ggrp-fe-account-actions">
-                                <button type="submit" class="ggrp-fe-account-btn ggrp-fe-account-btn--primary">Opslaan</button>
-                                <button type="button" class="ggrp-fe-account-btn ggrp-fe-account-btn--ghost ggrp-fe-account-cancel">
-                                    Annuleren
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                                <div class="ggrp-fe-account-actions">
+                                    <button type="submit" class="ggrp-fe-account-btn ggrp-fe-account-btn--primary">Opslaan</button>
+                                    <button type="button" class="ggrp-fe-account-btn ggrp-fe-account-btn--ghost ggrp-fe-account-cancel">
+                                        Annuleren
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </article>
 
