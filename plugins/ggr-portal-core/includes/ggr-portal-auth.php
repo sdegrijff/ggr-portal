@@ -417,7 +417,7 @@ function ggr_login_form_shortcode() {
     <div class="ggr-login-header">
     <div class="ggr-login-header-left">
         <a href="/">
-            <img src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20MIF%20full%20logo%20-%20Blue%20-%20Black.png"
+            <img src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20full%20logo%20-%20Blue%20-%20Black.png"
                  alt="GGR Income Fund"
                  class="ggr-login-logo">
                  <style>
@@ -1149,6 +1149,10 @@ function ggr_2fa_form_shortcode() {
         $_SESSION['ggr_2fa_code_sent'] = true;
 
         ggr_portal_send_2fa_code_email( $user, $code );
+        $notice = 'We hebben een bevestigingscode naar je e-mailadres gestuurd.';
+    }
+
+    if ( ! $notice && ! empty( $_SESSION['ggr_2fa_code_sent'] ) ) {
         $notice = 'We hebben een bevestigingscode naar je e-mailadres gestuurd.';
     }
 
