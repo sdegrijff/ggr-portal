@@ -2792,7 +2792,8 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                     <p class="ggr-onboarding-step-description">De gegevens hieronder zijn overgenomen uit je onboarding. Controleer of alles klopt en bevestig je ondertekening.</p>
                                 </div>
                                 <?php
-                                $application_pdf_url = ggr_onboarding_get_pdf_download_url( 'application', $user_id );
+                                $application_pdf_url       = ggr_onboarding_get_pdf_download_url( 'application', $user_id );
+                                $application_pdf_embed_url = $application_pdf_url ? $application_pdf_url . '#navpanes=0&toolbar=0&statusbar=0&view=FitH' : '';
                                 $memorandum_pdf_url  = ggr_onboarding_get_pdf_download_url( 'memorandum', $user_id );
                                 $eid_pdf_url         = ggr_onboarding_get_pdf_download_url( 'eid', $user_id );
                                 $disclaimer_pdf_url  = ggr_onboarding_get_pdf_download_url( 'disclaimer', $user_id );
@@ -2802,7 +2803,7 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                         <label>Inschrijfformulier</label>
                                         <p class="ggr-onboarding-note">Bekijk het ingevulde inschrijfformulier direct hieronder. Dit is dezelfde PDF die je ontvangt na afronding van de onboarding.</p>
                                         <div class="ggr-onboarding-pdf-preview" aria-label="Inschrijfformulier voorbeeld">
-                                            <iframe src="<?php echo esc_url( $application_pdf_url ); ?>" title="Inschrijfformulier" loading="lazy"></iframe>
+                                            <iframe src="<?php echo esc_url( $application_pdf_embed_url ); ?>" title="Inschrijfformulier" loading="lazy"></iframe>
                                         </div>
                                         <div class="ggr-onboarding-form-actions">
                                             <a class="ggr-onboarding-button ggr-onboarding-button--ghost" href="<?php echo esc_url( $application_pdf_url ); ?>" target="_blank" rel="noopener noreferrer">
@@ -2878,12 +2879,12 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                         </div>
                                     <?php endif; ?>
                                     <div class="ggr-onboarding-field">
-                                        <label for="ggr_contract_signature_pad">Handtekening</label>
-                                        <p class="ggr-onboarding-note">Teken in het vlak of vul je naam in. Je handtekening wordt opgeslagen bij deze overeenkomst.</p>
                                         <?php if ( $existing_signature_image || $existing_signature_text ) : ?>
-                                            <p class="ggr-onboarding-note">Er staat al een handtekening in je dossier. We tonen de opgeslagen versie niet op deze pagina; teken opnieuw of vul je naam in om de bestaande handtekening te vervangen.</p>
                                         <?php endif; ?>                                        
                                         <div class="ggr-onboarding-signature">
+                                            <label for="ggr_contract_signature_pad">Handtekening</label>
+                                            <p class="ggr-onboarding-note">Teken in het vlak of vul je naam in. Je handtekening wordt opgeslagen bij deze overeenkomst.</p>
+                                            <p class="ggr-onboarding-note">Er staat al een handtekening in je dossier. We tonen de opgeslagen versie niet op deze pagina; teken opnieuw of vul je naam in om de bestaande handtekening te vervangen.</p>
                                             <canvas id="ggr_contract_signature_pad" class="ggr-onboarding-signature__pad" width="560" height="240"></canvas>
                                             <input type="hidden" name="ggr_contract_signature_data" id="ggr_contract_signature_data" value="">
                                             <div class="ggr-onboarding-signature__actions">
