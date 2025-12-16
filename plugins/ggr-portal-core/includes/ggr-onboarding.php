@@ -2332,15 +2332,11 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                         <label for="ggr_contract_signature_pad">Handtekening</label>
                                         <p class="ggr-onboarding-note">Teken in het vlak of vul je naam in. Je handtekening wordt opgeslagen bij deze overeenkomst.</p>
                                         <div class="ggr-onboarding-signature">
-                                            <canvas id="ggr_contract_signature_pad" width="560" height="240"></canvas>
+                                            <canvas id="ggr_contract_signature_pad" width="560" height="240" ></canvas>
                                             <input type="hidden" name="ggr_contract_signature_data" id="ggr_contract_signature_data" value="<?php echo esc_attr( $existing_signature_image ); ?>">
                                             <div class="ggr-onboarding-signature__actions">
                                                 <button type="button" class="ggr-onboarding-button ggr-onboarding-button--ghost" data-signature-clear>Wis handtekening</button>
                                             </div>
-                                        </div>
-                                        <div class="ggr-onboarding-field">
-                                            <label for="ggr_contract_signature_text">Naam als handtekening (fallback)</label>
-                                            <input type="text" id="ggr_contract_signature_text" name="ggr_contract_signature_text" value="<?php echo esc_attr( $existing_signature_text ); ?>" placeholder="Voornaam Achternaam">
                                         </div>
                                         <?php if ( $existing_signature_image ) : ?>
                                             <p class="ggr-onboarding-muted" style="margin-top:8px;">Bewaarde handtekening:</p>
