@@ -2422,6 +2422,7 @@ function ggr_portal_render_participant_profile_page() {
 
     $kyc_first_name   = isset( $meta['ggr_kyc_first_name'][0] )   ? $meta['ggr_kyc_first_name'][0]   : $first_name;
     $kyc_last_name    = isset( $meta['ggr_kyc_last_name'][0] )    ? $meta['ggr_kyc_last_name'][0]    : $last_name;
+    $kyc_phone        = isset( $meta['ggr_kyc_phone'][0] )        ? $meta['ggr_kyc_phone'][0]        : $phone;    
     $kyc_birth_date   = isset( $meta['ggr_kyc_birth_date'][0] )   ? $meta['ggr_kyc_birth_date'][0]   : '';
     $kyc_address      = isset( $meta['ggr_kyc_address'][0] )      ? $meta['ggr_kyc_address'][0]      : $p_street;
     $kyc_postcode     = isset( $meta['ggr_kyc_postcode'][0] )     ? $meta['ggr_kyc_postcode'][0]     : $p_zip;
@@ -2451,7 +2452,11 @@ function ggr_portal_render_participant_profile_page() {
     $co_us_person  = isset( $meta['ggr_co_us_person'][0] ) ? $meta['ggr_co_us_person'][0] : '';
 
     $origin_notes   = isset( $meta['ggr_origin_notes'][0] ) ? $meta['ggr_origin_notes'][0] : '';
-
+    $origin_sources = get_user_meta( $user_id, 'ggr_origin_sources', true );
+    if ( ! is_array( $origin_sources ) ) {
+        $origin_sources = array();
+    }
+    
     $profile_updated_raw = isset( $meta['ggr_profile_updated_at'][0] ) ? $meta['ggr_profile_updated_at'][0] : '';
     $last_login_raw      = isset( $meta['ggr_last_login_at'][0] )     ? $meta['ggr_last_login_at'][0]     : '';
 
@@ -2780,6 +2785,7 @@ function ggr_portal_render_participant_profile_page() {
                                 <div class="ggr-admin-inline-field">
                                     <label for="ggr_kyc_birth_country">Geboorteland</label>
                                     <select name="ggr_kyc_birth_country" id="ggr_kyc_birth_country">
+                                        <option value="" <?php selected( '', $kyc_birth_country ); ?>>Maak een keuze</option>                                        
                                         <?php foreach ( $countries as $country ) : ?>
                                             <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $kyc_birth_country, $country ); ?>><?php echo esc_html( $country ); ?></option>
                                         <?php endforeach; ?>
@@ -2800,6 +2806,7 @@ function ggr_portal_render_participant_profile_page() {
                                 <div class="ggr-admin-inline-field">
                                     <label for="ggr_kyc_country">Land</label>
                                     <select name="ggr_kyc_country" id="ggr_kyc_country">
+                                        <option value="" <?php selected( '', $kyc_country ); ?>>Maak een keuze</option>                                        
                                         <?php foreach ( $countries as $country ) : ?>
                                             <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $kyc_country, $country ); ?>><?php echo esc_html( $country ); ?></option>
                                         <?php endforeach; ?>
@@ -2870,6 +2877,7 @@ function ggr_portal_render_participant_profile_page() {
                                 <div class="ggr-admin-inline-field">
                                     <label for="ggr_co_birth_country">Geboorteland</label>
                                     <select name="ggr_co_birth_country" id="ggr_co_birth_country">
+                                        <option value="" <?php selected( '', $co_birth_country ); ?>>Maak een keuze</option>                                        
                                         <?php foreach ( $countries as $country ) : ?>
                                             <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $co_birth_country, $country ); ?>><?php echo esc_html( $country ); ?></option>
                                         <?php endforeach; ?>
@@ -2890,6 +2898,7 @@ function ggr_portal_render_participant_profile_page() {
                                 <div class="ggr-admin-inline-field">
                                     <label for="ggr_co_country">Land</label>
                                     <select name="ggr_co_country" id="ggr_co_country">
+                                        <option value="" <?php selected( '', $co_country ); ?>>Maak een keuze</option>                                        
                                         <?php foreach ( $countries as $country ) : ?>
                                             <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $co_country, $country ); ?>><?php echo esc_html( $country ); ?></option>
                                         <?php endforeach; ?>
