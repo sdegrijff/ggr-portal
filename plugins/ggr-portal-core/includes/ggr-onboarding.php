@@ -79,6 +79,30 @@ function ggr_onboarding_update_status( $user_id, $status ) {
     }
 }
 
+function ggr_onboarding_format_datetime_label( $value, $with_time = true ) {
+    if ( ! $value ) {
+        return '';
+    }
+
+    if ( function_exists( 'ggr_portal_format_datetime_nl' ) && $with_time ) {
+        return ggr_portal_format_datetime_nl( $value );
+    }
+
+    if ( function_exists( 'ggr_portal_format_date_nl' ) && ! $with_time ) {
+        return ggr_portal_format_date_nl( $value );
+    }
+
+    $timestamp = is_numeric( $value ) ? (int) $value : strtotime( $value );
+
+    if ( ! $timestamp ) {
+        return '';
+    }
+
+    return $with_time
+        ? date_i18n( 'd-m-Y H:i', $timestamp )
+        : date_i18n( 'd-m-Y', $timestamp );
+}
+
 /**
  * Admin-menu: Onboarding pagina
  */
@@ -191,6 +215,7 @@ function ggr_onboarding_render_table_view( $users, $stages ) {
             $status       = ggr_onboarding_get_status( $uid );
             $status_label = isset( $stages[ $status ] ) ? $stages[ $status ] : $status;
             $updated      = get_user_meta( $uid, 'ggr_onboarding_updated_at', true );
+            $updated_label = ggr_onboarding_format_datetime_label( $updated );
             $profile_url  = add_query_arg(
                 array(
                     'page'    => 'ggr-participant-profiel',
@@ -212,7 +237,7 @@ function ggr_onboarding_render_table_view( $users, $stages ) {
                     </a>
                 </td>
                 <td><?php echo esc_html( $status_label ); ?></td>
-                <td><?php echo $updated ? esc_html( $updated ) : '–'; ?></td>
+                <td><?php echo $updated_label ? esc_html( $updated_label ) : '–'; ?></td>
                 <td>
                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
                         <?php wp_nonce_field( 'ggr_onboarding_update', 'ggr_onboarding_nonce' ); ?>
@@ -365,6 +390,7 @@ function ggr_onboarding_render_board_view( $users, $stages ) {
                     <?php foreach ( $stage_users as $user ) :
                         $uid          = $user->ID;
                         $updated      = get_user_meta( $uid, 'ggr_onboarding_updated_at', true );
+                        $updated_label = ggr_onboarding_format_datetime_label( $updated );                        
                         $profile_url  = add_query_arg(
                             array(
                                 'page'    => 'ggr-participant-profiel',
@@ -391,7 +417,7 @@ function ggr_onboarding_render_board_view( $users, $stages ) {
                                     ID: <?php echo esc_html( $uid ); ?><br>
                                     Laatste wijziging:
                                     <span class="ggr-onboard-card-updated">
-                                        <?php echo $updated ? esc_html( $updated ) : '–'; ?>
+                                        <?php echo $updated_label ? esc_html( $updated_label ) : '–'; ?>
                                     </span>
                                 </div>
                             </div>
@@ -545,10 +571,11 @@ function ggr_onboarding_ajax_move_card() {
 
     ggr_onboarding_update_status( $user_id, $status );
     $updated = get_user_meta( $user_id, 'ggr_onboarding_updated_at', true );
+    $updated_label = ggr_onboarding_format_datetime_label( $updated );
 
     wp_send_json_success(
         array(
-            'updated_at' => $updated ? $updated : '',
+            'updated_at' => $updated_label ? $updated_label : '',
         )
     );
 }
@@ -609,6 +636,198 @@ function ggr_onboarding_split_name( $full_name ) {
     $last_name  = implode( ' ', $parts );
 
     return array( $first_name, $last_name );
+}
+
+function ggr_onboarding_get_origin_options() {
+    return array(
+        'salary'   => array(
+            'meta_key'    => 'ggr_origin_salary',
+            'label'       => 'Ik ben in loondienst',
+            'hint'        => 'Bijvoorbeeld werkgever en bruto jaarinkomen.',
+            'placeholder' => 'Vermeld werkgever en hoogte/jaarinkomen.',
+        ),
+        'business' => array(
+            'meta_key'    => 'ggr_origin_business',
+            'label'       => 'Ondernemingsactiviteiten',
+            'hint'        => 'Omschrijving van de onderneming en inkomsten.',
+            'placeholder' => 'Omschrijf de activiteit en ontvangen bedragen.',
+        ),
+        'rental'   => array(
+            'meta_key'    => 'ggr_origin_rental_dividend',
+            'label'       => 'Opbrengsten rente/dividend/huur',
+            'hint'        => 'Bijvoorbeeld huurinkomsten of dividenden.',
+            'placeholder' => 'Bijv. huurinkomsten uit vastgoed, dividend, rente.',
+        ),
+        'savings'  => array(
+            'meta_key'    => 'ggr_origin_savings',
+            'label'       => 'Vermogen, erfenis of pensioen/ontslagvergoeding',
+            'hint'        => 'Bijvoorbeeld vermogen of ontvangen uitkering.',
+            'placeholder' => 'Specificeer vermogen of ontvangen erfenis/uitkering.',
+        ),
+        'sale'     => array(
+            'meta_key'    => 'ggr_origin_sale',
+            'label'       => 'Opbrengst verkoop (bijv. vastgoed/aandelen)',
+            'hint'        => 'Noem het object en de verkoopopbrengst.',
+            'placeholder' => 'Noem het object en het verkoopbedrag.',
+        ),
+        'loan'     => array(
+            'meta_key'    => 'ggr_origin_loan',
+            'label'       => 'Ontvangen lening',
+            'hint'        => 'Geef de verstrekker en voorwaarden aan.',
+            'placeholder' => 'Geef de verstrekkende partij en voorwaarden aan.',
+        ),
+        'other'    => array(
+            'meta_key'    => 'ggr_origin_other',
+            'label'       => 'Andere herkomst',
+            'hint'        => 'Overige toelichting op de herkomst.',
+            'placeholder' => 'Vul in indien de herkomst anders is dan hierboven beschreven.',
+        ),
+    );
+}
+
+function ggr_onboarding_build_review_sections( $user_id, $user, $participation_profile, $amount_display ) {
+    $has_co = get_user_meta( $user_id, 'ggr_has_co_participant', true );
+    $has_co = $has_co ? $has_co : 'nee';
+
+    $user_name = function_exists( 'ggr_portal_get_nice_user_name' )
+        ? ggr_portal_get_nice_user_name( $user )
+        : trim( $user->first_name . ' ' . $user->last_name );
+
+    if ( ! $user_name ) {
+        $user_name = $user->display_name;
+    }
+
+    $boolean_label = function( $value, $empty_label = 'Niet opgegeven' ) {
+        if ( $value === '' || $value === null ) {
+            return $empty_label;
+        }
+
+        return ( 'ja' === $value ) ? 'Ja' : 'Nee';
+    };
+
+    $profile_label = 'Niet opgegeven';
+    if ( 'zakelijk' === $participation_profile ) {
+        $profile_label = 'Zakelijk';
+    } elseif ( 'prive' === $participation_profile ) {
+        $profile_label = 'Privé';
+    }
+
+    $sections = array(
+        array(
+            'title' => 'Inschrijving',
+            'items' => array(
+                'Naam'                 => $user_name,
+                'Investeringsbedrag'   => $amount_display ? $amount_display : '—',
+                'Participatieprofiel'  => $profile_label,
+                'Mede-participant'     => ( 'ja' === $has_co ) ? 'Ja' : ( 'nee' === $has_co ? 'Nee' : 'Niet opgegeven' ),
+            ),
+        ),
+    );
+
+    $kyc_birth_date   = get_user_meta( $user_id, 'ggr_kyc_birth_date', true );
+    $kyc_birth_place  = get_user_meta( $user_id, 'ggr_kyc_birth_place', true );
+    $kyc_birth_country= get_user_meta( $user_id, 'ggr_kyc_birth_country', true );
+    $kyc_nationality  = get_user_meta( $user_id, 'ggr_kyc_nationality', true );
+    $kyc_pep          = get_user_meta( $user_id, 'ggr_kyc_pep', true );
+    $kyc_us_person    = get_user_meta( $user_id, 'ggr_kyc_us_person', true );
+
+    $sections[] = array(
+        'title' => 'Persoonlijke gegevens',
+        'items' => array(
+            'Voornaam'     => get_user_meta( $user_id, 'ggr_kyc_first_name', true ) ?: '—',
+            'Achternaam'   => get_user_meta( $user_id, 'ggr_kyc_last_name', true ) ?: '—',
+            'Geboortedatum'=> ggr_onboarding_format_datetime_label( $kyc_birth_date, false ) ?: '—',
+            'Geboorteplaats' => $kyc_birth_place ? $kyc_birth_place : '—',
+            'Geboorteland' => $kyc_birth_country ? $kyc_birth_country : '—',
+            'Nationaliteit'=> $kyc_nationality ? $kyc_nationality : '—',
+            'PEP'          => $boolean_label( $kyc_pep ),
+            'US person'    => $boolean_label( $kyc_us_person ),
+        ),
+    );
+
+    $sections[] = array(
+        'title' => 'Adres & contact',
+        'items' => array(
+            'Adres'        => get_user_meta( $user_id, 'ggr_kyc_address', true ) ?: '—',
+            'Postcode'     => get_user_meta( $user_id, 'ggr_kyc_postcode', true ) ?: '—',
+            'Plaats'       => get_user_meta( $user_id, 'ggr_kyc_city_country', true ) ?: '—',
+            'Land'         => get_user_meta( $user_id, 'ggr_kyc_country', true ) ?: '—',
+            'Telefoon'     => get_user_meta( $user_id, 'ggr_kyc_phone', true ) ?: '—',
+            'E-mail'       => $user->user_email ? $user->user_email : '—',
+            'IBAN'         => get_user_meta( $user_id, 'ggr_kyc_iban', true ) ?: '—',
+            'Tenaamstelling IBAN' => get_user_meta( $user_id, 'ggr_kyc_iban_name', true ) ?: '—',
+        ),
+    );
+
+    if ( 'zakelijk' === $participation_profile ) {
+        $sections[] = array(
+            'title' => 'Zakelijke gegevens',
+            'items' => array(
+                'Bedrijfsnaam' => get_user_meta( $user_id, 'ggr_kyc_company', true ) ?: '—',
+                'KvK-nummer'   => get_user_meta( $user_id, 'ggr_kyc_kvk', true ) ?: '—',
+            ),
+        );
+    }
+
+    if ( 'ja' === $has_co ) {
+        $sections[] = array(
+            'title' => 'Mede-participant',
+            'items' => array(
+                'Voornaam'      => get_user_meta( $user_id, 'ggr_co_first_name', true ) ?: '—',
+                'Achternaam'    => get_user_meta( $user_id, 'ggr_co_last_name', true ) ?: '—',
+                'Geboortedatum' => ggr_onboarding_format_datetime_label( get_user_meta( $user_id, 'ggr_co_birth_date', true ), false ) ?: '—',
+                'Geboorteplaats'=> get_user_meta( $user_id, 'ggr_co_birth_place', true ) ?: '—',
+                'Geboorteland'  => get_user_meta( $user_id, 'ggr_co_birth_country', true ) ?: '—',
+                'Telefoon'      => get_user_meta( $user_id, 'ggr_co_phone', true ) ?: '—',
+                'BSN'           => get_user_meta( $user_id, 'ggr_co_bsn', true ) ?: '—',
+                'PEP'           => $boolean_label( get_user_meta( $user_id, 'ggr_co_pep', true ) ),
+                'US person'     => $boolean_label( get_user_meta( $user_id, 'ggr_co_us_person', true ) ),
+            ),
+        );
+    }
+
+    $origin_options = ggr_onboarding_get_origin_options();
+    $origin_sources = get_user_meta( $user_id, 'ggr_origin_sources', true );
+    if ( ! is_array( $origin_sources ) ) {
+        $origin_sources = array();
+    }
+    $origin_labels = array();
+    foreach ( $origin_sources as $source_key ) {
+        if ( isset( $origin_options[ $source_key ]['label'] ) ) {
+            $origin_labels[] = $origin_options[ $source_key ]['label'];
+        }
+    }
+
+    $origin_notes = get_user_meta( $user_id, 'ggr_origin_notes', true );
+    $sections[] = array(
+        'title' => 'Herkomst vermogen',
+        'items' => array(
+            'Land van herkomst' => get_user_meta( $user_id, 'ggr_origin_country', true ) ?: 'Nederland',
+            'Bronnen'           => $origin_labels ? implode( ', ', $origin_labels ) : 'Niet opgegeven',
+            'Toelichting'       => $origin_notes ? wp_strip_all_tags( $origin_notes ) : '—',
+        ),
+    );
+
+    $document_labels = array(
+        'ggr_doc_id'             => 'Identiteitsbewijs',
+        'ggr_doc_funds'          => 'Bewijs herkomst middelen',
+        'ggr_doc_registration'   => 'KVK-uittreksel',
+        'ggr_doc_ubo'            => 'UBO-register / aandeelhouderslijst',
+        'ggr_doc_share_register' => 'Aandeelhoudersregister / overeenkomst',
+        'ggr_doc_other'          => 'Overige documenten',
+    );
+
+    $doc_items = array();
+    foreach ( $document_labels as $meta_key => $label ) {
+        $doc_items[ $label ] = get_user_meta( $user_id, $meta_key, true ) ? 'Geüpload' : 'Nog niet aangeleverd';
+    }
+
+    $sections[] = array(
+        'title' => 'Documenten',
+        'items' => $doc_items,
+    );
+
+    return $sections;
 }
 
 /**
@@ -993,6 +1212,8 @@ function ggr_onboarding_register_shortcode() {
         return '<p>Je bent al ingelogd.</p>';
     }
 
+    $user_id = get_current_user_id();
+    
     $messages = array(
         'error'   => array(),
         'success' => '',
@@ -1433,12 +1654,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const initializeOnboardingToast = (onboardingToast) => {
-            if (onboardingToast.dataset.toastInitialized === 'true') {
+            if (!onboardingToast || onboardingToast.dataset.toastInitialized === 'true') {
                 return;
             }
 
             onboardingToast.dataset.toastInitialized = 'true';
-            console.log('Initializing onboarding toast', onboardingToast);
+            onboardingToast.classList.add('is-visible');
             let isHiding = false;
 
             const removeToast = () => {
@@ -1453,7 +1674,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
 
                 isHiding = true;
-                console.log('Hiding onboarding toast', onboardingToast);
                 onboardingToast.classList.remove('is-visible');
                 onboardingToast.addEventListener('transitionend', removeToast, { once: true });
                 window.setTimeout(removeToast, 500);
@@ -1462,15 +1682,23 @@ document.addEventListener('DOMContentLoaded', function () {
             const closeButton = onboardingToast.querySelector('[data-toast-close]')
                 || onboardingToast.querySelector('.ggr-onboarding-toast__close')
                 || onboardingToast.querySelector('.ggr-login-toast__close');
-            
-            onboardingToast.addEventListener('keydown', (event) => {
-                if (event.key === 'Escape') {
-                    hideToast();
+            const scheduleAutoHide = () => window.setTimeout(hideToast, 6000);
+            let hideTimer = scheduleAutoHide();
+
+            onboardingToast.addEventListener('mouseenter', () => {
+                if (hideTimer) {
+                    window.clearTimeout(hideTimer);
+                }
+            });
+
+            onboardingToast.addEventListener('mouseleave', () => {
+                if (!isHiding) {
+                    hideTimer = scheduleAutoHide();
                 }
             });
             
-            onboardingToast.addEventListener('click', (event) => {
-                if (event.target === onboardingToast) {
+            onboardingToast.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
                     hideToast();
                 }
             });
@@ -1482,7 +1710,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             }
 
-            window.setTimeout(hideToast, 5000);
+            onboardingToast.addEventListener('click', (event) => {
+                if (event.target === onboardingToast) {
+                    hideToast();
+                }
+            });
         };
 
         document.querySelectorAll('[data-ggr-onboarding-toast]').forEach(initializeOnboardingToast);
@@ -1810,8 +2042,18 @@ function ggr_onboarding_dashboard_shortcode() {
         : array();
     $status_label = isset( $stages[ $status ] ) ? $stages[ $status ] : ucfirst( $status );
 
-    $updated = get_user_meta( $user_id, 'ggr_onboarding_updated_at', true );
-    $participation_profile = get_user_meta( $user_id, 'ggr_participation_profile', true );
+    $updated                = get_user_meta( $user_id, 'ggr_onboarding_updated_at', true );
+    $participation_profile  = get_user_meta( $user_id, 'ggr_participation_profile', true );
+    $contract_signed_at      = get_user_meta( $user_id, 'ggr_contract_signed_at', true );
+    $payment_confirmation_at = get_user_meta( $user_id, 'ggr_payment_confirmation_at', true );
+    $first_trade_day         = get_user_meta( $user_id, 'ggr_first_trade_day', true );
+    $payment_received        = get_user_meta( $user_id, 'ggr_payment_received', true );
+    $payment_received_at     = get_user_meta( $user_id, 'ggr_payment_received_at', true );
+    $updated_label           = ggr_onboarding_format_datetime_label( $updated );
+    $contract_signed_label   = ggr_onboarding_format_datetime_label( $contract_signed_at );
+    $payment_confirmation_label = ggr_onboarding_format_datetime_label( $payment_confirmation_at );
+    $payment_received_at_label  = ggr_onboarding_format_datetime_label( $payment_received_at );
+    $first_trade_day_label      = ggr_onboarding_format_datetime_label( $first_trade_day, false );
     
     // Messages voor de collecting-flow.
     $messages = array(
@@ -1867,16 +2109,34 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
             $signature_saved = false;
             if ( $signature_data ) {
                 $signature_data = trim( (string) $signature_data );
-                if ( preg_match( '#^data:image/(png|jpe?g);base64,#i', $signature_data ) ) {
+                if ( preg_match( '#^data:image/(png|jpe?g);base64,#i', $signature_data, $matches ) ) {
                     $payload      = substr( $signature_data, strpos( $signature_data, ',' ) + 1 );
                     $binary_check = base64_decode( $payload, true );
                     if ( false === $binary_check ) {
                         $messages['error'][] = 'De handtekening kon niet worden gelezen. Probeer het opnieuw.';
-                    } elseif ( strlen( $payload ) > 2 * MB_IN_BYTES ) {
+                    } elseif ( strlen( $binary_check ) > 2 * MB_IN_BYTES ) {
                         $messages['error'][] = 'De handtekening is te groot. Wis de handtekening en probeer opnieuw te tekenen.';
                     } else {
-                        update_user_meta( $user_id, 'ggr_contract_signature', $signature_data );
-                        $signature_saved = true;
+                        require_once ABSPATH . 'wp-admin/includes/file.php';
+                        $extension = ( isset( $matches[1] ) && stripos( $matches[1], 'jp' ) !== false ) ? 'jpg' : 'png';
+                        $upload    = wp_upload_bits(
+                            sprintf( 'ggr-contract-signature-%d-%d.%s', $user_id, time(), $extension ),
+                            null,
+                            $binary_check
+                        );
+
+                        if ( ! $upload['error'] && ! empty( $upload['url'] ) && ! empty( $upload['file'] ) ) {
+                            $previous_signature = get_user_meta( $user_id, 'ggr_contract_signature_file', true );
+                            if ( $previous_signature && file_exists( $previous_signature ) ) {
+                                wp_delete_file( $previous_signature );
+                            }
+
+                            update_user_meta( $user_id, 'ggr_contract_signature', $upload['url'] );
+                            update_user_meta( $user_id, 'ggr_contract_signature_file', $upload['file'] );
+                            $signature_saved = true;
+                        } else {
+                            $messages['error'][] = 'De handtekening kon niet worden opgeslagen. Probeer het opnieuw.';
+                        }
                     }
                 } else {
                     $messages['error'][] = 'Ongeldig formaat voor de handtekening.';
@@ -1897,7 +2157,9 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                 $status_label = isset( $stages[ $status ] ) ? $stages[ $status ] : $status;
                 $updated      = current_time( 'mysql' );
                 update_user_meta( $user_id, 'ggr_onboarding_updated_at', $updated );
-
+                $updated_label = ggr_onboarding_format_datetime_label( $updated );
+                $contract_signed_label = ggr_onboarding_format_datetime_label( $contract_signed_at );
+                
                 if ( function_exists( 'ggr_meldingen_add' ) ) {
                     ggr_meldingen_add(
                         'Overeenkomst bevestigd',
@@ -1919,7 +2181,11 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
         } else {
             $payment_confirmation_at = current_time( 'mysql' );
             update_user_meta( $user_id, 'ggr_payment_confirmation_at', $payment_confirmation_at );
-
+            $payment_confirmation_label = ggr_onboarding_format_datetime_label( $payment_confirmation_at );
+            $updated = current_time( 'mysql' );
+            update_user_meta( $user_id, 'ggr_onboarding_updated_at', $updated );
+            $updated_label = ggr_onboarding_format_datetime_label( $updated );
+            
             if ( function_exists( 'ggr_meldingen_add' ) ) {
                 ggr_meldingen_add(
                     'Betaling bevestigd door lead',
@@ -1950,7 +2216,9 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                 $messages['success']     = 'Je verzoek om uitgifte van participaties is opgeslagen.';
                 $collecting_request_done = 1;
                 update_user_meta( $user_id, 'ggr_collecting_request_done', 1 );
-                update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
+                $updated = current_time( 'mysql' );
+                update_user_meta( $user_id, 'ggr_onboarding_updated_at', $updated );
+                $updated_label = ggr_onboarding_format_datetime_label( $updated );
                 $current_collecting_step = ( 'save' === $request_action ) ? 'request' : 'type';
             }
         }
@@ -1967,7 +2235,9 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                 $messages['success']     = 'Je keuze voor zakelijke of privé-participatie is opgeslagen.';
                 $collecting_type_done    = 1;
                 update_user_meta( $user_id, 'ggr_collecting_type_done', 1 );
-                update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
+                $updated = current_time( 'mysql' );
+                update_user_meta( $user_id, 'ggr_onboarding_updated_at', $updated );
+                $updated_label = ggr_onboarding_format_datetime_label( $updated );
                 $current_collecting_step = ( 'save' === $type_action ) ? 'type' : 'personal';
             }
         }
@@ -1985,7 +2255,9 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                 $collecting_personal_done = 1;
                 update_user_meta( $user_id, 'ggr_collecting_personal_done', 1 );
                 // Optioneel: timestamp bijwerken.
-                update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
+                $updated = current_time( 'mysql' );
+                update_user_meta( $user_id, 'ggr_onboarding_updated_at', $updated );
+                $updated_label = ggr_onboarding_format_datetime_label( $updated );
                 $current_collecting_step  = ( 'save' === $personal_action ) ? 'personal' : 'origin';
             }
         }
@@ -2002,7 +2274,9 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                 $messages['success']    = 'Je toelichting op de herkomst van het in te leggen bedrag is opgeslagen.';
                 $collecting_origin_done = 1;
                 update_user_meta( $user_id, 'ggr_collecting_origin_done', 1 );
-                update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
+                $updated = current_time( 'mysql' );
+                update_user_meta( $user_id, 'ggr_onboarding_updated_at', $updated );
+                $updated_label = ggr_onboarding_format_datetime_label( $updated );
                 $current_collecting_step = ( 'save' === $origin_action ) ? 'origin' : 'files';
             }
         }
@@ -2019,7 +2293,9 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                 $messages['success'] = ( 'submit' === $files_action )
                     ? 'Je documenten zijn opgeslagen.'
                     : 'Je documenten zijn ontvangen. Wij gaan hiermee aan de slag.';
-                update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
+                $updated = current_time( 'mysql' );
+                update_user_meta( $user_id, 'ggr_onboarding_updated_at', $updated );
+                $updated_label = ggr_onboarding_format_datetime_label( $updated );
                 $collecting_files_done  = 1;
                 update_user_meta( $user_id, 'ggr_collecting_files_done', 1 );
                 $current_collecting_step = 'files';
@@ -2074,23 +2350,8 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
 
  $amount_meta    = get_user_meta( $user_id, 'ggr_participation_amount', true );
     $amount_display = $amount_meta !== '' ? '€ ' . number_format( (float) $amount_meta, 0, ',', '.' ) : '—';
-    $address_parts  = array_filter(
-        array(
-            get_user_meta( $user_id, 'ggr_kyc_address', true ),
-            get_user_meta( $user_id, 'ggr_kyc_postcode', true ),
-            get_user_meta( $user_id, 'ggr_kyc_city_country', true ),
-        )
-    );
-
-    $contract_summary = array(
-        'Naam'                => ggr_portal_get_nice_user_name( $user ),
-        'E-mailadres'         => $user->user_email,
-        'Participatieprofiel' => ( 'zakelijk' === $participation_profile ) ? 'Zakelijk' : 'Privé',
-        'Gewenst bedrag'      => $amount_display,
-        'Adres'               => $address_parts ? implode( ', ', $address_parts ) : '—',
-        'IBAN'                => get_user_meta( $user_id, 'ggr_kyc_iban', true ) ?: '—',
-    );
-
+    $review_sections = ggr_onboarding_build_review_sections( $user_id, $user, $participation_profile, $amount_display );
+    
     $payment_details = apply_filters(
         'ggr_portal_investeren_payment_details',
         array(
@@ -2240,8 +2501,8 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                 <span class="ggr-onboarding-status-badge">
                                     Fase: <?php echo esc_html( $status_label ); ?>
                                 </span>
-                                <?php if ( $updated ) : ?>
-                                    <span class="ggr-onboarding-status-meta">Bijgewerkt: <?php echo esc_html( $updated ); ?></span>
+                                <?php if ( $updated_label ) : ?>
+                                    <span class="ggr-onboarding-status-meta">Bijgewerkt: <?php echo esc_html( $updated_label ); ?></span>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -2293,14 +2554,17 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                     <h3 class="ggr-onboarding-step-heading">Documentatie controleren</h3>
                                     <p class="ggr-onboarding-step-description">We hebben je documenten ontvangen. Hieronder vind je een overzicht van de ingevulde gegevens. We nemen contact op zodra de controle is afgerond.</p>
                                 </div>
-                                <div class="ggr-onboarding-summary">
-                                    <dl class="ggr-onboarding-summary-grid">
-                                        <?php foreach ( $contract_summary as $label => $value ) : ?>
-                                            <dt><?php echo esc_html( $label ); ?></dt>
-                                            <dd><?php echo esc_html( $value ); ?></dd>
-                                        <?php endforeach; ?>
-                                    </dl>
-                                </div>
+                                <?php foreach ( $review_sections as $section ) : ?>
+                                    <div class="ggr-onboarding-summary">
+                                        <p class="ggr-onboarding-summary__title"><?php echo esc_html( $section['title'] ); ?></p>
+                                        <dl class="ggr-onboarding-summary-grid">
+                                            <?php foreach ( $section['items'] as $label => $value ) : ?>
+                                                <dt><?php echo esc_html( $label ); ?></dt>
+                                                <dd><?php echo esc_html( $value ); ?></dd>
+                                            <?php endforeach; ?>
+                                        </dl>
+                                    </div>
+                                <?php endforeach; ?>
                                 <p class="ggr-onboarding-muted" style="margin-top: 8px;">We controleren alle gegevens en laten het je weten zodra alles is goedgekeurd.</p>
                             </div>
                         <?php elseif ( 'sign_contract' === $status ) : ?>
@@ -2309,14 +2573,17 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                     <h3 class="ggr-onboarding-step-heading">Controleer je inschrijfformulier</h3>
                                     <p class="ggr-onboarding-step-description">De gegevens hieronder zijn overgenomen uit je onboarding. Controleer of alles klopt en bevestig je ondertekening.</p>
                                 </div>
-                                <div class="ggr-onboarding-summary">
-                                    <dl class="ggr-onboarding-summary-grid">
-                                        <?php foreach ( $contract_summary as $label => $value ) : ?>
-                                            <dt><?php echo esc_html( $label ); ?></dt>
-                                            <dd><?php echo esc_html( $value ); ?></dd>
-                                        <?php endforeach; ?>
-                                    </dl>
-                                </div>
+                                <?php foreach ( $review_sections as $section ) : ?>
+                                    <div class="ggr-onboarding-summary">
+                                        <p class="ggr-onboarding-summary__title"><?php echo esc_html( $section['title'] ); ?></p>
+                                        <dl class="ggr-onboarding-summary-grid">
+                                            <?php foreach ( $section['items'] as $label => $value ) : ?>
+                                                <dt><?php echo esc_html( $label ); ?></dt>
+                                                <dd><?php echo esc_html( $value ); ?></dd>
+                                            <?php endforeach; ?>
+                                        </dl>
+                                    </div>
+                                <?php endforeach; ?>
                                 <form method="post" class="ggr-onboarding-form" data-ggr-contract-signing>
                                     <?php wp_nonce_field( 'ggr_sign_contract', 'ggr_sign_contract_nonce' ); ?>
                                     <?php if ( $contract_preview_url ) : ?>
@@ -2332,15 +2599,20 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                         <label for="ggr_contract_signature_pad">Handtekening</label>
                                         <p class="ggr-onboarding-note">Teken in het vlak of vul je naam in. Je handtekening wordt opgeslagen bij deze overeenkomst.</p>
                                         <div class="ggr-onboarding-signature">
-                                            <canvas id="ggr_contract_signature_pad" width="560" height="240" ></canvas>
+                                            <canvas id="ggr_contract_signature_pad" class="ggr-onboarding-signature__pad" width="560" height="240"></canvas>
                                             <input type="hidden" name="ggr_contract_signature_data" id="ggr_contract_signature_data" value="<?php echo esc_attr( $existing_signature_image ); ?>">
                                             <div class="ggr-onboarding-signature__actions">
                                                 <button type="button" class="ggr-onboarding-button ggr-onboarding-button--ghost" data-signature-clear>Wis handtekening</button>
                                             </div>
+                                            <label class="ggr-onboarding-field-label" for="ggr_contract_signature_text">Getypte handtekening (optioneel)</label>
+                                            <input type="text" id="ggr_contract_signature_text" name="ggr_contract_signature_text" value="<?php echo esc_attr( $existing_signature_text ); ?>" placeholder="Volledige naam zoals in de overeenkomst">
                                         </div>
                                         <?php if ( $existing_signature_image ) : ?>
                                             <p class="ggr-onboarding-muted" style="margin-top:8px;">Bewaarde handtekening:</p>
                                             <img src="<?php echo esc_url( $existing_signature_image ); ?>" alt="Bewaarde handtekening" style="max-width:100%; border:1px solid #e5e7eb; border-radius:4px; padding:8px; background:#fff;">
+                                        <?php endif; ?>
+                                        <?php if ( $existing_signature_text ) : ?>
+                                            <p class="ggr-onboarding-muted" style="margin-top:8px;">Getypte handtekening: <?php echo esc_html( $existing_signature_text ); ?></p>
                                         <?php endif; ?>
                                     </div>                                    
                                     <p class="ggr-onboarding-note">Met deze bevestiging ga je akkoord met de inhoud van de overeenkomst. Heb je een correctie? Neem contact op met het onboarding-team.</p>
@@ -2351,7 +2623,7 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                             <div class="ggr-onboarding-step-card">
                                 <div class="ggr-onboarding-step-text">
                                     <h3 class="ggr-onboarding-step-heading">Rond de betaling af</h3>
-                                    <p class="ggr-onboarding-step-description">Maak het overeengekomen bedrag over naar onze rekening. Zodra we de betaling hebben gecontroleerd, plannen we je startdatum in.</p>
+                                   <p class="ggr-onboarding-step-description">Maak het overeengekomen bedrag van <strong><?php echo esc_html( $amount_display ); ?></strong> over naar onze rekening. Zodra we de betaling hebben gecontroleerd, plannen we je startdatum in.</p>
                                 </div>
                                 <div class="ggr-onboarding-alert">
                                     <p><strong>Betaalinstructie:</strong> Maak over naar
@@ -2360,6 +2632,7 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                         Gebruik als omschrijving: <strong><?php echo esc_html( $payment_reference ); ?></strong>.
                                     </p>
                                     <ul class="ggr-onboarding-side-list" style="margin-top:8px;">
+                                        <li>Bedrag: <?php echo esc_html( $amount_display ); ?></li>
                                         <li>Rekeningnummer: <?php echo esc_html( $payment_details['iban'] ?? '—' ); ?></li>
                                         <li>Tenaamstelling: <?php echo esc_html( $payment_details['tenaam'] ?? '—' ); ?></li>
                                         <li>Transactie kenmerk: <?php echo esc_html( $payment_reference ); ?></li>
@@ -2368,13 +2641,15 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                 <form method="post" class="ggr-onboarding-form">
                                     <?php wp_nonce_field( 'ggr_payment_confirm', 'ggr_payment_confirm_nonce' ); ?>
                                     <button type="submit" name="ggr_payment_confirm" value="1" class="ggr-onboarding-button ggr-onboarding-button--primary">Ik heb het bedrag overgemaakt</button>
-                                    <?php if ( $payment_confirmation_at ) : ?>
-                                        <p class="ggr-onboarding-muted" style="margin-top:8px;">Laatste bevestiging: <?php echo esc_html( $payment_confirmation_at ); ?>.</p>
+                                    <?php if ( $payment_confirmation_label ) : ?>
+                                        <p class="ggr-onboarding-muted" style="margin-top:8px;">Laatste bevestiging: <?php echo esc_html( $payment_confirmation_label ); ?>.</p>
                                     <?php endif; ?>
-                                    <?php if ( $first_trade_day ) : ?>
-                                        <p class="ggr-onboarding-muted" style="margin-top:4px;">Geplande eerste handelsdag: <?php echo esc_html( $first_trade_day ); ?>.</p>
+                                    <?php if ( $first_trade_day_label ) : ?>
+                                        <p class="ggr-onboarding-muted" style="margin-top:4px;">Geplande eerste handelsdag: <?php echo esc_html( $first_trade_day_label ); ?>.</p>
                                     <?php elseif ( $payment_received ) : ?>
-                                        <p class="ggr-onboarding-muted" style="margin-top:4px;">Betaling ontvangen. De eerste handelsdag wordt binnenkort bevestigd.</p>
+                                        <p class="ggr-onboarding-muted" style="margin-top:4px;">
+                                            Betaling ontvangen<?php echo $payment_received_at_label ? ' op ' . esc_html( $payment_received_at_label ) : ''; ?>. De eerste handelsdag wordt binnenkort bevestigd.
+                                        </p>
                                     <?php endif; ?>
                                 </form>
                             </div>
@@ -2996,50 +3271,7 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                     ?>
                                     
                                     <?php
-                                    $origin_options = array(
-                                        'salary'   => array(
-                                            'meta_key'    => 'ggr_origin_salary',
-                                            'label'       => 'Ik ben in loondienst',
-                                            'hint'        => 'Bijvoorbeeld werkgever en bruto jaarinkomen.',
-                                            'placeholder' => 'Vermeld werkgever en hoogte/jaarinkomen.',
-                                        ),
-                                        'business' => array(
-                                            'meta_key'    => 'ggr_origin_business',
-                                            'label'       => 'Ondernemingsactiviteiten',
-                                            'hint'        => 'Omschrijving van de onderneming en inkomsten.',
-                                            'placeholder' => 'Omschrijf de activiteit en ontvangen bedragen.',
-                                        ),
-                                        'rental'   => array(
-                                            'meta_key'    => 'ggr_origin_rental_dividend',
-                                            'label'       => 'Opbrengsten rente/dividend/huur',
-                                            'hint'        => 'Bijvoorbeeld huurinkomsten of dividenden.',
-                                            'placeholder' => 'Bijv. huurinkomsten uit vastgoed, dividend, rente.',
-                                        ),
-                                        'savings'  => array(
-                                            'meta_key'    => 'ggr_origin_savings',
-                                            'label'       => 'Vermogen, erfenis of pensioen/ontslagvergoeding',
-                                            'hint'        => 'Bijvoorbeeld vermogen of ontvangen uitkering.',
-                                            'placeholder' => 'Specificeer vermogen of ontvangen erfenis/uitkering.',
-                                        ),
-                                        'sale'     => array(
-                                            'meta_key'    => 'ggr_origin_sale',
-                                            'label'       => 'Opbrengst verkoop (bijv. vastgoed/aandelen)',
-                                            'hint'        => 'Noem het object en de verkoopopbrengst.',
-                                            'placeholder' => 'Noem het object en het verkoopbedrag.',
-                                        ),
-                                        'loan'     => array(
-                                            'meta_key'    => 'ggr_origin_loan',
-                                            'label'       => 'Ontvangen lening',
-                                            'hint'        => 'Geef de verstrekker en voorwaarden aan.',
-                                            'placeholder' => 'Geef de verstrekkende partij en voorwaarden aan.',
-                                        ),
-                                        'other'    => array(
-                                            'meta_key'    => 'ggr_origin_other',
-                                            'label'       => 'Andere herkomst',
-                                            'hint'        => 'Overige toelichting op de herkomst.',
-                                            'placeholder' => 'Vul in indien de herkomst anders is dan hierboven beschreven.',
-                                        ),
-                                    );
+                                    $origin_options = ggr_onboarding_get_origin_options();
                                     ?>
 
                                     <div class="ggr-onboarding-field">
