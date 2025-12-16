@@ -420,6 +420,10 @@ body {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    border: 2px solid #cfd8e3;
+    border-radius: 12px;
+    padding: 14px;
+    background: #f8fafc;    
 }
 
 .ggr-onboarding-signature__pad {
@@ -439,6 +443,62 @@ body {
 
 .ggr-onboarding-signature input[type="text"] {
     width: 100%;
+}
+
+.ggr-onboarding-termsheet {
+    background: #ffffff;
+    border: 1px solid var(--ggr-border-soft);
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+    margin: 8px 0 20px;
+    aspect-ratio: 210 / 297;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ggr-onboarding-termsheet__header {
+    border-bottom: 1px solid var(--ggr-border-soft);
+    padding-bottom: 10px;
+}
+
+.ggr-onboarding-termsheet__eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+    color: var(--ggr-text-muted);
+    margin: 0 0 4px;
+}
+
+.ggr-onboarding-termsheet__title {
+    margin: 0;
+    font-size: 20px;
+    color: var(--ggr-text-main);
+}
+
+.ggr-onboarding-termsheet__body p {
+    margin: 0 0 6px;
+    color: var(--ggr-text-main);
+}
+
+.ggr-onboarding-termsheet__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 6px 0 0;
+}
+
+.ggr-onboarding-termsheet__grid dt {
+    font-weight: 600;
+    margin: 0 0 4px;
+    color: var(--ggr-text-muted);
+}
+
+.ggr-onboarding-termsheet__grid dd {
+    margin: 0;
+    font-size: 14px;
+    color: var(--ggr-text-main);
 }
 
 .ggr-onboarding-note {
