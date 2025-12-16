@@ -1028,103 +1028,403 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
     <head>
         <meta charset="utf-8" />
         <style>
-            body { font-family: "Helvetica Neue", Arial, sans-serif; color: #0f172a; font-size: 13px; line-height: 1.5; margin: 0; padding: 24px; }
-            h1 { font-size: 22px; margin-bottom: 6px; color: #0b2149; }
-            h2 { font-size: 16px; margin: 18px 0 8px; color: #0b2149; }
-            p  { margin: 0 0 10px; }
+            @page {
+                size: A4;
+                margin: 0;
+            }
+
+            html, body {
+                margin: 0;
+                padding: 0;
+                font-family: Arial, sans-serif;
+                font-size: 12px;
+                line-height: 1.5;
+                color: #0f172a;
+            }
+
+            .top-bar,
+            .bottom-bar {
+                position: fixed;
+                left: 0;
+                right: 0;
+                height: 10mm;
+                background: #9fbac7;
+            }
+
+            .top-bar { top: 0; }
+            .bottom-bar { bottom: 0; }
+
+            .page-content {
+                padding: 20mm 16mm 18mm;
+                box-sizing: border-box;
+            }
+
+            .watermark {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                width: 58mm;
+                height: 58mm;
+                margin-left: -29mm;
+                margin-top: -29mm;
+                opacity: 0.06;
+                z-index: -1;
+            }
+
+            .watermark img {
+                width: 100%;
+                height: auto;
+            }
+
+            .header-row {
+                display: table;
+                width: 100%;
+                margin-bottom: 6mm;
+            }
+
+            .header-logo,
+            .header-contact {
+                display: table-cell;
+                vertical-align: middle;
+            }
+
+            .header-logo img { height: 50px; }
+
+            .header-contact {
+                text-align: right;
+                font-size: 11px;
+                line-height: 1.4;
+            }
+
+            .header-divider {
+                height: 2px;
+                background: #111827;
+                margin: 2mm 0 6mm 0;
+                position: relative;
+            }
+
+            .header-divider::after {
+                content: "";
+                position: absolute;
+                left: 25%;
+                right: 25%;
+                top: 0;
+                height: 2px;
+                background: #9fbac7;
+            }
+
+            h1 {
+                font-size: 18px;
+                margin: 0 0 2mm;
+                font-weight: 700;
+                color: #0b2149;
+            }
+
+            h2 {
+                font-size: 14px;
+                margin: 0 0 2mm;
+                color: #0b2149;
+            }
+
+            .lead { margin: 0 0 3mm; }
+
+            .pill {
+                display: inline-block;
+                background: #0b2149;
+                color: #fff;
+                padding: 3px 10px;
+                border-radius: 999px;
+                font-size: 10px;
+                text-transform: uppercase;
+                letter-spacing: 0.03em;
+                margin-bottom: 2mm;
+            }
+
+            .section {
+                margin-bottom: 6mm;
+                padding: 4mm;
+                border: 0.2mm solid #e5e7eb;
+                border-radius: 6px;
+                background: #f9fafb;
+            }
+
+            .section-title {
+                font-weight: 700;
+                margin: 0 0 2mm;
+                font-size: 13px;
+            }
+
+            .info-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 11px;
+                margin-top: 2mm;
+            }
+
+            .info-table th,
+            .info-table td {
+                border: 0.2mm solid #e5e7eb;
+                padding: 2mm 2.5mm;
+                vertical-align: top;
+            }
+
+            .info-table th {
+                background: #eef2f7;
+                font-weight: 700;
+                text-align: left;
+                color: #0b2149;
+            }
+
             .muted { color: #475569; }
-            .pill { display: inline-block; background: #0b2149; color: #fff; padding: 4px 10px; border-radius: 999px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
-            .card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-top: 10px; background: #f8fafc; }
-            dl { display: grid; grid-template-columns: 1fr 2fr; gap: 6px 14px; margin: 0; }
-            dt { font-weight: 600; color: #1e293b; }
-            dd { margin: 0; }
-            ul { margin: 0 0 10px 18px; padding: 0; }
-            .footnote { margin-top: 18px; font-size: 11px; color: #64748b; }
-            .signature-card { margin-top: 16px; background: #fff; }
-            .signature-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; align-items: center; }
-            .signature-box { border: 1px dashed #cbd5e1; border-radius: 8px; min-height: 120px; padding: 10px; display: flex; flex-direction: column; justify-content: center; background: #f8fafc; }
-            .signature-box img { max-width: 220px; max-height: 120px; object-fit: contain; }
-            .signature-line { height: 1px; background: #cbd5e1; margin: 14px 0 6px; }
+
+            .origin-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 2mm;
+                margin-top: 2mm;
+            }
+
+            .origin-item {
+                border: 0.2mm solid #e5e7eb;
+                border-radius: 5px;
+                padding: 2mm;
+                background: #fff;
+                min-height: 24mm;
+            }
+
+            .origin-label { font-weight: 600; }
+            .checkmark { color: #16a34a; font-weight: 700; margin-right: 2mm; }
+
+            .signature-blocks {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 4mm;
+                margin-top: 3mm;
+            }
+
+            .signature-box {
+                border: 0.2mm dashed #cbd5e1;
+                border-radius: 6px;
+                min-height: 34mm;
+                padding: 2.5mm;
+                background: #fff;
+            }
+
+            .signature-box img {
+                max-height: 26mm;
+                width: auto;
+                display: block;
+                margin-bottom: 1mm;
+            }
+
+            .signature-line { height: 0.4mm; background: #cbd5e1; margin: 2mm 0 1mm; }
             .signature-name { font-weight: 600; color: #0b2149; }
-            .signature-meta { margin: 0; font-size: 12px; color: #475569; }
-            .signature-meta dt { font-weight: 700; }
-            .signature-meta dd { margin: 0 0 6px; }
+
+            .footer-note {
+                margin-top: 3mm;
+                font-size: 9px;
+                color: #6b7280;
+            }
         </style>
     </head>
     <body>
     <?php if ( 'application' === $type ) : ?>
-        <span class="pill">Inschrijfformulier</span>
-        <h1>Samenvatting inschrijving</h1>
-        <p class="muted">Dit document bevat een ingevuld inschrijfformulier met lopende tekst. Gebruik het om na te lezen welke gegevens zijn aangeleverd voordat de overeenkomst wordt ondertekend.</p>
-        <p>Met dit formulier bevestigt <strong><?php echo esc_html( $participant_name ); ?></strong><?php echo $co_name ? ' (mede-participant: ' . esc_html( $co_name ) . ')' : ''; ?> de intentie om deel te nemen aan het GGR Income Fund. De deelname vindt plaats als <strong><?php echo esc_html( $profile_label ); ?></strong> met een beoogd investeringsbedrag van <strong><?php echo esc_html( $amount_display ); ?></strong>. Het opgegeven land van herkomst van de middelen is <strong><?php echo esc_html( $origin_country ? $origin_country : 'nog niet opgegeven' ); ?></strong>.</p>
-        <p>De herkomst van de middelen is omschreven als: <strong><?php echo esc_html( $origin_sources_labels ? implode( ', ', $origin_sources_labels ) : 'nog niet opgegeven' ); ?></strong>. Aanvullende toelichting: <?php echo $origin_notes ? esc_html( $origin_notes ) : 'n.v.t.'; ?>. Deze samenvatting is bedoeld als leesbare vertaling van het aanvraagformulier; wijzigingen kunnen eenvoudig worden doorgevoerd door de tekst aan te passen.</p>
+        <div class="top-bar"></div>
+        <div class="bottom-bar"></div>
 
-        <div class="card">
-            <h2>Contact- en adresgegevens</h2>
-            <dl>
-                <dt>Naam participant</dt>
-                <dd><?php echo esc_html( $participant_name ? $participant_name : 'Nog niet opgegeven' ); ?></dd>
-                <dt>Mede-participant</dt>
-                <dd><?php echo $co_name ? esc_html( $co_name ) : 'Niet van toepassing'; ?></dd>
-                <dt>E-mailadres</dt>
-                <dd><?php echo esc_html( $user->user_email ); ?></dd>
-                <dt>Telefoonnummer</dt>
-                <dd><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_phone', true ) ); ?></dd>
-                <dt>Adres</dt>
-                <dd><?php echo esc_html( $address_line ? $address_line : 'Nog niet opgegeven' ); ?></dd>
-            </dl>
+        <div class="watermark">
+            <img src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GGR%20Icon%20-%20Blue%20-%20Black.png" alt="GGR Icon" />
         </div>
 
-        <?php if ( ! empty( $sections ) ) : ?>
-            <div class="card">
-                <h2>Overzicht ingevulde gegevens</h2>
-                <?php foreach ( $sections as $section ) : ?>
-                    <h3><?php echo esc_html( $section['title'] ); ?></h3>
-                    <dl>
-                        <?php foreach ( $section['items'] as $label => $value ) : ?>
-                            <dt><?php echo esc_html( $label ); ?></dt>
-                            <dd><?php echo esc_html( $value ); ?></dd>
-                        <?php endforeach; ?>
-                    </dl>
-                <?php endforeach; ?>
+        <div class="page-content">
+            <div class="header-row">
+                <div class="header-logo">
+                    <img src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20full%20logo%20-%20Blue%20-%20Black.png" alt="GGR Income Fund" />
+                </div>
+                <div class="header-contact">
+                    +31 85 080 50 35<br />
+                    info@ggrincome.com<br />
+                    Alexanderstraat 90, 6812BH Arnhem
+                </div>
             </div>
-        <?php endif; ?>
-        <div class="card signature-card">
-            <h2>Handtekening inschrijfformulier</h2>
-            <div class="signature-grid">
-                <div class="signature-box">
-                    <?php if ( $signature_image ) : ?>
-                        <img src="<?php echo esc_url( $signature_image ); ?>" alt="Handtekening" />
-                    <?php else : ?>
-                        <p class="muted">Handtekening wordt hier automatisch geplaatst zodra je tekent.</p>
-                    <?php endif; ?>
-                    <div class="signature-line"></div>
-                    <div class="signature-name">
-                        <?php
-                        $signature_name = $signature_text ? $signature_text : $participant_name;
-                        echo esc_html( $signature_name ? $signature_name : '—' );
+
+            <div class="header-divider"></div>
+
+            <span class="pill">Inschrijfformulier</span>
+            <h1>Verzoek om uitgifte participaties</h1>
+            <p class="lead">Ondergetekende (de “Participant”) wil participaties aankopen in het GGR Monthly Income Fund voor een bedrag van <strong><?php echo esc_html( $amount_display ); ?></strong>.</p>
+            <p class="muted">Dit bedrag zal worden overgemaakt naar de bankrekening van Stichting Bewaarder GGR Monthly Income Fund (de “Juridisch Eigenaar”), zoals vermeld op pagina 5 van dit formulier.</p>
+
+            <div class="section">
+                <div class="section-title">1. Verzoek om uitgifte Participaties</div>
+                <p class="muted">Beoogd investeringsbedrag en bevestiging van deelname.</p>
+            </div>
+
+            <div class="section">
+                <div class="section-title">2. Wordt er vanaf zakelijk of privé geparticipeerd</div>
+                <p>Profiel: <strong><?php echo esc_html( $profile_label ); ?></strong></p>
+                <p class="muted">Vul persoonlijke gegevens in als contactpersoon van het bedrijf indien zakelijk wordt geparticipeerd.</p>
+            </div>
+
+            <div class="section">
+                <div class="section-title">3. Persoonlijke gegevens</div>
+                <table class="info-table">
+                    <thead>
+                        <tr>
+                            <th>Gegevens</th>
+                            <th>Participant</th>
+                            <th>Mede-participant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Volledige naam</td>
+                            <td><?php echo esc_html( $participant_name ? $participant_name : '—' ); ?></td>
+                            <td><?php echo $co_name ? esc_html( $co_name ) : 'Niet van toepassing'; ?></td>
+                        </tr>
+                        <tr>
+                            <td>Geboortedatum</td>
+                            <td><?php echo esc_html( ggr_onboarding_format_datetime_label( get_user_meta( $user_id, 'ggr_kyc_birth_date', true ), false ) ?: '—' ); ?></td>
+                            <td><?php echo esc_html( ggr_onboarding_format_datetime_label( get_user_meta( $user_id, 'ggr_co_birth_date', true ), false ) ?: '—' ); ?></td>
+                        </tr>
+                        <tr>
+                            <td>Adres</td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_address', true ) ?: '—' ); ?></td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_address', true ) ?: '—' ); ?></td>
+                        </tr>
+                        <tr>
+                            <td>Postcode</td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_postcode', true ) ?: '—' ); ?></td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_postcode', true ) ?: '—' ); ?></td>
+                        </tr>
+                        <tr>
+                            <td>Woonplaats + Land</td>
+                            <td><?php echo esc_html( $address_line ? $address_line : '—' ); ?></td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_city_country', true ) ?: '—' ); ?></td>
+                        </tr>
+                        <tr>
+                            <td>Burgerservicenummer</td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_bsn', true ) ?: '—' ); ?></td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_bsn', true ) ?: '—' ); ?></td>
+                        </tr>
+                        <tr>
+                            <td>Telefoonnummer</td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_phone', true ) ?: '—' ); ?></td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_phone', true ) ?: '—' ); ?></td>
+                        </tr>
+                        <tr>
+                            <td>E-mail</td>
+                            <td><?php echo esc_html( $user->user_email ); ?></td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_email', true ) ?: '—' ); ?></td>
+                        </tr>
+                        <tr>
+                            <td>Nationaliteit</td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_nationality', true ) ?: '—' ); ?></td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_nationality', true ) ?: '—' ); ?></td>
+                        </tr>
+                        <tr>
+                            <td>Tenaamstelling IBAN</td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_iban_name', true ) ?: '—' ); ?></td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_iban_name', true ) ?: '—' ); ?></td>
+                        </tr>
+                        <tr>
+                            <td>IBAN</td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_iban', true ) ?: '—' ); ?></td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_iban', true ) ?: '—' ); ?></td>
+                        </tr>
+                        <tr>
+                            <td>Bedrijfsnaam (optioneel)</td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_company', true ) ?: '—' ); ?></td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_company', true ) ?: '—' ); ?></td>
+                        </tr>
+                        <tr>
+                            <td>KVK nummer (optioneel)</td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_kvk', true ) ?: '—' ); ?></td>
+                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_kvk', true ) ?: '—' ); ?></td>
+                        </tr>
+                        <tr>
+                            <td>Politiek Prominent Persoon</td>
+                            <td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_kyc_pep', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
+                            <td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_co_pep', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
+                        </tr>
+                        <tr>
+                            <td>US person</td>
+                            <td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_kyc_us_person', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
+                            <td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_co_us_person', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <?php
+            $origin_options = ggr_onboarding_get_origin_options();
+            $origin_sources = get_user_meta( $user_id, 'ggr_origin_sources', true );
+            $origin_sources = is_array( $origin_sources ) ? $origin_sources : array();
+            ?>
+            <div class="section">
+                <div class="section-title">4. Herkomst van het in het Fonds te beleggen geld</div>
+                <p class="muted">Wij vragen hiernaar om te voldoen aan onze verplichtingen uit hoofde van de Wwft. De informatie wordt vertrouwelijk behandeld volgens de privacyverklaring.</p>
+                <div class="origin-grid">
+                    <?php foreach ( $origin_options as $key => $option ) :
+                        $is_selected = in_array( $key, $origin_sources, true );
+                        $notes       = get_user_meta( $user_id, $option['meta_key'], true );
                         ?>
+                        <div class="origin-item">
+                            <div class="origin-label">
+                                <span class="checkmark"><?php echo $is_selected ? '&#10003;' : '&#9634;'; ?></span>
+                                <?php echo esc_html( $option['label'] ); ?>
+                            </div>
+                            <?php if ( $notes ) : ?>
+                                <div class="muted">Toelichting: <?php echo esc_html( $notes ); ?></div>
+                            <?php else : ?>
+                                <div class="muted">Geen nadere toelichting opgegeven.</div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                <p style="margin-top: 2mm;">Algemene toelichting: <?php echo $origin_notes ? esc_html( $origin_notes ) : '—'; ?></p>
+                <p class="muted">Het is mogelijk dat wij, ter voldoening van onze wettelijke verificatieplicht, ondersteunende documenten bij u opvragen.</p>
+            </div>
+
+            <div class="section">
+                <div class="section-title">7. Overige verklaringen en ondertekeningen</div>
+                <ul style="margin: 0 0 3mm 4mm; padding-left: 2mm;">
+                    <li>Ik ben bekend met de inhoud van het Investment Memorandum van het Fonds.</li>
+                    <li>Ik aanvaard de rechten en verplichtingen als participant zoals beschreven in het Informatie Memorandum &amp; voorwaarden.</li>
+                    <li>Ik voldoe aan het beleggersprofiel: bereid tot risico op waardevermindering, geen inkomsten uit deze belegging nodig, uittreding eenmaal per maand, beleggingshorizon minimaal 5 jaar.</li>
+                    <li>Ik ga ermee akkoord dat verstrekte gegevens worden gebruikt door de Beheerder voor administratie en wettelijke verplichtingen.</li>
+                    <li>Ik informeer de Beheerder onmiddellijk bij wijzigingen in de verstrekte gegevens.</li>
+                </ul>
+
+                <p class="muted">Plaats en datum</p>
+                <div class="info-table" style="margin-top: 0;">
+                    <table class="info-table" aria-label="Plaats en datum">
+                        <tr>
+                            <td style="width: 50%;">Plaats: ___________________________</td>
+                            <td>Datum: <?php echo $signature_label ? esc_html( $signature_label ) : '___________________________'; ?></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="signature-blocks">
+                    <div class="signature-box">
+                        <strong>Handtekening Participant</strong>
+                        <?php if ( $signature_image ) : ?>
+                            <img src="<?php echo esc_url( $signature_image ); ?>" alt="Handtekening participant" />
+                        <?php endif; ?>
+                        <div class="signature-line"></div>
+                        <div class="signature-name"><?php echo esc_html( $signature_text ? $signature_text : $participant_name ); ?></div>
+                    </div>
+                    <div class="signature-box">
+                        <strong>Handtekening Mede-participant</strong>
+                        <div class="signature-line"></div>
+                        <div class="signature-name"><?php echo $co_name ? esc_html( $co_name ) : '—'; ?></div>
                     </div>
                 </div>
-                <dl class="signature-meta">
-                    <dt>Status</dt>
-                    <dd>
-                        <?php
-                        if ( $signature_image || $signature_text ) {
-                            echo 'Ondertekend';
-                        } else {
-                            echo 'Nog niet ondertekend';
-                        }
-                        ?>
-                    </dd>
-                    <dt>Datum</dt>
-                    <dd><?php echo $signature_label ? esc_html( $signature_label ) : '—'; ?></dd>
-                    <dt>Document</dt>
-                    <dd>Automatisch gegenereerd op basis van je onboarding-gegevens.</dd>
-                </dl>
             </div>
+
+            <div class="footer-note">Dit inschrijfformulier is automatisch gegenereerd op basis van de onboarding-gegevens en wordt gebruikt in de ondertekenfase.</div>
         </div>
-        <p class="footnote">Dit inschrijfformulier is automatisch gegenereerd. Pas de tekst aan waar nodig om aan te sluiten bij de definitieve overeenkomst.</p>
     <?php elseif ( 'memorandum' === $type ) : ?>
         <span class="pill">Informatie memorandum</span>
         <h1>Informatie memorandum</h1>
