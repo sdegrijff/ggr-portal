@@ -1905,7 +1905,8 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     
     $participant_user  = get_user_by( 'ID', $user_id );
     $participant_email = $participant_user ? $participant_user->user_email : '';
-
+    $existing_contract_signed = get_user_meta( $user_id, 'ggr_contract_signed_at', true );
+    
     $doc_action   = isset( $_POST['ggr_doc_action'] ) ? sanitize_key( wp_unslash( $_POST['ggr_doc_action'] ) ) : '';
     $doc_feedback = isset( $_POST['ggr_doc_feedback'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_doc_feedback'] ) ) : '';
     
@@ -1964,6 +1965,19 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     $marketing_optin = ! empty( $_POST['ggr_marketing_optin'] ) ? 1 : 0;
     update_user_meta( $user_id, 'ggr_marketing_optin', $marketing_optin );
 
+    // Contract ondertekening (admin)
+    $contract_signed_admin = ! empty( $_POST['ggr_contract_signed_admin'] );
+    if ( $contract_signed_admin && ! $existing_contract_signed ) {
+        update_user_meta( $user_id, 'ggr_contract_signed_at', $profile_timestamp );
+    }
+    if ( isset( $_POST['ggr_contract_signature_admin'] ) ) {
+        $signature_admin = sanitize_textarea_field( wp_unslash( $_POST['ggr_contract_signature_admin'] ) );
+        if ( '' === $signature_admin ) {
+            delete_user_meta( $user_id, 'ggr_contract_signature_admin' );
+        } else {
+            update_user_meta( $user_id, 'ggr_contract_signature_admin', $signature_admin );
+        }
+    }
     // Betaling en startdatum
     $payment_received = ! empty( $_POST['ggr_payment_received'] ) ? 1 : 0;
     update_user_meta( $user_id, 'ggr_payment_received', $payment_received );
@@ -2646,8 +2660,9 @@ function ggr_portal_render_participant_profile_page() {
                     </td>
                 </tr>
             </table>
-            
-            <h2 class="title">Stap 1: Investeringsbedrag</h2>
+
+            <h2 class="title">Documentatie (stap 1 t/m 5)</h2>           
+            <h4 class="title">Stap 1: Investeringsbedrag</h4>
             <table class="form-table" role="presentation">
                 <tr>
                     <th scope="row"><label for="ggr_participation_amount">Beoogd bedrag (€)</label></th>
@@ -2658,7 +2673,7 @@ function ggr_portal_render_participant_profile_page() {
                 </tr>
             </table>
 
-            <h2 class="title">Stap 2: Profielkeuzes</h2>
+            <h4 class="title">Stap 2: Profielkeuzes</h4>
             <table class="form-table" role="presentation">
                 <tr>
                     <th scope="row">Profiel</th>
@@ -2701,7 +2716,7 @@ function ggr_portal_render_participant_profile_page() {
                 </tr>
             </table>
 
-            <h2 class="title">Stap 3: Persoonlijke gegevens</h2>
+            <h4 class="title">Stap 3: Persoonlijke gegevens</h4>
             <table class="form-table" role="presentation">
                 <tr>
                     <th scope="row">Contact & identiteit</th>
@@ -2883,10 +2898,10 @@ function ggr_portal_render_participant_profile_page() {
                 </tr>
             </table>
 
-            <h2 class="title">Stap 4: Herkomst vermogen</h2>
+            <h4 class="title">Stap 4: Herkomst vermogen</h4>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row">Herkomst</th>
+                    <th scope="row">Herkomst vermogen</th>
                     <td>
                         <?php if ( ! is_array( $origin_sources ) ) { $origin_sources = array(); } ?>                        
                         <div class="ggr-admin-inline-field">
@@ -2923,7 +2938,7 @@ function ggr_portal_render_participant_profile_page() {
                 </tr>
             </table>
 
-            <h2 class="title">Stap 5: Documenten</h2>
+            <h4 class="title">Stap 5: Documenten</h4>
             <table class="form-table" role="presentation">
                 <tr>
                     <th scope="row">Uploads</th>
@@ -2958,17 +2973,40 @@ function ggr_portal_render_participant_profile_page() {
                             <button type="submit" name="ggr_doc_action" value="approve" class="button button-primary">Documentatie goedgekeurd</button>
                             <button type="submit" name="ggr_doc_action" value="reject" class="button">Afkeuren en terug naar documentatie</button>
                         </div>
+                    </td>
+                </tr>
+            </table>
+
+            <h2 class="title">Contract ondertekend</h2>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row">Status</th>
+                    <td>
+                        <label style="display:block; margin-bottom:8px;">
+                            <input type="checkbox" name="ggr_contract_signed_admin" value="1" <?php checked( (bool) $contract_signed_at, true ); ?> />
+                            Contract ondertekend
+                        </label>
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_contract_signature_admin">Handtekening / notitie</label>
+                            <textarea name="ggr_contract_signature_admin" id="ggr_contract_signature_admin" rows="3" style="width:100%;"><?php echo esc_textarea( get_user_meta( $user_id, 'ggr_contract_signature_admin', true ) ); ?></textarea>
+                            <p class="description">Gebruik dit veld voor een opgeslagen handtekening of referentie naar het ondertekende document.</p>
+                        </div>
 
                         <?php if ( $contract_signed_at ) : ?>
                             <p class="ggr-admin-meta-note">Lead heeft de overeenkomst bevestigd op: <?php echo esc_html( $contract_signed_at ); ?>.</p>
                         <?php endif; ?>
-                        <?php if ( $payment_confirmation_at ) : ?>
-                            <p class="ggr-admin-meta-note">Lead gaf aan betaald te hebben op: <?php echo esc_html( $payment_confirmation_at ); ?>.</p>
+                        <?php if ( $existing_signature_image = get_user_meta( $user_id, 'ggr_contract_signature', true ) ) : ?>
+                            <p class="ggr-admin-meta-note">Opgeslagen handtekening van deelnemer:</p>
+                            <img src="<?php echo esc_url( $existing_signature_image ); ?>" alt="Handtekening" style="max-width:320px; border:1px solid #e5e7eb; padding:6px; border-radius:4px; background:#fff;">
+                        <?php endif; ?>
+                        <?php if ( $existing_signature_text = get_user_meta( $user_id, 'ggr_contract_signature_text', true ) ) : ?>
+                            <p class="ggr-admin-meta-note">Getypte handtekening: <?php echo esc_html( $existing_signature_text ); ?></p>
                         <?php endif; ?>
                     </td>
                 </tr>
             </table>
-            <h2 class="title">Stap 6: Betaling & start</h2>
+            
+            <h2 class="title">Betaling & start</h2>
             <table class="form-table" role="presentation">
                 <tr>
                     <th scope="row">Ontvangst betaling</th>
@@ -2976,6 +3014,9 @@ function ggr_portal_render_participant_profile_page() {
                         <label style="display:block; margin-bottom:8px;">
                             <input type="checkbox" name="ggr_payment_received" value="1" <?php checked( $payment_received, 1 ); ?> /> Betaling ontvangen en gecontroleerd
                         </label>
+                        <?php if ( $payment_confirmation_at ) : ?>
+                            <p class="ggr-admin-meta-note">Lead gaf aan betaald te hebben op: <?php echo esc_html( $payment_confirmation_at ); ?>.</p>
+                        <?php endif; ?>                        
                         <div class="ggr-admin-inline-field">
                             <label for="ggr_first_trade_day">Eerste handelsdag</label>
                             <input type="date" id="ggr_first_trade_day" name="ggr_first_trade_day" value="<?php echo esc_attr( $first_trade_day ); ?>" />
