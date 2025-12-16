@@ -18,6 +18,10 @@ function ggrp_fe_format_nl_datetime( $timestamp_or_mysql ) {
         return '';
     }
 
+    if ( function_exists( 'ggr_portal_format_datetime_nl' ) ) {
+        return ggr_portal_format_datetime_nl( $timestamp_or_mysql );
+    }
+    
     $timestamp = is_numeric( $timestamp_or_mysql )
         ? (int) $timestamp_or_mysql
         : strtotime( $timestamp_or_mysql );
@@ -26,7 +30,7 @@ function ggrp_fe_format_nl_datetime( $timestamp_or_mysql ) {
         return '';
     }
 
-    return date_i18n( 'j F Y \o\m H:i', $timestamp );
+    return date_i18n( 'd-m-Y H:i', $timestamp );
 }
 
 function ggrp_fe_handle_account_update() {
