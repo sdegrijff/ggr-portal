@@ -1964,27 +1964,28 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     }
 
     $co_field_map = array(
-        'ggr_co_first_name'    => 'co_first_name',
-        'ggr_co_last_name'     => 'co_last_name',
-        'ggr_co_email'         => 'co_email',
-        'ggr_co_phone'         => 'co_phone',
-        'ggr_co_birth_date'    => 'ggr_co_birth_date',
-        'ggr_co_birth_place'   => 'ggr_co_birth_place',
-        'ggr_co_birth_country' => 'ggr_co_birth_country',
-        'ggr_co_address'       => 'ggr_co_address',
-        'ggr_co_postcode'      => 'ggr_co_postcode',
-        'ggr_co_city_country'  => 'ggr_co_city_country',
-        'ggr_co_country'       => 'ggr_co_country',
-        'ggr_co_bsn'           => 'ggr_co_bsn',
-        'ggr_co_pep'           => 'ggr_co_pep',
-        'ggr_co_us_person'     => 'ggr_co_us_person',
+        'ggr_co_first_name'    => array( 'ggr_co_first_name', 'co_first_name' ),
+        'ggr_co_last_name'     => array( 'ggr_co_last_name', 'co_last_name' ),
+        'ggr_co_email'         => array( 'ggr_co_email', 'co_email' ),
+        'ggr_co_phone'         => array( 'ggr_co_phone', 'co_phone' ),
+        'ggr_co_birth_date'    => array( 'ggr_co_birth_date' ),
+        'ggr_co_birth_place'   => array( 'ggr_co_birth_place' ),
+        'ggr_co_birth_country' => array( 'ggr_co_birth_country' ),
+        'ggr_co_address'       => array( 'ggr_co_address' ),
+        'ggr_co_postcode'      => array( 'ggr_co_postcode' ),
+        'ggr_co_city_country'  => array( 'ggr_co_city_country' ),
+        'ggr_co_country'       => array( 'ggr_co_country' ),
+        'ggr_co_bsn'           => array( 'ggr_co_bsn' ),
+        'ggr_co_pep'           => array( 'ggr_co_pep' ),
+        'ggr_co_us_person'     => array( 'ggr_co_us_person' ),
     );
 
     $co_values      = array();
-    $co_has_values  = false;
-    foreach ( $co_field_map as $form_key => $meta_key ) {
-        $value                  = isset( $_POST[ $form_key ] ) ? sanitize_text_field( wp_unslash( $_POST[ $form_key ] ) ) : '';
-        $co_values[ $meta_key ] = $value;
+    $co_meta_keys   = array();
+    foreach ( $co_field_map as $form_key => $meta_keys ) {
+        $value                   = isset( $_POST[ $form_key ] ) ? sanitize_text_field( wp_unslash( $_POST[ $form_key ] ) ) : '';
+        $co_values[ $form_key ]  = $value;
+        $co_meta_keys[ $form_key ] = (array) $meta_keys;
         if ( '' !== $value ) {
             $co_has_values = true;
         }
@@ -2193,12 +2194,16 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
 
     // Mede-participant
     if ( 'ja' === $has_co ) {
-        foreach ( $co_values as $meta_key => $value ) {
-            update_user_meta( $user_id, $meta_key, $value );
+        foreach ( $co_values as $form_key => $value ) {
+            foreach ( $co_meta_keys[ $form_key ] as $meta_key ) {
+                update_user_meta( $user_id, $meta_key, $value );
+            }
         }
     } else {
-        foreach ( array_keys( $co_values ) as $meta_key ) {
-            update_user_meta( $user_id, $meta_key, '' );
+        foreach ( $co_meta_keys as $meta_keys ) {
+            foreach ( $meta_keys as $meta_key ) {
+                update_user_meta( $user_id, $meta_key, '' );
+            }
         }
     }
 
@@ -2390,6 +2395,7 @@ function ggr_portal_render_participant_profile_page() {
     $onboarding_updated = isset( $meta['ggr_onboarding_updated_at'][0] ) ? $meta['ggr_onboarding_updated_at'][0] : '';
     $doc_feedback       = isset( $meta['ggr_doc_feedback'][0] ) ? $meta['ggr_doc_feedback'][0] : '';
     $contract_signed_at = isset( $meta['ggr_contract_signed_at'][0] ) ? $meta['ggr_contract_signed_at'][0] : '';
+    $contract_preview_url = isset( $meta['ggr_contract_preview_url'][0] ) ? $meta['ggr_contract_preview_url'][0] : '';    
     $payment_confirmation_at = isset( $meta['ggr_payment_confirmation_at'][0] ) ? $meta['ggr_payment_confirmation_at'][0] : '';
     $payment_received   = isset( $meta['ggr_payment_received'][0] ) ? (int) $meta['ggr_payment_received'][0] : 0;
     $payment_received_at = isset( $meta['ggr_payment_received_at'][0] ) ? $meta['ggr_payment_received_at'][0] : '';
@@ -3038,6 +3044,10 @@ function ggr_portal_render_participant_profile_page() {
 
                         <?php if ( $contract_signed_label ) : ?>
                             <p class="ggr-admin-meta-note">Lead heeft de overeenkomst bevestigd op: <?php echo esc_html( $contract_signed_label ); ?>.</p>
+                        <?php endif; ?>
+
+                        <?php if ( $contract_preview_url ) : ?>
+                            <p class="ggr-admin-meta-note">Ondertekend document: <a href="<?php echo esc_url( $contract_preview_url ); ?>" target="_blank" rel="noopener noreferrer">bekijk document</a>.</p>                            
                         <?php if ( $existing_signature_image = get_user_meta( $user_id, 'ggr_contract_signature', true ) ) : ?>
                             <p class="ggr-admin-meta-note">Opgeslagen handtekening van deelnemer:</p>
                             <img src="<?php echo esc_url( $existing_signature_image ); ?>" alt="Handtekening" style="max-width:320px; border:1px solid #e5e7eb; padding:6px; border-radius:4px; background:#fff;">
