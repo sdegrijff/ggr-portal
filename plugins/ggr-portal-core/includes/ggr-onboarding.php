@@ -802,7 +802,7 @@ function ggr_onboarding_build_review_sections( $user_id, $user, $participation_p
     $sections[] = array(
         'title' => 'Herkomst vermogen',
         'items' => array(
-            'Land van herkomst' => get_user_meta( $user_id, 'ggr_origin_country', true ) ?: 'Nederland',
+            'Land van herkomst' => get_user_meta( $user_id, 'ggr_origin_country', true ) ?: '—',
             'Bronnen'           => $origin_labels ? implode( ', ', $origin_labels ) : 'Niet opgegeven',
             'Toelichting'       => $origin_notes ? wp_strip_all_tags( $origin_notes ) : '—',
         ),
@@ -2592,6 +2592,46 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                             <p class="ggr-onboarding-note">Open het document, controleer de gegevens en plaats daarna je handtekening hieronder.</p>
                                             <a class="ggr-onboarding-button ggr-onboarding-button--ghost" href="<?php echo esc_url( $contract_preview_url ); ?>" target="_blank" rel="noopener noreferrer">
                                                 Open overeenkomst (PDF)
+                                    <?php
+                                    $termsheet_participant   = trim( get_user_meta( $user_id, 'ggr_kyc_first_name', true ) . ' ' . get_user_meta( $user_id, 'ggr_kyc_last_name', true ) );
+                                    $termsheet_co            = trim( get_user_meta( $user_id, 'co_first_name', true ) . ' ' . get_user_meta( $user_id, 'co_last_name', true ) );
+                                    $termsheet_profile_raw   = get_user_meta( $user_id, 'ggr_participation_profile', true );
+                                    $termsheet_profile_label = 'zakelijk' === $termsheet_profile_raw ? 'Zakelijk' : 'Privé';
+                                    $termsheet_origin        = get_user_meta( $user_id, 'ggr_origin_country', true );
+                                    $termsheet_amount        = $amount_display ? $amount_display : '—';
+                                    ?>
+                                    <div class="ggr-onboarding-termsheet" aria-label="Overzicht overeenkomst">
+                                        <div class="ggr-onboarding-termsheet__header">
+                                            <p class="ggr-onboarding-termsheet__eyebrow">Termsheet</p>
+                                            <h4 class="ggr-onboarding-termsheet__title">Overeenkomst deelname GGR Monthly Income Fund</h4>
+                                        </div>
+                                        <div class="ggr-onboarding-termsheet__body">
+                                            <p>Onderstaande gegevens zijn overgenomen uit je onboarding. Door te tekenen bevestig je dat deze informatie klopt en ga je akkoord met de voorwaarden van het fonds.</p>
+                                            <dl class="ggr-onboarding-termsheet__grid">
+                                                <div>
+                                                    <dt>Participant</dt>
+                                                    <dd><?php echo $termsheet_participant ? esc_html( $termsheet_participant ) : '—'; ?></dd>
+                                                </div>
+                                                <div>
+                                                    <dt>Mede-participant</dt>
+                                                    <dd><?php echo $termsheet_co ? esc_html( $termsheet_co ) : '—'; ?></dd>
+                                                </div>
+                                                <div>
+                                                    <dt>Profiel</dt>
+                                                    <dd><?php echo esc_html( $termsheet_profile_label ); ?></dd>
+                                                </div>
+                                                <div>
+                                                    <dt>Land van herkomst middelen</dt>
+                                                    <dd><?php echo $termsheet_origin ? esc_html( $termsheet_origin ) : '—'; ?></dd>
+                                                </div>
+                                                <div>
+                                                    <dt>Beoogd investeringsbedrag</dt>
+                                                    <dd><?php echo esc_html( $termsheet_amount ); ?></dd>
+                                                </div>
+                                            </dl>
+                                            <p class="ggr-onboarding-note" style="margin-top:12px;">We slaan deze termsheet samen met je handtekening op in je dossier.</p>
+                                        </div>
+                                    </div>                                                
                                             </a>
                                         </div>
                                     <?php endif; ?>
@@ -2925,10 +2965,10 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
 
                                     <?php
                                     $countries                = ggr_get_countries_nl();
-                                    $selected_country         = $kyc_birth_country ? $kyc_birth_country : 'Nederland';
-                                    $selected_nationality     = $kyc_nationality ? $kyc_nationality : 'Nederland';
-                                    $selected_co_country      = $co_birth_country ? $co_birth_country : 'Nederland';
-                                    $selected_co_nationality  = $co_nationality ? $co_nationality : 'Nederland';
+                                    $selected_country         = $kyc_birth_country ? $kyc_birth_country : '';
+                                    $selected_nationality     = $kyc_nationality ? $kyc_nationality : '';
+                                    $selected_co_country      = $co_birth_country ? $co_birth_country : '';
+                                    $selected_co_nationality  = $co_nationality ? $co_nationality : '';
                                     ?>
 
                                     <input type="hidden" name="ggr_has_co_participant" value="<?php echo esc_attr( $has_co_participant ); ?>">
@@ -2982,6 +3022,7 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                             <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_birth_country">Land *</label>
                                             <select id="ggr_kyc_birth_country" name="ggr_kyc_birth_country" required>
+                                                <option value="" <?php selected( '', $selected_country ); ?>>Maak een keuze</option>                                                
                                                 <?php foreach ( $countries as $country ) : ?>
                                                     <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $selected_country, $country ); ?>>
                                                         <?php echo esc_html( $country ); ?>
@@ -3007,6 +3048,7 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                             <div class="ggr-onboarding-field">
                                             <label for="ggr_kyc_nationality">Geboorteland *</label>
                                             <select id="ggr_kyc_nationality" name="ggr_kyc_nationality" required>
+                                                <option value="" <?php selected( '', $selected_nationality ); ?>>Maak een keuze</option>                                                
                                                 <?php foreach ( $countries as $country ) : ?>
                                                     <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $selected_nationality, $country ); ?>>
                                                         <?php echo esc_html( $country ); ?>
@@ -3086,11 +3128,11 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                                 <input type="tel" id="ggr_co_phone" name="ggr_co_phone"
                                                        value="<?php echo esc_attr( $co_phone ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
                                             </div>
-                                                <div class="ggr-onboarding-field">
+                                                    <div class="ggr-onboarding-field">
                                                 <label for="ggr_co_bsn">Burgerservicenummer *</label>
                                                 <input type="text" id="ggr_co_bsn" name="ggr_co_bsn"
                                                        value="<?php echo esc_attr( $co_bsn ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
-                                            </div
+                                            </div>
 
                                         <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-3">
                                             <div class="ggr-onboarding-field">
@@ -3109,8 +3151,9 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                                        value="<?php echo esc_attr( $co_city_country ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
                                             </div>
                                             <div class="ggr-onboarding-field">
-                                                <label for="ggr_co_birth_country">Land *</label>
-                                                <select id="ggr_co_birth_country" name="ggr_co_birth_country" <?php echo $co_required ? 'required' : ''; ?>>
+                                            <label for="ggr_co_birth_country">Land *</label>
+                                            <select id="ggr_co_birth_country" name="ggr_co_birth_country" <?php echo $co_required ? 'required' : ''; ?>>
+                                                <option value="" <?php selected( '', $selected_co_country ); ?>>Kies land</option>
                                                     <?php foreach ( $countries as $country ) : ?>
                                                         <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $selected_co_country, $country ); ?>>
                                                             <?php echo esc_html( $country ); ?>
@@ -3134,6 +3177,7 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                             <div class="ggr-onboarding-field">
                                                 <label for="ggr_co_nationality">Geboorteland *</label>
                                                 <select id="ggr_co_nationality" name="ggr_co_nationality" <?php echo $co_required ? 'required' : ''; ?>>
+                                                    <option value="" <?php selected( '', $selected_co_nationality ); ?>>Kies land</option>                                                    
                                                     <?php foreach ( $countries as $country ) : ?>
                                                         <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $selected_co_nationality, $country ); ?>>
                                                             <?php echo esc_html( $country ); ?>
@@ -3221,12 +3265,13 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                         <?php
                                         $countries   = ggr_get_countries_nl();
                                         $selected    = get_user_meta( $user_id, 'ggr_origin_country', true );
-                                        $selected    = $selected ? $selected : 'Nederland';
+                                        $selected    = $selected ? $selected : '';
                                         if ( isset( $_POST['ggr_origin_country'] ) ) {
                                             $selected = sanitize_text_field( wp_unslash( $_POST['ggr_origin_country'] ) );
                                         }
                                         ?>
                                         <select id="ggr_origin_country" name="ggr_origin_country" required>
+                                            <option value="" <?php selected( '', $selected ); ?>>Kies land</option>                                            
                                             <?php foreach ( $countries as $country ) : ?>
                                                 <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $selected, $country ); ?>>
                                                     <?php echo esc_html( $country ); ?>
