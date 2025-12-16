@@ -193,7 +193,12 @@ add_action('admin_init', function() {
 
     // Save onboarding status
     $status = sanitize_text_field($_POST['ggr_onboarding_status']);
-    update_user_meta($user_id, 'ggr_onboarding_status', $status);
+    if ( function_exists( 'ggr_onboarding_update_status' ) ) {
+        ggr_onboarding_update_status( $user_id, $status );
+    } else {
+        update_user_meta( $user_id, 'ggr_onboarding_status', $status );
+        update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
+    }
 
     // Automatic role switching
     if ($status === 'active_participant') {
