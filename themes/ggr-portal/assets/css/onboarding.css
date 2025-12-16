@@ -120,6 +120,10 @@ body {
     display: none !important;
 }
 
+.ggr_contract_signature_pad {
+    width: 100%!important;
+}
+
 /* ===============================
    Layout binnen de card
    =============================== */
@@ -300,19 +304,28 @@ body {
 .ggr-onboarding-steps-footer {
     border-top: 1px dashed var(--ggr-border-soft);
     padding-top: 12px;
+    display: flex;
+    justify-content: center;
 }
 
 .ggr-onboarding-logout {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     font-weight: 600;
-    color: #0f3e8a;
+    color: var(--ggr-text-muted);
     text-decoration: none;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: var(--ggr-accent-soft);
+    border: 1px solid var(--ggr-border-soft);
+    transition: all 0.12s ease;
 }
 
 .ggr-onboarding-logout:hover {
-    text-decoration: underline;
+    background: #fdf3ed;
+    border-color: var(--ggr-accent-soft);
+    color: var(--ggr-accent);
 }
 
 
@@ -403,6 +416,31 @@ body {
     resize: vertical;
 }
 
+.ggr-onboarding-signature {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ggr-onboarding-signature__pad {
+    width: 100%;
+    height: 220px;
+    border: 2px dashed var(--ggr-border-soft);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: inset 0 0 0 1px rgba(229, 231, 235, 0.4);
+}
+
+.ggr-onboarding-signature__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.ggr-onboarding-signature input[type="text"] {
+    width: 100%;
+}
+
 .ggr-onboarding-note {
     color: var(--ggr-text-muted);
     font-size: 13px;
@@ -422,6 +460,15 @@ body {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 12px;
     margin: 0;
+}
+
+.ggr-onboarding-summary__title {
+    margin: 0 0 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ggr-text-muted);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
 }
 
 .ggr-onboarding-summary-grid dt {
