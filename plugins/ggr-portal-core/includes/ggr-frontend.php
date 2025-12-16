@@ -51,6 +51,36 @@ function ggrp_fe_format_signed_percent( $value ) {
     return $sign . number_format( $abs, 2, ',', '.' ) . '%';
 }
 
+/**
+ * Nederlandse datum-helpers
+ */
+function ggr_portal_format_date_nl( $value ) {
+    if ( empty( $value ) ) {
+        return '';
+    }
+
+    $timestamp = is_numeric( $value ) ? (int) $value : strtotime( $value );
+
+    if ( ! $timestamp ) {
+        return '';
+    }
+
+    return date_i18n( 'd-m-Y', $timestamp );
+}
+
+function ggr_portal_format_datetime_nl( $value ) {
+    if ( empty( $value ) ) {
+        return '';
+    }
+
+    $timestamp = is_numeric( $value ) ? (int) $value : strtotime( $value );
+
+    if ( ! $timestamp ) {
+        return '';
+    }
+
+    return date_i18n( 'd-m-Y H:i', $timestamp );
+}
 
 /**
  * Redirect alle frontend 404's naar het portal/dashboard.
@@ -599,7 +629,7 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
             <div class="ggrp-fe-panel-header">
                 <h2>Positiewaarde</h2>
                 <div class="ggrp-fe-range-buttons" aria-label="Filter grafiekperiode">
-                    <button type="button" class="ggrp-fe-range-button is-active" data-range="all">ALLES</button>
+                    <button type="button" class="ggrp-fe-range-button is-active" data-range="all">Alles</button>
                 </div>
             </div>
             <div class="ggrp-fe-panel-body ggrp-fe-panel-body--chart">
