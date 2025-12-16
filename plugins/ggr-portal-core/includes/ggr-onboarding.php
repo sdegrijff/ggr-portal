@@ -1015,6 +1015,11 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
         get_user_meta( $user_id, 'ggr_kyc_city_country', true )
     );
 
+    $signature_image     = get_user_meta( $user_id, 'ggr_contract_signature', true );
+    $signature_text      = get_user_meta( $user_id, 'ggr_contract_signature_text', true );
+    $signature_timestamp = get_user_meta( $user_id, 'ggr_contract_signed_at', true );
+    $signature_label     = $signature_timestamp ? ggr_onboarding_format_datetime_label( $signature_timestamp ) : '';
+
     $sections = ggr_onboarding_build_review_sections( $user_id, $user, $participation_profile, $amount_display );
 
     ob_start();
@@ -1035,6 +1040,15 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
             dd { margin: 0; }
             ul { margin: 0 0 10px 18px; padding: 0; }
             .footnote { margin-top: 18px; font-size: 11px; color: #64748b; }
+            .signature-card { margin-top: 16px; background: #fff; }
+            .signature-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; align-items: center; }
+            .signature-box { border: 1px dashed #cbd5e1; border-radius: 8px; min-height: 120px; padding: 10px; display: flex; flex-direction: column; justify-content: center; background: #f8fafc; }
+            .signature-box img { max-width: 220px; max-height: 120px; object-fit: contain; }
+            .signature-line { height: 1px; background: #cbd5e1; margin: 14px 0 6px; }
+            .signature-name { font-weight: 600; color: #0b2149; }
+            .signature-meta { margin: 0; font-size: 12px; color: #475569; }
+            .signature-meta dt { font-weight: 700; }
+            .signature-meta dd { margin: 0 0 6px; }
         </style>
     </head>
     <body>
@@ -1075,6 +1089,41 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
+        <div class="card signature-card">
+            <h2>Handtekening inschrijfformulier</h2>
+            <div class="signature-grid">
+                <div class="signature-box">
+                    <?php if ( $signature_image ) : ?>
+                        <img src="<?php echo esc_url( $signature_image ); ?>" alt="Handtekening" />
+                    <?php else : ?>
+                        <p class="muted">Handtekening wordt hier automatisch geplaatst zodra je tekent.</p>
+                    <?php endif; ?>
+                    <div class="signature-line"></div>
+                    <div class="signature-name">
+                        <?php
+                        $signature_name = $signature_text ? $signature_text : $participant_name;
+                        echo esc_html( $signature_name ? $signature_name : '—' );
+                        ?>
+                    </div>
+                </div>
+                <dl class="signature-meta">
+                    <dt>Status</dt>
+                    <dd>
+                        <?php
+                        if ( $signature_image || $signature_text ) {
+                            echo 'Ondertekend';
+                        } else {
+                            echo 'Nog niet ondertekend';
+                        }
+                        ?>
+                    </dd>
+                    <dt>Datum</dt>
+                    <dd><?php echo $signature_label ? esc_html( $signature_label ) : '—'; ?></dd>
+                    <dt>Document</dt>
+                    <dd>Automatisch gegenereerd op basis van je onboarding-gegevens.</dd>
+                </dl>
+            </div>
+        </div>
         <p class="footnote">Dit inschrijfformulier is automatisch gegenereerd. Pas de tekst aan waar nodig om aan te sluiten bij de definitieve overeenkomst.</p>
     <?php elseif ( 'memorandum' === $type ) : ?>
         <span class="pill">Informatie memorandum</span>
@@ -1113,7 +1162,7 @@ function ggr_onboarding_flow_shortcode() {
             <div class="ggr-onboarding-header">
                 <div class="ggr-onboarding-logo">
                     <img
-                        src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20MIF%20full%20logo%20-%20Blue%20-%20Black.png"
+                        src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20full%20logo%20-%20Blue%20-%20Black.png"
                         alt="GGR Monthly Income Fund"
                     />
                 </div>
@@ -1474,7 +1523,7 @@ function ggr_onboarding_register_shortcode() {
             
              <!-- LOGO BOVEN DE CARD -->
         <div class="ggr-logo-top">
-            <img src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GGR%20Icon%20-%20Blue%20-%20Black.png" alt="GGR Logo">
+            <img src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20full%20logo%20-%20Blue%20-%20Black.png" alt="GGR Logo">
         </div>
             
             <div class="ggr-login-card">
@@ -2280,6 +2329,10 @@ function ggr_onboarding_dashboard_shortcode() {
     );
 
     // Flags voor de nieuwe stappen in de collecting-fase.
+    $investment_amount_raw = get_user_meta( $user_id, 'ggr_participation_amount', true );
+    $investment_amount     = ggr_onboarding_parse_amount( $investment_amount_raw );
+    $requires_intake_step  = $investment_amount > 0 && $investment_amount < 100000;
+
     $collecting_request_done     = get_user_meta( $user_id, 'ggr_collecting_request_done', true );
     $collecting_type_done        = get_user_meta( $user_id, 'ggr_collecting_type_done', true );
     $collecting_personal_done    = get_user_meta( $user_id, 'ggr_collecting_personal_done', true );
@@ -2287,26 +2340,15 @@ function ggr_onboarding_dashboard_shortcode() {
     $collecting_files_done       = get_user_meta( $user_id, 'ggr_collecting_files_done', true );
 
     // Bepaal actieve stap in collecting-fase en maak wisselen mogelijk via query-parameter.
+    $available_collecting_steps = $requires_intake_step
+        ? array( 'intake' )
+        : array( 'request', 'type', 'personal', 'origin', 'files' ); 
     $available_collecting_steps = array( 'request', 'type', 'personal', 'origin', 'files' );
     $requested_collecting_step  = isset( $_GET['collecting_step'] )
         ? sanitize_key( wp_unslash( $_GET['collecting_step'] ) )
         : '';
         
-    $step_order = array(
-        'request'  => $collecting_request_done,
-        'type'     => $collecting_type_done,
-        'personal' => $collecting_personal_done,
-        'origin'   => $collecting_origin_done,
-        'files'    => $collecting_files_done,
-    );
-
-    $default_collecting_step = 'request';
-    foreach ( $step_order as $step_key => $is_done ) {
-        if ( empty( $is_done ) ) {
-            $default_collecting_step = $step_key;
-            break;
-        }
-    }
+    $default_collecting_step = $requires_intake_step ? 'intake' : 'request';
 
     $current_collecting_step = in_array( $requested_collecting_step, $available_collecting_steps, true )
         ? $requested_collecting_step
@@ -2543,13 +2585,29 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
         }
     }
 
-    $collecting_step_labels = array(
-        'request'  => '1. Investeringsbedrag',
-        'type'     => '2. Rechtspersoon',
-        'personal' => '3. Persoonlijke gegevens',
-        'origin'   => '4. Herkomst vermogen',
-        'files'    => '5. Documentatie',
-    );
+    $collecting_step_labels = $requires_intake_step
+        ? array(
+            'intake' => 'Intake',
+        )
+        : array(
+            'request'  => '1. Investeringsbedrag',
+            'type'     => '2. Rechtspersoon',
+            'personal' => '3. Persoonlijke gegevens',
+            'origin'   => '4. Herkomst vermogen',
+            'files'    => '5. Documentatie',
+        );
+
+    $collecting_step_messages = $requires_intake_step
+        ? array(
+            'intake' => 'We plannen graag een intake om je aanvraag onder € 100.000 persoonlijk door te nemen.',
+        )
+        : array(
+            'request'  => 'Bevestig het gewenste investeringsbedrag.',
+            'type'     => 'Kies of je privé of zakelijk wilt participeren.',
+            'personal' => 'Vul de gegevens van jou en eventuele mede-participants aan.',
+            'origin'   => 'Leg de herkomst van het te investeren bedrag vast.',
+            'files'    => 'Upload de benodigde documenten om je inschrijving af te ronden.',
+        );
 
     $collecting_step_keys = array_keys( $collecting_step_labels );
     $collecting_prev_step = '';
@@ -2626,7 +2684,7 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                             <div class="ggr-onboarding-logo">
                             <a href="<?php echo esc_url( home_url( '/dashboard/' ) ); ?>">
                                 <img
-                                    src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20MIF%20full%20logo%20-%20Blue%20-%20Black.png"
+                                    src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20full%20logo%20-%20Blue%20-%20Black.png"
                                     alt="GGR monthly Income Fund"
                                     class="ggr-logo-img"
                                 />
@@ -2793,7 +2851,7 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                 </div>
                                 <?php
                                 $application_pdf_url       = ggr_onboarding_get_pdf_download_url( 'application', $user_id );
-                                $application_pdf_embed_url = $application_pdf_url ? $application_pdf_url . '#navpanes=0&toolbar=0&statusbar=0&view=FitH' : '';
+                                $application_pdf_embed_url = $application_pdf_url ? $application_pdf_url . '#toolbar=0&navpanes=0&scrollbar=0&zoom=page-width' : '';
                                 $memorandum_pdf_url  = ggr_onboarding_get_pdf_download_url( 'memorandum', $user_id );
                                 $eid_pdf_url         = ggr_onboarding_get_pdf_download_url( 'eid', $user_id );
                                 $disclaimer_pdf_url  = ggr_onboarding_get_pdf_download_url( 'disclaimer', $user_id );
@@ -2936,7 +2994,21 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
 
                         <?php if ( 'collecting' === $status ) : ?>
 
-                            <?php if ( 'request' === $current_collecting_step ) : ?>
+                            <?php if ( 'intake' === $current_collecting_step ) : ?>
+                                <div class="ggr-onboarding-step-card">
+                                    <div class="ggr-onboarding-step-text">
+                                        <h3 class="ggr-onboarding-step-heading">Intake gepland</h3>
+                                        <p class="ggr-onboarding-step-description">
+                                            Omdat je hebt aangegeven minder dan € 100.000 te willen investeren, nemen we persoonlijk contact met je op.
+                                            Plan samen met ons een intake om de volgende stappen te bespreken.
+                                        </p>
+                                        <p class="ggr-onboarding-step-description">
+                                            Mail ons via <a href="mailto:onboarding@ggr.nl">onboarding@ggr.nl</a> of bel je vaste contactpersoon om direct een afspraak te maken.
+                                        </p>
+                                    </div>
+                                </div>
+
+                            <?php elseif ( 'request' === $current_collecting_step ) : ?>
                                 <!-- STAP 1: VERZOEK -->
                                 <div class="ggr-onboarding-step-card">
                                     <div class="ggr-onboarding-step-text">
