@@ -3030,6 +3030,7 @@ function ggr_portal_render_participant_profile_page() {
                         <?php if ( $existing_signature_text = get_user_meta( $user_id, 'ggr_contract_signature_text', true ) ) : ?>
                             <p class="ggr-admin-meta-note">Getypte handtekening: <?php echo esc_html( $existing_signature_text ); ?></p>
                         <?php endif; ?>
+                        <?php endif; ?>                        
                     </td>
                 </tr>
             </table>
@@ -3136,6 +3137,7 @@ function ggr_portal_render_participant_profile_page() {
     </div>
     <?php
 }
+
 
 /**
  * Admin-pagina: participant-profiel
