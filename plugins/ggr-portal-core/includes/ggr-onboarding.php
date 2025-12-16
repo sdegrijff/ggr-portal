@@ -1056,7 +1056,7 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
         <span class="pill">Inschrijfformulier</span>
         <h1>Samenvatting inschrijving</h1>
         <p class="muted">Dit document bevat een ingevuld inschrijfformulier met lopende tekst. Gebruik het om na te lezen welke gegevens zijn aangeleverd voordat de overeenkomst wordt ondertekend.</p>
-        <p>Met dit formulier bevestigt <strong><?php echo esc_html( $participant_name ); ?></strong><?php echo $co_name ? ' (mede-participant: ' . esc_html( $co_name ) . ')' : ''; ?> de intentie om deel te nemen aan het GGR Monthly Income Fund. De deelname vindt plaats als <strong><?php echo esc_html( $profile_label ); ?></strong> met een beoogd investeringsbedrag van <strong><?php echo esc_html( $amount_display ); ?></strong>. Het opgegeven land van herkomst van de middelen is <strong><?php echo esc_html( $origin_country ? $origin_country : 'nog niet opgegeven' ); ?></strong>.</p>
+        <p>Met dit formulier bevestigt <strong><?php echo esc_html( $participant_name ); ?></strong><?php echo $co_name ? ' (mede-participant: ' . esc_html( $co_name ) . ')' : ''; ?> de intentie om deel te nemen aan het GGR Income Fund. De deelname vindt plaats als <strong><?php echo esc_html( $profile_label ); ?></strong> met een beoogd investeringsbedrag van <strong><?php echo esc_html( $amount_display ); ?></strong>. Het opgegeven land van herkomst van de middelen is <strong><?php echo esc_html( $origin_country ? $origin_country : 'nog niet opgegeven' ); ?></strong>.</p>
         <p>De herkomst van de middelen is omschreven als: <strong><?php echo esc_html( $origin_sources_labels ? implode( ', ', $origin_sources_labels ) : 'nog niet opgegeven' ); ?></strong>. Aanvullende toelichting: <?php echo $origin_notes ? esc_html( $origin_notes ) : 'n.v.t.'; ?>. Deze samenvatting is bedoeld als leesbare vertaling van het aanvraagformulier; wijzigingen kunnen eenvoudig worden doorgevoerd door de tekst aan te passen.</p>
 
         <div class="card">
@@ -1163,7 +1163,7 @@ function ggr_onboarding_flow_shortcode() {
                 <div class="ggr-onboarding-logo">
                     <img
                         src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20full%20logo%20-%20Blue%20-%20Black.png"
-                        alt="GGR Monthly Income Fund"
+                        alt="GGR Income Fund"
                     />
                 </div>
                 <div class="ggr-onboarding-title-block">
@@ -1253,7 +1253,7 @@ function ggr_onboarding_flow_shortcode() {
                     <form class="ggr-onboarding-form" action="#" method="post">
                         <section id="stap-1" class="ggr-onboarding-section">
                             <h2>1. Verzoek om uitgifte Participaties</h2>
-                            <p>Ondergetekende (de "Participant") wil Participaties aankopen in het GGR Monthly Income Fund (het "Fonds") voor een bedrag van:</p>
+                            <p>Ondergetekende (de "Participant") wil Participaties aankopen in het GGR Income Fund (het "Fonds") voor een bedrag van:</p>
                             <div class="ggr-onboarding-grid">
                                 <div class="ggr-onboarding-field">
                                     <label for="ggr-investment-amount">Gewenst bedrag (€)</label>
@@ -1441,7 +1441,7 @@ function ggr_onboarding_flow_shortcode() {
                             <div class="ggr-onboarding-highlight ggr-onboarding-highlight--secondary">
                                 <div>
                                     <h3>Akkoordverklaring</h3>
-                                    <p>Door het formulier te verzenden verklaar je akkoord te zijn met de voorwaarden van het GGR Monthly Income Fund en bevestig je dat de gegevens juist zijn.</p>
+                                    <p>Door het formulier te verzenden verklaar je akkoord te zijn met de voorwaarden van het GGR Income Fund en bevestig je dat de gegevens juist zijn.</p>
                                 </div>
                                 <label class="ggr-onboarding-checkbox-inline">
                                     <input type="checkbox" name="ggr_terms" />
@@ -2685,7 +2685,7 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                             <a href="<?php echo esc_url( home_url( '/dashboard/' ) ); ?>">
                                 <img
                                     src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20full%20logo%20-%20Blue%20-%20Black.png"
-                                    alt="GGR monthly Income Fund"
+                                    alt="GGR Income Fund"
                                     class="ggr-logo-img"
                                 />
                             </a>
@@ -2904,7 +2904,7 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                     <div class="ggr-onboarding-termsheet" aria-label="Overzicht overeenkomst">
                                         <div class="ggr-onboarding-termsheet__header">
                                             <p class="ggr-onboarding-termsheet__eyebrow">Termsheet</p>
-                                            <h4 class="ggr-onboarding-termsheet__title">Overeenkomst deelname GGR Monthly Income Fund</h4>
+                                            <h4 class="ggr-onboarding-termsheet__title">Overeenkomst deelname GGR Income Fund</h4>
                                         </div>
                                         <div class="ggr-onboarding-termsheet__body">
                                             <p>Onderstaande gegevens zijn overgenomen uit je onboarding. Door te tekenen bevestig je dat deze informatie klopt en ga je akkoord met de voorwaarden van het fonds.</p>
@@ -2997,13 +2997,13 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                             <?php if ( 'intake' === $current_collecting_step ) : ?>
                                 <div class="ggr-onboarding-step-card">
                                     <div class="ggr-onboarding-step-text">
-                                        <h3 class="ggr-onboarding-step-heading">Intake gepland</h3>
+                                        <h3 class="ggr-onboarding-step-heading">Intake plannen</h3>
                                         <p class="ggr-onboarding-step-description">
                                             Omdat je hebt aangegeven minder dan € 100.000 te willen investeren, nemen we persoonlijk contact met je op.
                                             Plan samen met ons een intake om de volgende stappen te bespreken.
                                         </p>
                                         <p class="ggr-onboarding-step-description">
-                                            Mail ons via <a href="mailto:onboarding@ggr.nl">onboarding@ggr.nl</a> of bel je vaste contactpersoon om direct een afspraak te maken.
+                                            Mail ons via <a href="mailto:info@ggrincome.com">info@ggrincome.com</a> of bel je vaste contactpersoon om direct een afspraak te maken.
                                         </p>
                                     </div>
                                 </div>
@@ -3013,7 +3013,7 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                 <div class="ggr-onboarding-step-card">
                                     <div class="ggr-onboarding-step-text">
                                         <h3 class="ggr-onboarding-step-heading">Stap 1: Verzoek om uitgifte Participaties</h3>
-                                        <p class="ggr-onboarding-step-description">Geef aan voor welk bedrag je participaties wilt aankopen in het GGR Monthly Income Fund.</p>
+                                        <p class="ggr-onboarding-step-description">Geef aan voor welk bedrag je participaties wilt aankopen in het GGR Income Fund.</p>
                                     </div>
 
                                     <form method="post" class="ggr-onboarding-form">
@@ -3041,7 +3041,7 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                     }
                                     ?>
                                     <div class="ggr-onboarding-field">
-                                        <label for="ggr_participation_amount">Bedrag (minimaal € 5.000) *</label>
+                                        <label for="ggr_participation_amount">Investeringsbedrag *</label>
                                         <input type="text" id="ggr_participation_amount" name="ggr_participation_amount"
                                                inputmode="decimal"
                                                class="ggr-onboarding-money"
