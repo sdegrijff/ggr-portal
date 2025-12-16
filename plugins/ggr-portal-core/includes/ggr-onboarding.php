@@ -881,6 +881,224 @@ function ggr_get_countries_nl() {
 }
 
 /**
+ * Bouw een beveiligde downloadlink voor een onboarding-PDF.
+ */
+function ggr_onboarding_get_pdf_download_url( $type = 'application', $user_id = 0 ) {
+    $user_id = $user_id ? (int) $user_id : get_current_user_id();
+    $args    = array(
+        'ggr_action' => 'download_onboarding_pdf',
+        'type'       => $type,
+        'user_id'    => $user_id,
+    );
+
+    $url = add_query_arg( $args, home_url( '/' ) );
+
+    return wp_nonce_url( $url, 'ggr_download_onboarding_pdf_' . $type . '_' . $user_id, 'ggr_nonce' );
+}
+
+add_action( 'init', 'ggr_onboarding_register_pdf_download' );
+function ggr_onboarding_register_pdf_download() {
+    if ( isset( $_GET['ggr_action'] ) && 'download_onboarding_pdf' === $_GET['ggr_action'] ) {
+        ggr_onboarding_handle_pdf_download();
+        exit;
+    }
+}
+
+function ggr_onboarding_handle_pdf_download() {
+    if ( ! is_user_logged_in() ) {
+        wp_die( 'Niet ingelogd.' );
+    }
+
+    $type    = isset( $_GET['type'] ) ? sanitize_key( wp_unslash( $_GET['type'] ) ) : 'application';
+    $user_id = isset( $_GET['user_id'] ) ? absint( $_GET['user_id'] ) : get_current_user_id();
+    $nonce   = isset( $_GET['ggr_nonce'] ) ? wp_unslash( $_GET['ggr_nonce'] ) : '';
+
+    if ( ! wp_verify_nonce( $nonce, 'ggr_download_onboarding_pdf_' . $type . '_' . $user_id ) ) {
+        wp_die( 'Ongeldige aanvraag.' );
+    }
+
+    $current_user_id = get_current_user_id();
+    if ( $user_id !== $current_user_id && ! current_user_can( 'manage_options' ) && ! current_user_can( 'edit_user', $user_id ) ) {
+        wp_die( 'Geen toegang tot dit document.' );
+    }
+
+    $html = ggr_onboarding_render_pdf_html( $user_id, $type );
+    if ( ! $html ) {
+        wp_die( 'Kon het document niet opbouwen.' );
+    }
+
+    if ( ! class_exists( '\\Dompdf\\Dompdf' ) ) {
+        $dompdf_autoload = trailingslashit( GGR_PORTAL_CORE_PATH ) . 'dompdf/autoload.inc.php';
+        if ( file_exists( $dompdf_autoload ) ) {
+            require_once $dompdf_autoload;
+        }
+    }
+
+    if ( class_exists( '\\Dompdf\\Dompdf' ) ) {
+        $options = new \Dompdf\Options();
+        $options->set( 'isRemoteEnabled', true );
+
+        $dompdf = new \Dompdf\Dompdf( $options );
+        $dompdf->setPaper( 'A4', 'portrait' );
+        $dompdf->loadHtml( $html );
+        $dompdf->render();
+
+        $pdf_output = $dompdf->output();
+
+        if ( ob_get_length() ) {
+            @ob_end_clean();
+        }
+
+        $filename_map = array(
+            'memorandum' => 'informatie-memorandum',
+            'eid'        => 'essentiele-informatie',
+            'disclaimer' => 'disclaimer',
+            'application'=> 'inschrijfformulier',
+        );
+
+        $filename_base = isset( $filename_map[ $type ] ) ? $filename_map[ $type ] : 'onboarding-document';
+        $filename      = $filename_base . '-' . $user_id . '.pdf';
+
+        header( 'Content-Type: application/pdf' );
+        header( 'Content-Disposition: inline; filename="' . $filename . '"' );
+        header( 'Cache-Control: private, max-age=0, must-revalidate' );
+        header( 'Pragma: public' );
+
+        echo $pdf_output; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        exit;
+    }
+
+    header( 'Content-Type: text/html; charset=UTF-8' );
+    echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+    exit;
+}
+
+/**
+ * Genereer de HTML voor de verschillende onboarding-PDF's.
+ */
+function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
+    $user = get_user_by( 'id', $user_id );
+    if ( ! $user ) {
+        return '';
+    }
+
+    $participation_profile = get_user_meta( $user_id, 'ggr_participation_profile', true );
+    $amount_meta           = get_user_meta( $user_id, 'ggr_participation_amount', true );
+    $amount_display        = $amount_meta !== '' ? '€ ' . number_format( (float) $amount_meta, 0, ',', '.' ) : 'Nog niet opgegeven';
+    $origin_country        = get_user_meta( $user_id, 'ggr_origin_country', true );
+    $origin_sources        = get_user_meta( $user_id, 'ggr_origin_sources', true );
+    $origin_sources        = is_array( $origin_sources ) ? $origin_sources : array();
+    $origin_notes          = get_user_meta( $user_id, 'ggr_origin_notes', true );
+
+    $origin_labels = array();
+    foreach ( ggr_onboarding_get_origin_options() as $key => $option ) {
+        $origin_labels[ $key ] = $option['label'];
+    }
+
+    $origin_sources_labels = array();
+    foreach ( $origin_sources as $source_key ) {
+        if ( isset( $origin_labels[ $source_key ] ) ) {
+            $origin_sources_labels[] = $origin_labels[ $source_key ];
+        }
+    }
+
+    $participant_name = trim( get_user_meta( $user_id, 'ggr_kyc_first_name', true ) . ' ' . get_user_meta( $user_id, 'ggr_kyc_last_name', true ) );
+    if ( ! $participant_name ) {
+        $participant_name = trim( $user->first_name . ' ' . $user->last_name );
+    }
+
+    $co_name = trim( get_user_meta( $user_id, 'co_first_name', true ) . ' ' . get_user_meta( $user_id, 'co_last_name', true ) );
+    $profile_label = ( 'zakelijk' === $participation_profile ) ? 'Zakelijk' : ( 'prive' === $participation_profile ? 'Privé' : 'Onbekend' );
+    $address_line  = trim(
+        get_user_meta( $user_id, 'ggr_kyc_address', true ) . ', ' .
+        get_user_meta( $user_id, 'ggr_kyc_postcode', true ) . ' ' .
+        get_user_meta( $user_id, 'ggr_kyc_city_country', true )
+    );
+
+    $sections = ggr_onboarding_build_review_sections( $user_id, $user, $participation_profile, $amount_display );
+
+    ob_start();
+    ?>
+    <html>
+    <head>
+        <meta charset="utf-8" />
+        <style>
+            body { font-family: "Helvetica Neue", Arial, sans-serif; color: #0f172a; font-size: 13px; line-height: 1.5; margin: 0; padding: 24px; }
+            h1 { font-size: 22px; margin-bottom: 6px; color: #0b2149; }
+            h2 { font-size: 16px; margin: 18px 0 8px; color: #0b2149; }
+            p  { margin: 0 0 10px; }
+            .muted { color: #475569; }
+            .pill { display: inline-block; background: #0b2149; color: #fff; padding: 4px 10px; border-radius: 999px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
+            .card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-top: 10px; background: #f8fafc; }
+            dl { display: grid; grid-template-columns: 1fr 2fr; gap: 6px 14px; margin: 0; }
+            dt { font-weight: 600; color: #1e293b; }
+            dd { margin: 0; }
+            ul { margin: 0 0 10px 18px; padding: 0; }
+            .footnote { margin-top: 18px; font-size: 11px; color: #64748b; }
+        </style>
+    </head>
+    <body>
+    <?php if ( 'application' === $type ) : ?>
+        <span class="pill">Inschrijfformulier</span>
+        <h1>Samenvatting inschrijving</h1>
+        <p class="muted">Dit document bevat een ingevuld inschrijfformulier met lopende tekst. Gebruik het om na te lezen welke gegevens zijn aangeleverd voordat de overeenkomst wordt ondertekend.</p>
+        <p>Met dit formulier bevestigt <strong><?php echo esc_html( $participant_name ); ?></strong><?php echo $co_name ? ' (mede-participant: ' . esc_html( $co_name ) . ')' : ''; ?> de intentie om deel te nemen aan het GGR Monthly Income Fund. De deelname vindt plaats als <strong><?php echo esc_html( $profile_label ); ?></strong> met een beoogd investeringsbedrag van <strong><?php echo esc_html( $amount_display ); ?></strong>. Het opgegeven land van herkomst van de middelen is <strong><?php echo esc_html( $origin_country ? $origin_country : 'nog niet opgegeven' ); ?></strong>.</p>
+        <p>De herkomst van de middelen is omschreven als: <strong><?php echo esc_html( $origin_sources_labels ? implode( ', ', $origin_sources_labels ) : 'nog niet opgegeven' ); ?></strong>. Aanvullende toelichting: <?php echo $origin_notes ? esc_html( $origin_notes ) : 'n.v.t.'; ?>. Deze samenvatting is bedoeld als leesbare vertaling van het aanvraagformulier; wijzigingen kunnen eenvoudig worden doorgevoerd door de tekst aan te passen.</p>
+
+        <div class="card">
+            <h2>Contact- en adresgegevens</h2>
+            <dl>
+                <dt>Naam participant</dt>
+                <dd><?php echo esc_html( $participant_name ? $participant_name : 'Nog niet opgegeven' ); ?></dd>
+                <dt>Mede-participant</dt>
+                <dd><?php echo $co_name ? esc_html( $co_name ) : 'Niet van toepassing'; ?></dd>
+                <dt>E-mailadres</dt>
+                <dd><?php echo esc_html( $user->user_email ); ?></dd>
+                <dt>Telefoonnummer</dt>
+                <dd><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_phone', true ) ); ?></dd>
+                <dt>Adres</dt>
+                <dd><?php echo esc_html( $address_line ? $address_line : 'Nog niet opgegeven' ); ?></dd>
+            </dl>
+        </div>
+
+        <?php if ( ! empty( $sections ) ) : ?>
+            <div class="card">
+                <h2>Overzicht ingevulde gegevens</h2>
+                <?php foreach ( $sections as $section ) : ?>
+                    <h3><?php echo esc_html( $section['title'] ); ?></h3>
+                    <dl>
+                        <?php foreach ( $section['items'] as $label => $value ) : ?>
+                            <dt><?php echo esc_html( $label ); ?></dt>
+                            <dd><?php echo esc_html( $value ); ?></dd>
+                        <?php endforeach; ?>
+                    </dl>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+        <p class="footnote">Dit inschrijfformulier is automatisch gegenereerd. Pas de tekst aan waar nodig om aan te sluiten bij de definitieve overeenkomst.</p>
+    <?php elseif ( 'memorandum' === $type ) : ?>
+        <span class="pill">Informatie memorandum</span>
+        <h1>Informatie memorandum</h1>
+        <p>Dit is een placeholder voor het informatie memorandum. Vervang deze tekst later door de definitieve inhoud van het fondsdocument. Gebruik dit PDF-bestand om de actuele versie met deelnemers te delen.</p>
+        <p class="footnote">Documentnummer: <?php echo esc_html( $user_id ); ?>-<?php echo esc_html( date_i18n( 'Ymd' ) ); ?></p>
+    <?php elseif ( 'eid' === $type ) : ?>
+        <span class="pill">Essentiële informatiedocument (EID)</span>
+        <h1>Essentiële informatiedocument</h1>
+        <p>Dit PDF-bestand bevat een tijdelijke tekst voor het EID. Voeg hier later de officiële inhoud toe zodat deelnemers het document kunnen openen en downloaden.</p>
+        <p class="footnote">Documentnummer: <?php echo esc_html( $user_id ); ?>-<?php echo esc_html( date_i18n( 'Ymd' ) ); ?></p>
+    <?php else : ?>
+        <span class="pill">Disclaimer</span>
+        <h1>Disclaimer</h1>
+        <p>Gebruik dit document om de disclaimer te tonen. De huidige tekst is een voorbeeldparagraaf die later vervangen kan worden door de definitieve versie.</p>
+        <p class="footnote">Documentnummer: <?php echo esc_html( $user_id ); ?>-<?php echo esc_html( date_i18n( 'Ymd' ) ); ?></p>
+    <?php endif; ?>
+    </body>
+    </html>
+    <?php
+    return ob_get_clean();
+}
+
+/**
  * Statische onboarding-flow
  *
  * Shortcode: [ggr_onboarding_flow]
@@ -2573,6 +2791,12 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                     <h3 class="ggr-onboarding-step-heading">Controleer je inschrijfformulier</h3>
                                     <p class="ggr-onboarding-step-description">De gegevens hieronder zijn overgenomen uit je onboarding. Controleer of alles klopt en bevestig je ondertekening.</p>
                                 </div>
+                                <?php
+                                $application_pdf_url = ggr_onboarding_get_pdf_download_url( 'application', $user_id );
+                                $memorandum_pdf_url  = ggr_onboarding_get_pdf_download_url( 'memorandum', $user_id );
+                                $eid_pdf_url         = ggr_onboarding_get_pdf_download_url( 'eid', $user_id );
+                                $disclaimer_pdf_url  = ggr_onboarding_get_pdf_download_url( 'disclaimer', $user_id );
+                                ?>                                
                                 <?php foreach ( $review_sections as $section ) : ?>
                                     <div class="ggr-onboarding-summary">
                                         <p class="ggr-onboarding-summary__title"><?php echo esc_html( $section['title'] ); ?></p>
@@ -2584,6 +2808,27 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                         </dl>
                                     </div>
                                 <?php endforeach; ?>
+                                
+                                <div class="ggr-onboarding-summary">
+                                    <p class="ggr-onboarding-summary__title">Download documenten</p>
+                                    <p class="ggr-onboarding-note">We hebben een ingevuld inschrijfformulier met lopende tekst voor je klaargezet. De onderstaande knoppen openen de documenten in een nieuw tabblad zodat je ze direct als PDF kunt bekijken.</p>
+                                    <div class="ggr-onboarding-form-actions-buttons">
+                                        <a class="ggr-onboarding-button ggr-onboarding-button--ghost" href="<?php echo esc_url( $application_pdf_url ); ?>" target="_blank" rel="noopener noreferrer">
+                                            Download inschrijfformulier (PDF)
+                                        </a>
+                                    </div>
+                                    <div class="ggr-onboarding-form-actions-buttons">
+                                        <a class="ggr-onboarding-button ggr-onboarding-button--ghost" href="<?php echo esc_url( $memorandum_pdf_url ); ?>" target="_blank" rel="noopener noreferrer">
+                                            Informatie memorandum (PDF)
+                                        </a>
+                                        <a class="ggr-onboarding-button ggr-onboarding-button--ghost" href="<?php echo esc_url( $eid_pdf_url ); ?>" target="_blank" rel="noopener noreferrer">
+                                            EID (PDF)
+                                        </a>
+                                        <a class="ggr-onboarding-button ggr-onboarding-button--ghost" href="<?php echo esc_url( $disclaimer_pdf_url ); ?>" target="_blank" rel="noopener noreferrer">
+                                            Disclaimer (PDF)
+                                        </a>
+                                    </div>
+                                </div>                                        
                                 <form method="post" class="ggr-onboarding-form" data-ggr-contract-signing>
                                     <?php wp_nonce_field( 'ggr_sign_contract', 'ggr_sign_contract_nonce' ); ?>
                                     <?php if ( $contract_preview_url ) : ?>
@@ -2638,22 +2883,18 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                     <div class="ggr-onboarding-field">
                                         <label for="ggr_contract_signature_pad">Handtekening</label>
                                         <p class="ggr-onboarding-note">Teken in het vlak of vul je naam in. Je handtekening wordt opgeslagen bij deze overeenkomst.</p>
+                                        <?php if ( $existing_signature_image || $existing_signature_text ) : ?>
+                                            <p class="ggr-onboarding-note">Er staat al een handtekening in je dossier. We tonen de opgeslagen versie niet op deze pagina; teken opnieuw of vul je naam in om de bestaande handtekening te vervangen.</p>
+                                        <?php endif; ?>                                        
                                         <div class="ggr-onboarding-signature">
                                             <canvas id="ggr_contract_signature_pad" class="ggr-onboarding-signature__pad" width="560" height="240"></canvas>
-                                            <input type="hidden" name="ggr_contract_signature_data" id="ggr_contract_signature_data" value="<?php echo esc_attr( $existing_signature_image ); ?>">
+                                            <input type="hidden" name="ggr_contract_signature_data" id="ggr_contract_signature_data" value="">
                                             <div class="ggr-onboarding-signature__actions">
                                                 <button type="button" class="ggr-onboarding-button ggr-onboarding-button--ghost" data-signature-clear>Wis handtekening</button>
                                             </div>
                                             <label class="ggr-onboarding-field-label" for="ggr_contract_signature_text">Getypte handtekening (optioneel)</label>
-                                            <input type="text" id="ggr_contract_signature_text" name="ggr_contract_signature_text" value="<?php echo esc_attr( $existing_signature_text ); ?>" placeholder="Volledige naam zoals in de overeenkomst">
+                                            <input type="text" id="ggr_contract_signature_text" name="ggr_contract_signature_text" value="" placeholder="Volledige naam zoals in de overeenkomst" autocomplete="off">
                                         </div>
-                                        <?php if ( $existing_signature_image ) : ?>
-                                            <p class="ggr-onboarding-muted" style="margin-top:8px;">Bewaarde handtekening:</p>
-                                            <img src="<?php echo esc_url( $existing_signature_image ); ?>" alt="Bewaarde handtekening" style="max-width:100%; border:1px solid #e5e7eb; border-radius:4px; padding:8px; background:#fff;">
-                                        <?php endif; ?>
-                                        <?php if ( $existing_signature_text ) : ?>
-                                            <p class="ggr-onboarding-muted" style="margin-top:8px;">Getypte handtekening: <?php echo esc_html( $existing_signature_text ); ?></p>
-                                        <?php endif; ?>
                                     </div>                                    
                                     <p class="ggr-onboarding-note">Met deze bevestiging ga je akkoord met de inhoud van de overeenkomst. Heb je een correctie? Neem contact op met het onboarding-team.</p>
                                     <button type="submit" name="ggr_sign_contract_confirm" value="1" class="ggr-onboarding-button ggr-onboarding-button--primary">Ik heb gecontroleerd en teken</button>
