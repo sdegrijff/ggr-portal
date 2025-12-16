@@ -3128,12 +3128,12 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                                 <input type="tel" id="ggr_co_phone" name="ggr_co_phone"
                                                        value="<?php echo esc_attr( $co_phone ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
                                             </div>
-                                                    <div class="ggr-onboarding-field">
+                                            <div class="ggr-onboarding-field">
                                                 <label for="ggr_co_bsn">Burgerservicenummer *</label>
                                                 <input type="text" id="ggr_co_bsn" name="ggr_co_bsn"
                                                        value="<?php echo esc_attr( $co_bsn ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
                                             </div>
-
+                                        </div>
                                         <div class="ggr-onboarding-grid ggr-onboarding-grid--columns-3">
                                             <div class="ggr-onboarding-field">
                                                 <label for="ggr_co_address">Adres *</label>
@@ -3145,7 +3145,7 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                                 <input type="text" id="ggr_co_postcode" name="ggr_co_postcode"
                                                        value="<?php echo esc_attr( $co_postcode ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
                                             </div>
-                                                <div class="ggr-onboarding-field">
+                                            <div class="ggr-onboarding-field">
                                                 <label for="ggr_co_city_country">Plaats *</label>
                                                 <input type="text" id="ggr_co_city_country" name="ggr_co_city_country"
                                                        value="<?php echo esc_attr( $co_city_country ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
