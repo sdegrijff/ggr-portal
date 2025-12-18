@@ -3472,6 +3472,8 @@ function ggr_onboarding_dashboard_shortcode() {
                                                 <span class="ggr-onboarding-choice__label">Nee</span>
                                             </label>
                                         </div>
+                                             <div class="info-ouder-kind" style="font-size: 10px; font-style: italic; margin-top: 10px;">
+                                                * Wanneer je als ouder of voogd wilt investeren voor een kind, zet deze optie op <strong>Ja</strong> en vul de gegevens als volgt in: <strong>kind</strong> = participant en <strong>ouder</strong> = mede-participant<strong>
                                     </div>
 
                                     <div class="ggr-onboarding-form-actions">
