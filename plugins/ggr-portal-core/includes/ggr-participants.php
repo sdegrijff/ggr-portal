@@ -3073,19 +3073,23 @@ function ggr_portal_render_participant_profile_page() {
 
                         <?php if ( $contract_preview_url ) : ?>
                             <p class="ggr-admin-meta-note">Ondertekend document: <a href="<?php echo esc_url( $contract_preview_url ); ?>" target="_blank" rel="noopener noreferrer">bekijk document</a>.</p>                            
-                        <?php if ( $existing_signature_image = get_user_meta( $user_id, 'ggr_contract_signature', true ) ) : ?>
-                            <p class="ggr-admin-meta-note">Opgeslagen handtekening van deelnemer:</p>
-                            <img src="<?php echo esc_url( $existing_signature_image ); ?>" alt="Handtekening" style="max-width:320px; border:1px solid #e5e7eb; padding:6px; border-radius:4px; background:#fff;">
-                        <?php endif; ?>
-                        <?php if ( $existing_signature_text = get_user_meta( $user_id, 'ggr_contract_signature_text', true ) ) : ?>
-                            <p class="ggr-admin-meta-note">Getypte handtekening: <?php echo esc_html( $existing_signature_text ); ?></p>'
-                        <?php if ( $existing_co_signature_image = get_user_meta( $user_id, 'ggr_co_contract_signature', true ) ) : ?>
-                            <p class="ggr-admin-meta-note">Opgeslagen handtekening mede-participant:</p>
-                            <img src="<?php echo esc_url( $existing_co_signature_image ); ?>" alt="Handtekening mede-participant" style="max-width:320px; border:1px solid #e5e7eb; padding:6px; border-radius:4px; background:#fff;">
-                        <?php endif; ?>
-                        <?php if ( $existing_co_signature_text = get_user_meta( $user_id, 'ggr_co_contract_signature_text', true ) ) : ?>
-                            <p class="ggr-admin-meta-note">Getypte handtekening mede-participant: <?php echo esc_html( $existing_co_signature_text ); ?></p>
-                        <?php endif; ?>
+                            <?php if ( $existing_signature_image = get_user_meta( $user_id, 'ggr_contract_signature', true ) ) : ?>
+                                <p class="ggr-admin-meta-note">Opgeslagen handtekening van deelnemer:</p>
+                                <img src="<?php echo esc_url( $existing_signature_image ); ?>" alt="Handtekening" style="max-width:320px; border:1px solid #e5e7eb; padding:6px; border-radius:4px; background:#fff;">
+                            <?php endif; ?>
+
+                            <?php if ( $existing_signature_text = get_user_meta( $user_id, 'ggr_contract_signature_text', true ) ) : ?>
+                                <p class="ggr-admin-meta-note">Getypte handtekening: <?php echo esc_html( $existing_signature_text ); ?></p>
+                            <?php endif; ?>
+
+                            <?php if ( $existing_co_signature_image = get_user_meta( $user_id, 'ggr_co_contract_signature', true ) ) : ?>
+                                <p class="ggr-admin-meta-note">Opgeslagen handtekening mede-participant:</p>
+                                <img src="<?php echo esc_url( $existing_co_signature_image ); ?>" alt="Handtekening mede-participant" style="max-width:320px; border:1px solid #e5e7eb; padding:6px; border-radius:4px; background:#fff;">
+                            <?php endif; ?>
+
+                            <?php if ( $existing_co_signature_text = get_user_meta( $user_id, 'ggr_co_contract_signature_text', true ) ) : ?>
+                                <p class="ggr-admin-meta-note">Getypte handtekening mede-participant: <?php echo esc_html( $existing_co_signature_text ); ?></p>
+                            <?php endif; ?>
                         <?php endif; ?>                        
                     </td>
                 </tr>
