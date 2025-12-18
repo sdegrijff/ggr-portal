@@ -730,7 +730,8 @@ function ggr_onboarding_build_review_sections( $user_id, $user, $participation_p
     $kyc_nationality  = get_user_meta( $user_id, 'ggr_kyc_nationality', true );
     $kyc_pep          = get_user_meta( $user_id, 'ggr_kyc_pep', true );
     $kyc_us_person    = get_user_meta( $user_id, 'ggr_kyc_us_person', true );
-
+    $co_investment_note = get_user_meta( $user_id, 'ggr_co_investment_note', true );
+    
     $sections[] = array(
         'title' => 'Persoonlijke gegevens',
         'items' => array(
@@ -782,6 +783,7 @@ function ggr_onboarding_build_review_sections( $user_id, $user, $participation_p
                 'BSN'           => get_user_meta( $user_id, 'ggr_co_bsn', true ) ?: '—',
                 'PEP'           => $boolean_label( get_user_meta( $user_id, 'ggr_co_pep', true ) ),
                 'US person'     => $boolean_label( get_user_meta( $user_id, 'ggr_co_us_person', true ) ),
+                'Toelichting (bijv. investeren voor kind)' => $co_investment_note ? wp_strip_all_tags( $co_investment_note ) : '—',                
             ),
         );
     }
@@ -1019,7 +1021,10 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
     $signature_text      = get_user_meta( $user_id, 'ggr_contract_signature_text', true );
     $signature_timestamp = get_user_meta( $user_id, 'ggr_contract_signed_at', true );
     $signature_label     = $signature_timestamp ? ggr_onboarding_format_datetime_label( $signature_timestamp ) : '';
-
+    $co_signature_image  = get_user_meta( $user_id, 'ggr_co_contract_signature', true );
+    $co_signature_text   = get_user_meta( $user_id, 'ggr_co_contract_signature_text', true );
+    $co_investment_note  = get_user_meta( $user_id, 'ggr_co_investment_note', true );
+    
     $sections = ggr_onboarding_build_review_sections( $user_id, $user, $participation_profile, $amount_display );
 
     ob_start();
@@ -1352,6 +1357,13 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
                             <td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_kyc_us_person', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
                             <td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_co_us_person', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
                         </tr>
+                        <?php if ( $co_name || $co_investment_note ) : ?>
+                        <tr>
+                            <td>Toelichting mede-participant</td>
+                            <td>—</td>
+                            <td><?php echo $co_investment_note ? esc_html( $co_investment_note ) : '—'; ?></td>
+                        </tr>
+                        <?php endif; ?>                        
                     </tbody>
                 </table>
             </div>
@@ -1417,8 +1429,11 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
                     </div>
                     <div class="signature-box">
                         <strong>Handtekening Mede-participant</strong>
+                        <?php if ( $co_signature_image ) : ?>
+                            <img src="<?php echo esc_url( $co_signature_image ); ?>" alt="Handtekening mede-participant" />
+                        <?php endif; ?>                        
                         <div class="signature-line"></div>
-                        <div class="signature-name"><?php echo $co_name ? esc_html( $co_name ) : '—'; ?></div>
+                        <div class="signature-name"><?php echo esc_html( $co_signature_text ? $co_signature_text : ( $co_name ? $co_name : '—' ) ); ?></div>
                     </div>
                 </div>
             </div>
@@ -1459,6 +1474,13 @@ function ggr_onboarding_flow_shortcode() {
     ?>
     <div class="ggr-onboarding-shell">
         <div class="ggr-onboarding-card">
+            <style>
+                .ggr-onboarding-step-tab.is-disabled {
+                    pointer-events: none;
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
+            </style>            
             <div class="ggr-onboarding-header">
                 <div class="ggr-onboarding-logo">
                     <img
@@ -2616,6 +2638,8 @@ function ggr_onboarding_dashboard_shortcode() {
     $first_trade_day         = get_user_meta( $user_id, 'ggr_first_trade_day', true );
     $payment_received        = get_user_meta( $user_id, 'ggr_payment_received', true );
     $payment_received_at     = get_user_meta( $user_id, 'ggr_payment_received_at', true );
+    $has_co_participant      = get_user_meta( $user_id, 'ggr_has_co_participant', true );
+    $has_co_participant      = $has_co_participant ? $has_co_participant : 'nee';    
     $updated_label           = ggr_onboarding_format_datetime_label( $updated );
     $contract_signed_label   = ggr_onboarding_format_datetime_label( $contract_signed_at );
     $payment_confirmation_label = ggr_onboarding_format_datetime_label( $payment_confirmation_at );
@@ -2632,23 +2656,28 @@ function ggr_onboarding_dashboard_shortcode() {
     $investment_amount_raw = get_user_meta( $user_id, 'ggr_participation_amount', true );
     $investment_amount     = ggr_onboarding_parse_amount( $investment_amount_raw );
     $requires_intake_step  = $investment_amount > 0 && $investment_amount < 100000;
-
+    $intake_completed      = (bool) get_user_meta( $user_id, 'ggr_collecting_intake_done', true );
+    
     $collecting_request_done     = get_user_meta( $user_id, 'ggr_collecting_request_done', true );
     $collecting_type_done        = get_user_meta( $user_id, 'ggr_collecting_type_done', true );
     $collecting_personal_done    = get_user_meta( $user_id, 'ggr_collecting_personal_done', true );
     $collecting_origin_done      = get_user_meta( $user_id, 'ggr_collecting_origin_done', true );
     $collecting_files_done       = get_user_meta( $user_id, 'ggr_collecting_files_done', true );
 
-    // Bepaal actieve stap in collecting-fase en maak wisselen mogelijk via query-parameter.
-    $available_collecting_steps = $requires_intake_step
+    $base_collecting_steps    = array( 'request', 'type', 'personal', 'origin', 'files' );
+    $visible_collecting_steps = $requires_intake_step
+        ? array_merge( array( 'intake' ), $base_collecting_steps )
+        : $base_collecting_steps;
+
+    $available_collecting_steps = ( $requires_intake_step && ! $intake_completed )
         ? array( 'intake' )
-        : array( 'request', 'type', 'personal', 'origin', 'files' ); 
-    $available_collecting_steps = array( 'request', 'type', 'personal', 'origin', 'files' );
+        : $visible_collecting_steps;
+        
     $requested_collecting_step  = isset( $_GET['collecting_step'] )
         ? sanitize_key( wp_unslash( $_GET['collecting_step'] ) )
         : '';
         
-    $default_collecting_step = $requires_intake_step ? 'intake' : 'request';
+    $default_collecting_step = ( $requires_intake_step && ! $intake_completed ) ? 'intake' : 'request';
 
     $current_collecting_step = in_array( $requested_collecting_step, $available_collecting_steps, true )
         ? $requested_collecting_step
@@ -2659,59 +2688,56 @@ function ggr_onboarding_dashboard_shortcode() {
         if ( ! isset( $_POST['ggr_sign_contract_nonce'] ) || ! wp_verify_nonce( $_POST['ggr_sign_contract_nonce'], 'ggr_sign_contract' ) ) {
             $messages['error'][] = 'Je bevestiging kon niet worden verwerkt. Ververs de pagina en probeer het opnieuw.';
         } else {
-$signature_data = isset( $_POST['ggr_contract_signature_data'] )
+            $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                 ? wp_unslash( $_POST['ggr_contract_signature_data'] )
                 : '';
             $signature_text = isset( $_POST['ggr_contract_signature_text'] )
                 ? sanitize_text_field( wp_unslash( $_POST['ggr_contract_signature_text'] ) )
                 : '';
+            $co_signature_data = isset( $_POST['ggr_co_contract_signature_data'] )
+                ? wp_unslash( $_POST['ggr_co_contract_signature_data'] )
+                : '';
+            $co_signature_text = isset( $_POST['ggr_co_contract_signature_text'] )
+                ? sanitize_text_field( wp_unslash( $_POST['ggr_co_contract_signature_text'] ) )
+                : '';                
 
-            $signature_saved = false;
-            if ( $signature_data ) {
-                $signature_data = trim( (string) $signature_data );
-                if ( preg_match( '#^data:image/(png|jpe?g);base64,#i', $signature_data, $matches ) ) {
-                    $payload      = substr( $signature_data, strpos( $signature_data, ',' ) + 1 );
-                    $binary_check = base64_decode( $payload, true );
-                    if ( false === $binary_check ) {
-                        $messages['error'][] = 'De handtekening kon niet worden gelezen. Probeer het opnieuw.';
-                    } elseif ( strlen( $binary_check ) > 2 * MB_IN_BYTES ) {
-                        $messages['error'][] = 'De handtekening is te groot. Wis de handtekening en probeer opnieuw te tekenen.';
-                    } else {
-                        require_once ABSPATH . 'wp-admin/includes/file.php';
-                        $extension = ( isset( $matches[1] ) && stripos( $matches[1], 'jp' ) !== false ) ? 'jpg' : 'png';
-                        $upload    = wp_upload_bits(
-                            sprintf( 'ggr-contract-signature-%d-%d.%s', $user_id, time(), $extension ),
-                            null,
-                            $binary_check
-                        );
-
-                        if ( ! $upload['error'] && ! empty( $upload['url'] ) && ! empty( $upload['file'] ) ) {
-                            $previous_signature = get_user_meta( $user_id, 'ggr_contract_signature_file', true );
-                            if ( $previous_signature && file_exists( $previous_signature ) ) {
-                                wp_delete_file( $previous_signature );
-                            }
-
-                            update_user_meta( $user_id, 'ggr_contract_signature', $upload['url'] );
-                            update_user_meta( $user_id, 'ggr_contract_signature_file', $upload['file'] );
-                            $signature_saved = true;
-                        } else {
-                            $messages['error'][] = 'De handtekening kon niet worden opgeslagen. Probeer het opnieuw.';
-                        }
-                    }
-                } else {
-                    $messages['error'][] = 'Ongeldig formaat voor de handtekening.';
-                }
+            $signature_result = ggr_onboarding_store_signature_image( $user_id, $signature_data, 'ggr_contract_signature' );
+            if ( is_wp_error( $signature_result ) ) {
+                $messages['error'][] = $signature_result->get_error_message();
             }
+            $signature_saved = ( true === $signature_result );
 
             update_user_meta( $user_id, 'ggr_contract_signature_text', $signature_text );
+
+            $co_signature_saved = false;
+            if ( 'ja' === $has_co_participant ) {
+                $co_signature_result = ggr_onboarding_store_signature_image( $user_id, $co_signature_data, 'ggr_co_contract_signature' );
+                if ( is_wp_error( $co_signature_result ) ) {
+                    $messages['error'][] = $co_signature_result->get_error_message();
+                }
+                $co_signature_saved = ( true === $co_signature_result );
+                update_user_meta( $user_id, 'ggr_co_contract_signature_text', $co_signature_text );
+            } else {
+                delete_user_meta( $user_id, 'ggr_co_contract_signature' );
+                delete_user_meta( $user_id, 'ggr_co_contract_signature_file' );
+                delete_user_meta( $user_id, 'ggr_co_contract_signature_text' );
+                delete_user_meta( $user_id, 'ggr_co_contract_signed_at' );
+            }
 
             if ( ! $signature_saved && '' === $signature_text ) {
                 $messages['error'][] = 'Voeg een handtekening toe door te tekenen of je naam in te vullen.';
             }
 
+            if ( 'ja' === $has_co_participant && ! $co_signature_saved && '' === $co_signature_text ) {
+                $messages['error'][] = 'Voeg een handtekening van de mede-participant toe of laat de naam invullen.';
+            }
+
             if ( empty( $messages['error'] ) ) {
                 $contract_signed_at = current_time( 'mysql' );
                 update_user_meta( $user_id, 'ggr_contract_signed_at', $contract_signed_at );
+                if ( 'ja' === $has_co_participant ) {
+                    update_user_meta( $user_id, 'ggr_co_contract_signed_at', $contract_signed_at );
+                }                
                 ggr_onboarding_update_status( $user_id, 'transfer_completed' );
                 $status       = 'transfer_completed';
                 $status_label = isset( $stages[ $status ] ) ? $stages[ $status ] : $status;
@@ -2885,31 +2911,34 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
         }
     }
 
-    $collecting_step_labels = $requires_intake_step
-        ? array(
-            'intake' => 'Intake',
-        )
-        : array(
-            'request'  => '1. Investeringsbedrag',
-            'type'     => '2. Rechtspersoon',
-            'personal' => '3. Persoonlijke gegevens',
-            'origin'   => '4. Herkomst vermogen',
-            'files'    => '5. Documentatie',
-        );
+    $collecting_step_labels = array(
+        'request'  => '1. Investeringsbedrag',
+        'type'     => '2. Rechtspersoon',
+        'personal' => '3. Persoonlijke gegevens',
+        'origin'   => '4. Herkomst vermogen',
+        'files'    => '5. Documentatie',
+    );
 
-    $collecting_step_messages = $requires_intake_step
-        ? array(
-            'intake' => 'We plannen graag een intake om je aanvraag onder € 100.000 persoonlijk door te nemen.',
-        )
-        : array(
-            'request'  => 'Bevestig het gewenste investeringsbedrag.',
-            'type'     => 'Kies of je privé of zakelijk wilt participeren.',
-            'personal' => 'Vul de gegevens van jou en eventuele mede-participants aan.',
-            'origin'   => 'Leg de herkomst van het te investeren bedrag vast.',
-            'files'    => 'Upload de benodigde documenten om je inschrijving af te ronden.',
+    if ( $requires_intake_step ) {
+        $collecting_step_labels = array_merge(
+            array( 'intake' => 'Intake' ),
+            $collecting_step_labels
         );
+    }
 
-    $collecting_step_keys = array_keys( $collecting_step_labels );
+    $collecting_step_messages = array(
+        'request'  => 'Bevestig het gewenste investeringsbedrag.',
+        'type'     => 'Kies of je privé of zakelijk wilt participeren.',
+        'personal' => 'Vul de gegevens van jou en eventuele mede-participants aan.',
+        'origin'   => 'Leg de herkomst van het te investeren bedrag vast.',
+        'files'    => 'Upload de benodigde documenten om je inschrijving af te ronden.',
+    );
+
+    if ( $requires_intake_step ) {
+        $collecting_step_messages['intake'] = 'We plannen graag een intake om je aanvraag onder € 100.000 persoonlijk door te nemen.';
+    }
+    
+    $collecting_step_keys = $available_collecting_steps;
     $collecting_prev_step = '';
     $collecting_next_step = '';
     $current_url          = '';
@@ -2953,7 +2982,9 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
     );
     $existing_signature_image = get_user_meta( $user_id, 'ggr_contract_signature', true );
     $existing_signature_text  = get_user_meta( $user_id, 'ggr_contract_signature_text', true );
-
+    $existing_co_signature_image = get_user_meta( $user_id, 'ggr_co_contract_signature', true );
+    $existing_co_signature_text  = get_user_meta( $user_id, 'ggr_co_contract_signature_text', true );
+    
     ob_start();
     ?>
     <div class="ggr-onboarding-shell">
@@ -3034,7 +3065,11 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                                 echo 'Je e-mailadres is bevestigd. Wacht op verdere instructies of lever gevraagde documentatie aan.';
                                                 break;
                                             case 'collecting':
-                                                echo 'We vragen je om aanvullende gegevens en documentatie aan te leveren (KYC).';
+                                                if ( $requires_intake_step && ! $intake_completed ) {
+                                                    echo 'Plan en rond eerst de intake af. Daarna krijg je toegang tot de overige onboarding-stappen.';
+                                                } else {
+                                                    echo 'We vragen je om aanvullende gegevens en documentatie aan te leveren (KYC).';
+                                                }
                                                 break;
                                             case 'validating':
                                                 echo 'We controleren jouw gegevens en documentatie. Je hoeft nu niets te doen.';
@@ -3092,10 +3127,15 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                         <?php if ( 'collecting' === $status ) : ?>
                             <div class="ggr-onboarding-step-switch ggr-onboarding-step-switch--inline">
                                 <?php foreach ( $collecting_step_labels as $step_key => $step_label ) :
-                                    $step_url  = add_query_arg( 'collecting_step', $step_key, $current_url );
-                                    $is_active = ( $current_collecting_step === $step_key );
+                                    $is_available = in_array( $step_key, $available_collecting_steps, true );
+                                    $step_url     = $is_available
+                                        ? add_query_arg( 'collecting_step', $step_key, $current_url )
+                                        : '#';
+                                    $is_active    = ( $current_collecting_step === $step_key );
                                     ?>
-                                    <a class="ggr-onboarding-step-tab <?php echo $is_active ? 'is-active' : ''; ?>" href="<?php echo esc_url( $step_url ); ?>">
+                                    <a class="ggr-onboarding-step-tab <?php echo $is_active ? 'is-active' : ''; ?> <?php echo $is_available ? '' : 'is-disabled'; ?>"
+                                       href="<?php echo esc_url( $step_url ); ?>"
+                                       <?php echo $is_available ? '' : 'aria-disabled="true"'; ?>>
                                         <?php echo esc_html( $step_label ); ?>
                                     </a>
                                 <?php endforeach; ?>
@@ -3250,7 +3290,22 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                             </div>
                                             <label class="ggr-onboarding-field-label" for="ggr_contract_signature_text">Getypte handtekening (optioneel)</label>
                                             <input type="text" id="ggr_contract_signature_text" name="ggr_contract_signature_text" value="" placeholder="Volledige naam zoals in de overeenkomst" autocomplete="off">
+                                    </div>
+                                    <?php if ( 'ja' === $has_co_participant ) : ?>
+                                        <div class="ggr-onboarding-field">
+                                            <div class="ggr-onboarding-signature">
+                                                <label for="ggr_co_contract_signature_pad">Handtekening mede-participant</label>
+                                                <p class="ggr-onboarding-note">Laat de mede-participant tekenen of de naam invullen. Deze handtekening wordt samen met de overeenkomst opgeslagen.</p>
+                                                <canvas id="ggr_co_contract_signature_pad" class="ggr-onboarding-signature__pad" width="560" height="240"></canvas>
+                                                <input type="hidden" name="ggr_co_contract_signature_data" id="ggr_co_contract_signature_data" value="">
+                                                <div class="ggr-onboarding-signature__actions">
+                                                    <button type="button" class="ggr-onboarding-button ggr-onboarding-button--ghost" data-co-signature-clear>Wis handtekening</button>
+                                                </div>
+                                                <label class="ggr-onboarding-field-label" for="ggr_co_contract_signature_text">Getypte handtekening mede-participant (optioneel)</label>
+                                                <input type="text" id="ggr_co_contract_signature_text" name="ggr_co_contract_signature_text" value="" placeholder="Naam mede-participant" autocomplete="off">
+                                            </div>
                                         </div>
+                                    <?php endif; ?>      
                                     </div>                                    
                                     <p class="ggr-onboarding-note">Met deze bevestiging ga je akkoord met de inhoud van de overeenkomst. Heb je een correctie? Neem contact op met het onboarding-team.</p>
                                     <button type="submit" name="ggr_sign_contract_confirm" value="1" class="ggr-onboarding-button ggr-onboarding-button--primary">Ik heb gecontroleerd en teken</button>
@@ -3489,7 +3544,8 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                         $co_bsn             = get_user_meta( $user_id, 'ggr_co_bsn', true );
                                         $co_pep             = get_user_meta( $user_id, 'ggr_co_pep', true );
                                         $co_us              = get_user_meta( $user_id, 'ggr_co_us_person', true );
-
+                                        $co_investment_note = get_user_meta( $user_id, 'ggr_co_investment_note', true );
+                                        
                                         if ( ! $co_first_name ) {
                                             $co_first_name = get_user_meta( $user_id, 'co_first_name', true );
                                         }
@@ -3556,6 +3612,7 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                             $co_bsn          = isset( $_POST['ggr_co_bsn'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_co_bsn'] ) ) : $co_bsn;
                                             $co_pep          = isset( $_POST['ggr_co_pep'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_co_pep'] ) ) : $co_pep;
                                             $co_us           = isset( $_POST['ggr_co_us_person'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_co_us_person'] ) ) : $co_us;
+                                            $co_investment_note = isset( $_POST['ggr_co_investment_note'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_co_investment_note'] ) ) : $co_investment_note;                                            
                                         }
 
                                         $co_required = ( 'ja' === $has_co_participant );
@@ -3826,10 +3883,18 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
                                                     <label class="ggr-onboarding-choice ggr-onboarding-choice--pill">
                                                         <input type="radio" name="ggr_co_us_person" value="nee" <?php checked( $co_us, 'nee' ); ?>>
                                                         <span class="ggr-onboarding-choice__box" aria-hidden="true">✓</span>
-                                                        <span class="ggr-onboarding-choice__label">Nee</span>
-                                                    </label>
-                                                </div>
+                                                    <span class="ggr-onboarding-choice__label">Nee</span>
+                                                </label>
                                             </div>
+                                        </div>
+                                    </div>
+
+                                        <div class="ggr-onboarding-field">
+                                            <label for="ggr_co_investment_note">Toelichting (bijv. investeren voor kind)</label>
+                                            <textarea id="ggr_co_investment_note"
+                                                      name="ggr_co_investment_note"
+                                                      rows="3"><?php echo esc_textarea( $co_investment_note ); ?></textarea>
+                                            <p class="ggr-onboarding-muted">Optioneel veld om toe te lichten waarom de mede-participant wordt toegevoegd.</p>
                                         </div>
                                     </div>
 
@@ -4103,91 +4168,117 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
         const form = document.querySelector('[data-ggr-contract-signing]');
         if (!form) return;
 
-        const canvas = form.querySelector('#ggr_contract_signature_pad');
-        const hiddenInput = form.querySelector('#ggr_contract_signature_data');
-        const clearButton = form.querySelector('[data-signature-clear]');
-        const typedInput = form.querySelector('#ggr_contract_signature_text');
-
-        if (!canvas || !hiddenInput) return;
-
-        const ctx = canvas.getContext('2d');
-        let drawing = false;
-
-        const resizeCanvas = () => {
-            const ratio = window.devicePixelRatio || 1;
-            const { width, height } = canvas.getBoundingClientRect();
-            canvas.width = width * ratio;
-            canvas.height = height * ratio;
-            canvas.style.width = width + 'px';
-            canvas.style.height = height + 'px';
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.scale(ratio, ratio);
-            ctx.lineWidth = 2;
-            ctx.lineCap = 'round';
-            ctx.strokeStyle = '#111827';
-        };
-
-        const getPosition = (event) => {
-            const rect = canvas.getBoundingClientRect();
-            if (event.touches && event.touches[0]) {
-                return {
-                    x: event.touches[0].clientX - rect.left,
-                    y: event.touches[0].clientY - rect.top,
-                };
+        const signatureConfigs = [
+            {
+                canvas: form.querySelector('#ggr_contract_signature_pad'),
+                hiddenInput: form.querySelector('#ggr_contract_signature_data'),
+                clearButton: form.querySelector('[data-signature-clear]'),
+                typedInput: form.querySelector('#ggr_contract_signature_text'),
+            },
+            {
+                canvas: form.querySelector('#ggr_co_contract_signature_pad'),
+                hiddenInput: form.querySelector('#ggr_co_contract_signature_data'),
+                clearButton: form.querySelector('[data-co-signature-clear]'),
+                typedInput: form.querySelector('#ggr_co_contract_signature_text'),
             }
+        ].filter(function(config) {
+            return config.canvas && config.hiddenInput;
+        });
+
+        if (!signatureConfigs.length) return;
+
+        const setupSignaturePad = function(config) {
+            const canvas = config.canvas;
+            const hiddenInput = config.hiddenInput;
+            const clearButton = config.clearButton;
+            const ctx = canvas.getContext('2d');
+            let drawing = false;
+
+            const resizeCanvas = function() {
+                const ratio = window.devicePixelRatio || 1;
+                const bounds = canvas.getBoundingClientRect();
+                canvas.width = bounds.width * ratio;
+                canvas.height = bounds.height * ratio;
+                canvas.style.width = bounds.width + 'px';
+                canvas.style.height = bounds.height + 'px';
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.scale(ratio, ratio);
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.strokeStyle = '#111827';
+            };
+
+            const getPosition = function(event) {
+                const rect = canvas.getBoundingClientRect();
+                if (event.touches && event.touches[0]) {
+                    return {
+                        x: event.touches[0].clientX - rect.left,
+                        y: event.touches[0].clientY - rect.top,
+                    };
+                }
+                return {
+                    x: event.clientX - rect.left,
+                    y: event.clientY - rect.top,
+                };
+            };
+
+            const startDrawing = function(event) {
+                drawing = true;
+                const pos = getPosition(event);
+                ctx.beginPath();
+                ctx.moveTo(pos.x, pos.y);
+                event.preventDefault();
+            };
+
+            const draw = function(event) {
+                if (!drawing) return;
+                const pos = getPosition(event);
+                ctx.lineTo(pos.x, pos.y);
+                ctx.stroke();
+                event.preventDefault();
+            };
+
+            const stopDrawing = function() {
+                if (!drawing) return;
+                drawing = false;
+                hiddenInput.value = canvas.toDataURL('image/png');
+            };
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseleave', stopDrawing);
+
+            canvas.addEventListener('touchstart', startDrawing, { passive: false });
+           canvas.addEventListener('touchmove', draw, { passive: false });
+           canvas.addEventListener('touchend', stopDrawing);
+           canvas.addEventListener('touchcancel', stopDrawing);
+
+            if (clearButton) {
+                clearButton.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    hiddenInput.value = '';
+                });
+            }
+
             return {
-                x: event.clientX - rect.left,
-                y: event.clientY - rect.top,
+                hiddenInput: hiddenInput,
+                typedInput: config.typedInput,
             };
         };
 
-        const startDrawing = (event) => {
-            drawing = true;
-            const pos = getPosition(event);
-            ctx.beginPath();
-            ctx.moveTo(pos.x, pos.y);
-            event.preventDefault();
-        };
-
-        const draw = (event) => {
-            if (!drawing) return;
-            const pos = getPosition(event);
-            ctx.lineTo(pos.x, pos.y);
-            ctx.stroke();
-            event.preventDefault();
-        };
-
-        const stopDrawing = () => {
-            if (!drawing) return;
-            drawing = false;
-            hiddenInput.value = canvas.toDataURL('image/png');
-        };
-
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-
-        canvas.addEventListener('mousedown', startDrawing);
-        canvas.addEventListener('mousemove', draw);
-        canvas.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('mouseleave', stopDrawing);
-
-        canvas.addEventListener('touchstart', startDrawing, { passive: false });
-        canvas.addEventListener('touchmove', draw, { passive: false });
-        canvas.addEventListener('touchend', stopDrawing);
-        canvas.addEventListener('touchcancel', stopDrawing);
-
-        if (clearButton) {
-            clearButton.addEventListener('click', function(event) {
-                event.preventDefault();
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                hiddenInput.value = '';
-            });
-        }
+        const pads = signatureConfigs.map(setupSignaturePad);
 
         form.addEventListener('submit', function() {
-            if (!hiddenInput.value && typedInput && typedInput.value.trim() !== '') {
-                hiddenInput.value = '';
-            }
+            pads.forEach(function(pad) {
+                if (pad.hiddenInput && !pad.hiddenInput.value && pad.typedInput && pad.typedInput.value.trim() !== '') {
+                    pad.hiddenInput.value = '';
+                }
+            });
         });
     })();
     </script>
@@ -4196,6 +4287,53 @@ $signature_data = isset( $_POST['ggr_contract_signature_data'] )
     return ob_get_clean();
 }
 
+/**
+ * Upload en sla een (co-)handtekening op.
+ */
+function ggr_onboarding_store_signature_image( $user_id, $signature_data, $meta_prefix ) {
+    $signature_data = trim( (string) $signature_data );
+
+    if ( '' === $signature_data ) {
+        return false;
+    }
+
+    if ( ! preg_match( '#^data:image/(png|jpe?g);base64,#i', $signature_data, $matches ) ) {
+        return new WP_Error( 'invalid_signature', 'Ongeldig formaat voor de handtekening.' );
+    }
+
+    $payload      = substr( $signature_data, strpos( $signature_data, ',' ) + 1 );
+    $binary_check = base64_decode( $payload, true );
+
+    if ( false === $binary_check ) {
+        return new WP_Error( 'invalid_signature', 'De handtekening kon niet worden gelezen. Probeer het opnieuw.' );
+    }
+
+    if ( strlen( $binary_check ) > 2 * MB_IN_BYTES ) {
+        return new WP_Error( 'signature_too_large', 'De handtekening is te groot. Wis de handtekening en probeer opnieuw te tekenen.' );
+    }
+
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    $extension = ( isset( $matches[1] ) && stripos( $matches[1], 'jp' ) !== false ) ? 'jpg' : 'png';
+    $upload    = wp_upload_bits(
+        sprintf( '%s-%d-%d.%s', $meta_prefix, $user_id, time(), $extension ),
+        null,
+        $binary_check
+    );
+
+    if ( ! empty( $upload['error'] ) || empty( $upload['url'] ) || empty( $upload['file'] ) ) {
+        return new WP_Error( 'signature_upload_failed', 'De handtekening kon niet worden opgeslagen. Probeer het opnieuw.' );
+    }
+
+    $previous_signature = get_user_meta( $user_id, $meta_prefix . '_file', true );
+    if ( $previous_signature && file_exists( $previous_signature ) ) {
+        wp_delete_file( $previous_signature );
+    }
+
+    update_user_meta( $user_id, $meta_prefix, $upload['url'] );
+    update_user_meta( $user_id, $meta_prefix . '_file', $upload['file'] );
+
+    return true;
+}
 
 function ggr_onboarding_handle_file_upload( $file_key, $user_id ) {
     if ( empty( $_FILES[ $file_key ]['name'] ) ) {
@@ -4291,6 +4429,7 @@ function ggr_onboarding_handle_collecting_participation_type( $user_id ) {
             'ggr_co_bsn',
             'ggr_co_pep',
             'ggr_co_us_person',
+            'ggr_co_investment_note',            
         );
 
         foreach ( $co_fields as $co_key ) {
@@ -4477,12 +4616,15 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
         'ggr_co_bsn',
         'ggr_co_pep',
         'ggr_co_us_person',
+        'ggr_co_investment_note',        
     );
 
     $co_values = array();
     foreach ( $co_fields as $key ) {
         if ( isset( $_POST[ $key ] ) ) {
-            $value            = sanitize_text_field( wp_unslash( $_POST[ $key ] ) );
+            $value            = ( 'ggr_co_investment_note' === $key )
+                ? sanitize_textarea_field( wp_unslash( $_POST[ $key ] ) )
+                : sanitize_text_field( wp_unslash( $_POST[ $key ] ) );
             $co_values[ $key ] = $value;
             update_user_meta( $user_id, $key, $value );
         } elseif ( 'ja' !== $has_co_participant ) {
