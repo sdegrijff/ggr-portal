@@ -309,23 +309,23 @@ body {
 }
 
 .ggr-onboarding-logout {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 8px;
-    font-weight: 600;
-    color: var(--ggr-text-muted);
+    padding: 10px 12px;
+    border-radius: 5px;
+    font-size: 14px;
     text-decoration: none;
-    padding: 10px 14px;
-    border-radius: 12px;
-    background: var(--ggr-accent-soft);
-    border: 1px solid var(--ggr-border-soft);
-    transition: all 0.12s ease;
+    color: #374151;
+    border: 1px solid transparent;
+    background: transparent;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
 }
 
 .ggr-onboarding-logout:hover {
-    background: #fdf3ed;
+    background: var(--ggr-accent-soft);
     border-color: var(--ggr-accent-soft);
-    color: var(--ggr-accent);
+    color: var(--ggr-accent);        
 }
 
 
@@ -942,6 +942,12 @@ body {
 .ggr-onboarding-step-tab.is-active {
     background: rgba(242, 158, 117, 0.1);
     color: var(--ggr-accent);
+}
+
+.ggr-onboarding-step-tab.is-disabled {
+    pointer-events: none;
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .ggr-onboarding-form-actions {
