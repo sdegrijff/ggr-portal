@@ -1963,6 +1963,9 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
         update_user_meta( $user_id, 'ggr_account_type', $account_type );
     }
 
+    $intake_done = ! empty( $_POST['ggr_collecting_intake_done'] ) ? 1 : 0;
+    update_user_meta( $user_id, 'ggr_collecting_intake_done', $intake_done );
+
     $co_field_map = array(
         'ggr_co_first_name'    => array( 'ggr_co_first_name', 'co_first_name' ),
         'ggr_co_last_name'     => array( 'ggr_co_last_name', 'co_last_name' ),
@@ -1978,11 +1981,19 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
         'ggr_co_bsn'           => array( 'ggr_co_bsn' ),
         'ggr_co_pep'           => array( 'ggr_co_pep' ),
         'ggr_co_us_person'     => array( 'ggr_co_us_person' ),
+        'ggr_co_investment_note' => array( 'ggr_co_investment_note' ),
     );
 
     $co_values      = array();
     $co_meta_keys   = array();
     foreach ( $co_field_map as $form_key => $meta_keys ) {
+        if ( ! isset( $_POST[ $form_key ] ) ) {
+            $value = '';
+        } elseif ( 'ggr_co_investment_note' === $form_key ) {
+            $value = sanitize_textarea_field( wp_unslash( $_POST[ $form_key ] ) );
+        } else {
+            $value = sanitize_text_field( wp_unslash( $_POST[ $form_key ] ) );
+        }        
         $value                   = isset( $_POST[ $form_key ] ) ? sanitize_text_field( wp_unslash( $_POST[ $form_key ] ) ) : '';
         $co_values[ $form_key ]  = $value;
         $co_meta_keys[ $form_key ] = (array) $meta_keys;
@@ -2399,6 +2410,7 @@ function ggr_portal_render_participant_profile_page() {
     $payment_confirmation_at = isset( $meta['ggr_payment_confirmation_at'][0] ) ? $meta['ggr_payment_confirmation_at'][0] : '';
     $payment_received   = isset( $meta['ggr_payment_received'][0] ) ? (int) $meta['ggr_payment_received'][0] : 0;
     $payment_received_at = isset( $meta['ggr_payment_received_at'][0] ) ? $meta['ggr_payment_received_at'][0] : '';
+    $collecting_intake_done = ! empty( $meta['ggr_collecting_intake_done'][0] );    
     $first_trade_day    = isset( $meta['ggr_first_trade_day'][0] ) ? $meta['ggr_first_trade_day'][0] : '';
     
     if ( $investment_amount === '' ) {
@@ -2456,6 +2468,7 @@ function ggr_portal_render_participant_profile_page() {
     $co_bsn        = isset( $meta['ggr_co_bsn'][0] ) ? $meta['ggr_co_bsn'][0] : '';
     $co_pep        = isset( $meta['ggr_co_pep'][0] ) ? $meta['ggr_co_pep'][0] : '';
     $co_us_person  = isset( $meta['ggr_co_us_person'][0] ) ? $meta['ggr_co_us_person'][0] : '';
+    $co_investment_note = isset( $meta['ggr_co_investment_note'][0] ) ? $meta['ggr_co_investment_note'][0] : '';    
 
     $origin_notes   = isset( $meta['ggr_origin_notes'][0] ) ? $meta['ggr_origin_notes'][0] : '';
     $origin_sources = get_user_meta( $user_id, 'ggr_origin_sources', true );
@@ -2710,6 +2723,13 @@ function ggr_portal_render_participant_profile_page() {
                     <td>
                         <input name="ggr_participation_amount" id="ggr_participation_amount" type="text" value="<?php echo esc_attr( $participation_amount ); ?>" />
                         <p class="description">Minimale inschrijving: € 5.000.</p>
+                        <div class="ggr-admin-inline-field" style="margin-top:8px;">
+                            <label>
+                                <input type="checkbox" name="ggr_collecting_intake_done" value="1" <?php checked( $collecting_intake_done, true ); ?> />
+                                Intake afgerond (deelnemer mag na intake verder)
+                            </label>
+                            <p class="description">Alleen relevant bij investeringen onder € 100.000; vink aan na een afgeronde intake.</p>
+                        </div>                        
                     </td>
                 </tr>
             </table>
@@ -2937,6 +2957,11 @@ function ggr_portal_render_participant_profile_page() {
                                         </label>
                                     </div>
                                 </div>
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_co_investment_note">Toelichting mede-participant</label>
+                                    <textarea name="ggr_co_investment_note" id="ggr_co_investment_note" rows="3" style="width:100%;"><?php echo esc_textarea( $co_investment_note ); ?></textarea>
+                                    <p class="description">Gebruik dit veld voor context, zoals investeren voor een kind.</p>
+                                </div>                                                 
                             </div>
                         </div>
                     </td>
@@ -3053,7 +3078,13 @@ function ggr_portal_render_participant_profile_page() {
                             <img src="<?php echo esc_url( $existing_signature_image ); ?>" alt="Handtekening" style="max-width:320px; border:1px solid #e5e7eb; padding:6px; border-radius:4px; background:#fff;">
                         <?php endif; ?>
                         <?php if ( $existing_signature_text = get_user_meta( $user_id, 'ggr_contract_signature_text', true ) ) : ?>
-                            <p class="ggr-admin-meta-note">Getypte handtekening: <?php echo esc_html( $existing_signature_text ); ?></p>
+                            <p class="ggr-admin-meta-note">Getypte handtekening: <?php echo esc_html( $existing_signature_text ); ?></p>'
+                        <?php if ( $existing_co_signature_image = get_user_meta( $user_id, 'ggr_co_contract_signature', true ) ) : ?>
+                            <p class="ggr-admin-meta-note">Opgeslagen handtekening mede-participant:</p>
+                            <img src="<?php echo esc_url( $existing_co_signature_image ); ?>" alt="Handtekening mede-participant" style="max-width:320px; border:1px solid #e5e7eb; padding:6px; border-radius:4px; background:#fff;">
+                        <?php endif; ?>
+                        <?php if ( $existing_co_signature_text = get_user_meta( $user_id, 'ggr_co_contract_signature_text', true ) ) : ?>
+                            <p class="ggr-admin-meta-note">Getypte handtekening mede-participant: <?php echo esc_html( $existing_co_signature_text ); ?></p>
                         <?php endif; ?>
                         <?php endif; ?>                        
                     </td>
