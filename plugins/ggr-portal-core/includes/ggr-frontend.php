@@ -700,8 +700,9 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
     $forecast_projection_full = array();
 
     if ( ! empty( $month_keys ) ) {
-        $forecast_actual_keys   = array_slice( $month_keys, -6 );
-        $forecast_actual_values = array();
+        $forecast_actual_keys    = array_slice( $month_keys, -6 );
+        $forecast_actual_values  = array();
+        $forecast_display_labels = array();
 
         $dividend_per_month_map = array();
         foreach ( $divMonthKeys as $index => $mk ) {
@@ -711,6 +712,15 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
         foreach ( $forecast_actual_keys as $mk ) {
             $dividend_maand = isset( $dividend_per_month_map[ $mk ] ) ? (float) $dividend_per_month_map[ $mk ] : 0.0;
             $positie_maand  = isset( $monthly[ $mk ]['positiewaarde'] ) ? (float) $monthly[ $mk ]['positiewaarde'] : null;
+
+            $shifted_label = $mk;
+            $mk_date       = DateTime::createFromFormat( 'Y-m', $mk );
+            if ( $mk_date instanceof DateTime ) {
+                $mk_date->modify( '-1 month' );
+                $shifted_label = $mk_date->format( 'Y-m' );
+            }
+
+            $forecast_display_labels[] = $shifted_label;
 
             if ( $positie_maand && $positie_maand > 0 ) {
                 $rendement_pct           = ( $dividend_maand / $positie_maand ) * 100;
