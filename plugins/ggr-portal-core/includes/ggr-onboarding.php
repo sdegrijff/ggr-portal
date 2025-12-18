@@ -2935,7 +2935,7 @@ function ggr_onboarding_dashboard_shortcode() {
     );
 
     if ( $requires_intake_step ) {
-        $collecting_step_messages['intake'] = 'We plannen graag een intake om je aanvraag onder € 100.000 persoonlijk door te nemen.';
+        $collecting_step_messages['intake'] = 'Plan en rond eerst de intake af. Daarna krijg je toegang tot de overige onboarding-stappen.';
     }
     
     $collecting_step_keys = $available_collecting_steps;
@@ -3124,7 +3124,7 @@ function ggr_onboarding_dashboard_shortcode() {
                                 <p><?php echo esc_html( $collecting_message ); ?></p>
                             </div>
                         <?php endif; ?>
-                        <?php if ( 'collecting' === $status ) : ?>
+                        <?php if ( 'collecting' === $status && ! ( $requires_intake_step && ! $intake_completed && 'intake' === $current_collecting_step ) ) : ?>
                             <div class="ggr-onboarding-step-switch ggr-onboarding-step-switch--inline">
                                 <?php foreach ( $collecting_step_labels as $step_key => $step_label ) :
                                     $is_available = in_array( $step_key, $available_collecting_steps, true );
