@@ -22,6 +22,32 @@ function ggr_meldingen_get_statuses() {
     );
 }
 
+/**
+ * Haal de backlog van een melding op.
+ */
+function ggr_meldingen_get_history( $melding_id ) {
+    $history = get_post_meta( $melding_id, 'ggr_melding_history', true );
+    return is_array( $history ) ? $history : array();
+}
+
+/**
+ * Voeg een item toe aan de melding-backlog.
+ */
+function ggr_meldingen_add_history_entry( $melding_id, $type, $message, $meta = array() ) {
+    $melding_id = (int) $melding_id;
+    $history    = ggr_meldingen_get_history( $melding_id );
+
+    $history[] = array(
+        'type'       => sanitize_key( $type ),
+        'message'    => sanitize_textarea_field( $message ),
+        'user_id'    => get_current_user_id(),
+        'created_at' => current_time( 'mysql' ),
+        'meta'       => is_array( $meta ) ? $meta : array(),
+    );
+
+    update_post_meta( $melding_id, 'ggr_melding_history', $history );
+}
+
 function ggr_register_meldingen_cpt() {
     $labels = array(
         'name'               => 'Meldingen',
@@ -131,7 +157,8 @@ function ggr_meldingen_handle_status_update() {
 
     $melding_id = isset( $_POST['ggr_melding_id'] ) ? (int) $_POST['ggr_melding_id'] : 0;
     $status     = isset( $_POST['ggr_melding_status'] ) ? sanitize_key( wp_unslash( $_POST['ggr_melding_status'] ) ) : '';
-
+    $comment    = isset( $_POST['ggr_melding_comment'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_melding_comment'] ) ) : '';
+    
     if ( ! $melding_id ) {
         return;
     }
@@ -141,7 +168,33 @@ function ggr_meldingen_handle_status_update() {
         return;
     }
 
+    $previous_status = get_post_meta( $melding_id, 'ggr_melding_status', true );
     update_post_meta( $melding_id, 'ggr_melding_status', $status );
+
+    if ( $previous_status !== $status ) {
+        ggr_meldingen_add_history_entry(
+            $melding_id,
+            'status',
+            sprintf(
+                'Status gewijzigd van %s naar %s',
+                isset( $statuses[ $previous_status ] ) ? $statuses[ $previous_status ] : $previous_status,
+                $statuses[ $status ]
+            ),
+            array(
+                'from' => $previous_status,
+                'to'   => $status,
+            )
+        );
+    }
+
+    if ( '' !== $comment ) {
+        ggr_meldingen_add_history_entry(
+            $melding_id,
+            'comment',
+            $comment,
+            array( 'status' => $status )
+        );
+    }
 }
 
 /**
@@ -245,6 +298,7 @@ function ggr_meldingen_render_admin_page() {
                     <th>Melding</th>
                     <th>Participant</th>
                     <th>Beschrijving</th>
+                    <th>Opmerkingen & backlog</th>                    
                     <th>Aangemaakt</th>
                 </tr>
             </thead>
@@ -260,6 +314,7 @@ function ggr_meldingen_render_admin_page() {
                         $status    = isset( $statuses[ $status ] ) ? $status : 'nieuw';
                         $user_link = $user_id ? get_edit_user_link( $user_id ) : '';
                         $user_name = $user_id ? ggr_portal_get_nice_user_name( $user_id ) : 'Onbekende gebruiker';
+                        $history   = ggr_meldingen_get_history( $melding->ID );                        
                         ?>
                         <tr>
                             <td>
@@ -283,6 +338,39 @@ function ggr_meldingen_render_admin_page() {
                                 <?php endif; ?>
                             </td>
                             <td><?php echo wp_kses_post( wpautop( $melding->post_content ) ); ?></td>
+                            <td>
+                                <form method="post" style="margin-bottom:8px;">
+                                    <?php wp_nonce_field( 'ggr_meldingen_update', 'ggr_melding_nonce' ); ?>
+                                    <input type="hidden" name="ggr_melding_id" value="<?php echo esc_attr( $melding->ID ); ?>" />
+                                    <input type="hidden" name="ggr_melding_status" value="<?php echo esc_attr( $status ); ?>" />
+                                    <textarea name="ggr_melding_comment" rows="3" style="width:100%;" placeholder="Voeg een opmerking toe"></textarea>
+                                    <button class="button" style="margin-top:4px;">Opslaan</button>
+                                </form>
+                                <?php if ( ! empty( $history ) ) : ?>
+                                    <ul class="ggr-melding-history" style="margin:0; padding-left:18px;">
+                                        <?php
+                                        $history_display = array_reverse( $history );
+                                        foreach ( $history_display as $entry ) :
+                                            $entry_time = ! empty( $entry['created_at'] ) ? strtotime( $entry['created_at'] ) : false;
+                                            $entry_date = $entry_time ? date_i18n( 'd-m-Y H:i', $entry_time ) : '';
+                                            $entry_user = ! empty( $entry['user_id'] ) ? get_user_by( 'id', (int) $entry['user_id'] ) : null;
+                                            $entry_user_name = $entry_user ? $entry_user->display_name : 'Systeem';
+                                            $entry_type = ( isset( $entry['type'] ) && 'status' === $entry['type'] ) ? 'Status' : 'Opmerking';
+                                            ?>
+                                            <li>
+                                                <strong><?php echo esc_html( $entry_type ); ?></strong>
+                                                <?php if ( $entry_date ) : ?>
+                                                    <span style="color:#6b7280;">(<?php echo esc_html( $entry_date ); ?>)</span>
+                                                <?php endif; ?>
+                                                <br>
+                                                <span><?php echo esc_html( $entry['message'] ?? '' ); ?></span>
+                                                <br>
+                                                <small style="color:#6b7280;">Door: <?php echo esc_html( $entry_user_name ); ?></small>
+                                            </li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                <?php endif; ?>
+                            </td>                            
                             <td><?php echo esc_html( get_the_date( 'd-m-Y H:i', $melding ) ); ?></td>
                         </tr>
                     <?php endforeach; ?>
