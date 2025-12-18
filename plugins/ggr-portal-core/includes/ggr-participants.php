@@ -1532,7 +1532,14 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
     $marketing_optin    = (int) get_user_meta( $user->ID, 'ggr_marketing_optin', true );
     $onboarding_status  = function_exists( 'ggr_onboarding_get_status' ) ? ggr_onboarding_get_status( $user->ID ) : get_user_meta( $user->ID, 'ggr_onboarding_status', true );
     $onboarding_updated = get_user_meta( $user->ID, 'ggr_onboarding_updated_at', true );
-
+    $extra_step_required  = (bool) get_user_meta( $user->ID, 'ggr_collecting_extra_required', true );
+    $extra_question_label = get_user_meta( $user->ID, 'ggr_collecting_extra_label', true );
+    $extra_upload_label   = get_user_meta( $user->ID, 'ggr_collecting_extra_upload_label', true );
+    $extra_comment_text   = get_user_meta( $user->ID, 'ggr_collecting_extra_comment', true );
+    $extra_response       = get_user_meta( $user->ID, 'ggr_collecting_extra_response', true );
+    $extra_question_label = $extra_question_label ? $extra_question_label : 'Aanvullende informatie';
+    $extra_upload_label   = $extra_upload_label ? $extra_upload_label : 'Upload aanvullende documentatie (optioneel)';
+    
     if ( $investment_amount === '' ) {
         $investment_amount = $investment;
     }
@@ -1732,6 +1739,39 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
                             <?php endif; ?>
                         </div>
                     </div>
+
+                    <div class="ggr-admin-col">
+                        <h4>Aanvullende stap</h4>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_collecting_extra_required">
+                                <input type="checkbox" id="ggr_collecting_extra_required" name="ggr_collecting_extra_required" value="1" <?php checked( $extra_step_required, true ); ?> />
+                                Extra informatie opvragen (stap 6)
+                            </label>
+                        </div>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_collecting_extra_label">Vraaglabel</label>
+                            <input type="text" id="ggr_collecting_extra_label" name="ggr_collecting_extra_label"
+                                   value="<?php echo esc_attr( $extra_question_label ); ?>" />
+                        </div>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_collecting_extra_upload_label">Upload label</label>
+                            <input type="text" id="ggr_collecting_extra_upload_label" name="ggr_collecting_extra_upload_label"
+                                   value="<?php echo esc_attr( $extra_upload_label ); ?>" />
+                        </div>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_collecting_extra_comment">Commentaar boven veld</label>
+                            <textarea id="ggr_collecting_extra_comment" name="ggr_collecting_extra_comment" rows="3" style="width:100%;"><?php echo esc_textarea( $extra_comment_text ); ?></textarea>
+                        </div>
+
+                        <div class="ggr-admin-inline-field">
+                            <label>Ingevulde toelichting (alleen-lezen)</label>
+                            <textarea rows="3" readonly style="width:100%; background:#f9fafb;"><?php echo esc_textarea( $extra_response ); ?></textarea>
+                        </div>
+                    </div>
                 </div>
             </td>
         </tr>
@@ -1911,6 +1951,7 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     $participant_user  = get_user_by( 'ID', $user_id );
     $participant_email = $participant_user ? $participant_user->user_email : '';
     $existing_contract_signed = get_user_meta( $user_id, 'ggr_contract_signed_at', true );
+    $previous_payment_received = (int) get_user_meta( $user_id, 'ggr_payment_received', true );
     
     $doc_action   = isset( $_POST['ggr_doc_action'] ) ? sanitize_key( wp_unslash( $_POST['ggr_doc_action'] ) ) : '';
     $doc_feedback = isset( $_POST['ggr_doc_feedback'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_doc_feedback'] ) ) : '';
@@ -2012,6 +2053,34 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     $marketing_optin = ! empty( $_POST['ggr_marketing_optin'] ) ? 1 : 0;
     update_user_meta( $user_id, 'ggr_marketing_optin', $marketing_optin );
 
+    // Aanvullende stap in onboarding
+    $extra_required = ! empty( $_POST['ggr_collecting_extra_required'] ) ? 1 : 0;
+    update_user_meta( $user_id, 'ggr_collecting_extra_required', $extra_required );
+
+    if ( isset( $_POST['ggr_collecting_extra_label'] ) ) {
+        update_user_meta(
+            $user_id,
+            'ggr_collecting_extra_label',
+            sanitize_text_field( wp_unslash( $_POST['ggr_collecting_extra_label'] ) )
+        );
+    }
+
+    if ( isset( $_POST['ggr_collecting_extra_upload_label'] ) ) {
+        update_user_meta(
+            $user_id,
+            'ggr_collecting_extra_upload_label',
+            sanitize_text_field( wp_unslash( $_POST['ggr_collecting_extra_upload_label'] ) )
+        );
+    }
+
+    if ( isset( $_POST['ggr_collecting_extra_comment'] ) ) {
+        update_user_meta(
+            $user_id,
+            'ggr_collecting_extra_comment',
+            sanitize_textarea_field( wp_unslash( $_POST['ggr_collecting_extra_comment'] ) )
+        );
+    }
+
     // Contract ondertekening (admin)
     $contract_signed_admin = ! empty( $_POST['ggr_contract_signed_admin'] );
     if ( $contract_signed_admin && ! $existing_contract_signed ) {
@@ -2029,15 +2098,28 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     $payment_received = ! empty( $_POST['ggr_payment_received'] ) ? 1 : 0;
     update_user_meta( $user_id, 'ggr_payment_received', $payment_received );
 
-    if ( isset( $_POST['ggr_first_trade_day'] ) ) {
-        $first_trade_day = $sanitize_text( 'ggr_first_trade_day' );
-        if ( $first_trade_day !== '' ) {
-            update_user_meta( $user_id, 'ggr_first_trade_day', $first_trade_day );
-        }
-    }
-
     if ( $payment_received ) {
-        update_user_meta( $user_id, 'ggr_payment_received_at', $profile_timestamp );
+        if ( ! $previous_payment_received ) {
+            update_user_meta( $user_id, 'ggr_payment_received_at', $profile_timestamp );
+
+            // Eerste storting vastleggen als transactie wanneer er nog geen historie is.
+            if ( function_exists( 'ggr_portal_get_history_for_user' ) && function_exists( 'ggr_portal_add_history_entry' ) ) {
+                $existing_history = ggr_portal_get_history_for_user( $user_id );
+                $initial_logged   = get_user_meta( $user_id, 'ggr_initial_deposit_recorded', true );
+
+                if ( empty( $existing_history ) && ! $initial_logged ) {
+                    $deposit_amount = (float) get_user_meta( $user_id, 'ggr_participation_amount', true );
+                    if ( $deposit_amount > 0 ) {
+                        $deposit_date = wp_date( 'Y-m-d', strtotime( $profile_timestamp ) );
+                        $added        = ggr_portal_add_history_entry( $user_id, $deposit_date, $deposit_amount, 0, 0, 0, 0 );
+                        if ( $added ) {
+                            update_user_meta( $user_id, 'ggr_initial_deposit_recorded', 1 );
+                        }
+                    }
+                }
+            }
+        }
+
         $status_override = $status_override ? $status_override : 'active_participant';
     }
 
@@ -2411,8 +2493,7 @@ function ggr_portal_render_participant_profile_page() {
     $payment_received   = isset( $meta['ggr_payment_received'][0] ) ? (int) $meta['ggr_payment_received'][0] : 0;
     $payment_received_at = isset( $meta['ggr_payment_received_at'][0] ) ? $meta['ggr_payment_received_at'][0] : '';
     $collecting_intake_done = ! empty( $meta['ggr_collecting_intake_done'][0] );    
-    $first_trade_day    = isset( $meta['ggr_first_trade_day'][0] ) ? $meta['ggr_first_trade_day'][0] : '';
-    
+
     if ( $investment_amount === '' ) {
         $investment_amount = $investment;
     }
@@ -2476,6 +2557,16 @@ function ggr_portal_render_participant_profile_page() {
         $origin_sources = array();
     }
     $origin_country = isset( $meta['ggr_origin_country'][0] ) ? $meta['ggr_origin_country'][0] : ( $kyc_country ? $kyc_country : $p_country );
+
+    // Aanvullende onboardingstap
+    $extra_step_required  = (bool) get_user_meta( $user_id, 'ggr_collecting_extra_required', true );
+    $extra_question_label = get_user_meta( $user_id, 'ggr_collecting_extra_label', true );
+    $extra_upload_label   = get_user_meta( $user_id, 'ggr_collecting_extra_upload_label', true );
+    $extra_comment_text   = get_user_meta( $user_id, 'ggr_collecting_extra_comment', true );
+    $extra_response       = get_user_meta( $user_id, 'ggr_collecting_extra_response', true );
+    $extra_upload_url     = get_user_meta( $user_id, 'ggr_doc_extra', true );
+    $extra_question_label = $extra_question_label ? $extra_question_label : 'Aanvullende informatie';
+    $extra_upload_label   = $extra_upload_label ? $extra_upload_label : 'Upload aanvullende documentatie (optioneel)';
     
     $profile_updated_raw = isset( $meta['ggr_profile_updated_at'][0] ) ? $meta['ggr_profile_updated_at'][0] : '';
     $last_login_raw      = isset( $meta['ggr_last_login_at'][0] )     ? $meta['ggr_last_login_at'][0]     : '';
@@ -2533,7 +2624,10 @@ function ggr_portal_render_participant_profile_page() {
         'ggr_doc_share_register' => 'Aandeelhoudersregister / overeenkomst',
         'ggr_doc_other'          => 'Overige documenten',
     );
-
+    if ( $extra_step_required ) {
+        $document_labels['ggr_doc_extra'] = $extra_upload_label;
+    }
+    
     $uploaded_documents = array();
     foreach ( $document_labels as $meta_key => $label ) {
         $doc_url = isset( $meta[ $meta_key ][0] ) ? $meta[ $meta_key ][0] : '';
@@ -3052,6 +3146,42 @@ function ggr_portal_render_participant_profile_page() {
                 </tr>
             </table>
 
+            <h4 class="title">Stap 6: Aanvullende informatie</h4>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row">Instellingen & antwoord</th>
+                    <td>
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_collecting_extra_required">
+                                <input type="checkbox" id="ggr_collecting_extra_required" name="ggr_collecting_extra_required" value="1" <?php checked( $extra_step_required, true ); ?> />
+                                Toon aanvullende stap in de onboarding
+                            </label>
+                            <p class="description">Activeer deze optie als er aanvullende informatie of een upload gevraagd moet worden in stap 6.</p>
+                        </div>
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_collecting_extra_label">Vraaglabel</label>
+                            <input type="text" id="ggr_collecting_extra_label" name="ggr_collecting_extra_label" value="<?php echo esc_attr( $extra_question_label ); ?>" placeholder="Aanvullende informatie" />
+                        </div>
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_collecting_extra_upload_label">Upload label</label>
+                            <input type="text" id="ggr_collecting_extra_upload_label" name="ggr_collecting_extra_upload_label" value="<?php echo esc_attr( $extra_upload_label ); ?>" placeholder="Upload aanvullende documentatie (optioneel)" />
+                        </div>
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_collecting_extra_comment">Commentaar boven veld</label>
+                            <textarea name="ggr_collecting_extra_comment" id="ggr_collecting_extra_comment" rows="3" style="width:100%;"><?php echo esc_textarea( $extra_comment_text ); ?></textarea>
+                        </div>
+                        <div class="ggr-admin-inline-field">
+                            <label>Ingevulde toelichting (alleen-lezen)</label>
+                            <textarea readonly rows="3" style="width:100%; background:#f9fafb;"><?php echo esc_textarea( $extra_response ); ?></textarea>
+                            <p class="description">Weergave van de aanvullende informatie die de participant heeft opgegeven.</p>
+                        </div>
+                        <?php if ( $extra_upload_url ) : ?>
+                            <p class="ggr-admin-meta-note">Upload van participant: <a href="<?php echo esc_url( $extra_upload_url ); ?>" target="_blank" rel="noopener noreferrer">Bekijken</a></p>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            </table>
+
             <h2 class="title">Contract ondertekend</h2>
             <table class="form-table" role="presentation">
                 <tr>
@@ -3105,15 +3235,7 @@ function ggr_portal_render_participant_profile_page() {
                         </label>
                         <?php if ( $payment_confirmation_label ) : ?>
                             <p class="ggr-admin-meta-note">Lead gaf aan betaald te hebben op: <?php echo esc_html( $payment_confirmation_label ); ?>.</p>
-                        <?php endif; ?>                        
-                        <div class="ggr-admin-inline-field">
-                            <label for="ggr_first_trade_day">Eerste handelsdag</label>
-                            <input type="date" id="ggr_first_trade_day" name="ggr_first_trade_day" value="<?php echo esc_attr( $first_trade_day ); ?>" />
-                            <p class="description">Wordt gebruikt om de actieve startdatum van de participant vast te leggen.</p>
-                            <?php if ( $first_trade_day_label ) : ?>
-                                <p class="description">Weergave: <?php echo esc_html( $first_trade_day_label ); ?></p>
-                            <?php endif; ?>
-                        </div>
+                        <?php endif; ?>
                         <?php if ( $payment_received_at_label ) : ?>
                             <p class="ggr-admin-meta-note">Ontvangen gemarkeerd op: <?php echo esc_html( $payment_received_at_label ); ?>.</p>
                         <?php endif; ?>
