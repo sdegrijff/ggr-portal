@@ -513,6 +513,75 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
         $prev_cumul_dividend = $cumul;
     }
 
+    // Prognosegrafiek: laatste 6 maanden realisatie + prognose tot 12 maanden
+    $forecast_month_labels    = array();
+    $forecast_actual_series   = array();
+    $forecast_projection_full = array();
+
+    if ( ! empty( $month_keys ) ) {
+        $forecast_actual_keys   = array_slice( $month_keys, -6 );
+        $forecast_actual_values = array();
+
+        foreach ( $forecast_actual_keys as $mk ) {
+            $value = isset( $monthly[ $mk ]['positiewaarde'] ) ? (float) $monthly[ $mk ]['positiewaarde'] : null;
+            $forecast_actual_values[] = $value !== null ? round( $value, 2 ) : null;
+        }
+
+        $deltas = array();
+        for ( $i = 1; $i < count( $forecast_actual_values ); $i++ ) {
+            if ( $forecast_actual_values[ $i ] !== null && $forecast_actual_values[ $i - 1 ] !== null ) {
+                $deltas[] = $forecast_actual_values[ $i ] - $forecast_actual_values[ $i - 1 ];
+            }
+        }
+
+        $avg_delta = ! empty( $deltas ) ? array_sum( $deltas ) / count( $deltas ) : 0.0;
+        $last_value = end( $forecast_actual_values );
+        $last_value = ( $last_value !== false && $last_value !== null ) ? (float) $last_value : 0.0;
+
+        $forecast_months_to_add = max( 0, 12 - count( $forecast_actual_keys ) );
+        $forecast_months_to_add = min( 6, $forecast_months_to_add );
+
+        $future_keys   = array();
+        $future_values = array();
+        $last_month_key = end( $forecast_actual_keys );
+        if ( $last_month_key ) {
+            $last_month_date = DateTime::createFromFormat( 'Y-m', $last_month_key );
+            if ( $last_month_date instanceof DateTime ) {
+                for ( $i = 1; $i <= $forecast_months_to_add; $i++ ) {
+                    $future = clone $last_month_date;
+                    $future->modify( '+' . $i . ' month' );
+                    $future_keys[]   = $future->format( 'Y-m' );
+                    $last_value      += $avg_delta;
+                    $future_values[] = round( $last_value, 2 );
+                }
+            }
+        }
+
+        $forecast_month_labels = array_merge( $forecast_actual_keys, $future_keys );
+
+        if ( ! empty( $forecast_month_labels ) ) {
+            $forecast_length       = count( $forecast_month_labels );
+            $forecast_actual_series = array_merge(
+                $forecast_actual_values,
+                array_fill( 0, $forecast_length - count( $forecast_actual_values ), null )
+            );
+            $forecast_projection_full = array_fill( 0, $forecast_length, null );
+
+            if ( ! empty( $forecast_actual_values ) ) {
+                $last_actual_value_for_chart = end( $forecast_actual_values );
+                if ( $last_actual_value_for_chart === false || $last_actual_value_for_chart === null ) {
+                    $last_actual_value_for_chart = 0;
+                }
+                $actual_count = count( $forecast_actual_values );
+                $forecast_projection_full[ $actual_count - 1 ] = $last_actual_value_for_chart;
+
+                foreach ( $future_values as $index => $value ) {
+                    $forecast_projection_full[ $actual_count + $index ] = $value;
+                }
+            }
+        }
+    }
+
 
     /**
      * Laatst bijgewerkte GGR stock price ophalen
@@ -530,6 +599,29 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
         ARRAY_A
     );
 
+    // Volgende handelsmoment: standaard eerste maandag van de maand.
+    $next_trade_day_label = '';
+    try {
+        $tz     = wp_timezone();
+        $today  = new DateTime( 'today', $tz );
+        $first  = new DateTime( $today->format( 'Y-m-01' ), $tz );
+        $cursor = clone $first;
+        while ( (int) $cursor->format( 'N' ) !== 1 ) {
+            $cursor->modify( '+1 day' );
+        }
+        if ( $cursor < $today ) {
+            $first_next = new DateTime( $today->format( 'Y-m-01' ), $tz );
+            $first_next->modify( 'first day of next month' );
+            $cursor = clone $first_next;
+            while ( (int) $cursor->format( 'N' ) !== 1 ) {
+                $cursor->modify( '+1 day' );
+            }
+        }
+        $next_trade_day_label = wp_date( 'l j F Y', $cursor->getTimestamp() );
+    } catch ( Exception $e ) {
+        $next_trade_day_label = '';
+    }
+
     if ( $latest_stock_row ) {
         // Datum van de laatste koers
         $laatste_datum_display = date_i18n( 'd-m-Y', strtotime( $latest_stock_row['price_date'] ) );
@@ -546,6 +638,7 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
     $canvas_pos_id       = 'ggr_fe_chart_pos_' . uniqid();
     $canvas_div_cum_id   = 'ggr_fe_chart_divcum_' . uniqid();
     $canvas_div_month_id = 'ggr_fe_chart_divmonth_' . uniqid();
+    $canvas_forecast_id  = 'ggr_fe_chart_forecast_' . uniqid();
 
     ob_start();
     ?>
@@ -559,6 +652,13 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
                         om <?php echo esc_html( $laatste_tijd_display ); ?>
                     <?php endif; ?>
                 </p>
+            </div>
+            <div class="ggrp-fe-header-meta">
+                <span class="ggrp-fe-meta-label">Volgende handelsmoment</span>
+                <span class="ggrp-fe-trade-chip">
+                    <?php echo esc_html( $next_trade_day_label ? $next_trade_day_label : 'Nog niet bekend' ); ?>
+                </span>
+                <span class="ggrp-fe-meta-note">Standaard de eerste maandag van de maand</span>
             </div>
         </header>
 
@@ -643,6 +743,28 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
             </div>
         </section>
 
+        <!-- Prognose grafiek -->
+        <section class="ggrp-fe-panel">
+            <div class="ggrp-fe-panel-header">
+                <h2>Vooruitblik 12 maanden</h2>
+                <p class="ggrp-fe-meta-note">Op basis van de laatste 6 maanden</p>
+            </div>
+            <div class="ggrp-fe-panel-body ggrp-fe-panel-body--chart">
+                <?php if ( ! empty( $forecast_month_labels ) && ! empty( $forecast_actual_series ) ) : ?>
+                    <div class="ggr-positie-grafiek-wrapper">
+                        <canvas
+                            id="<?php echo esc_attr( $canvas_forecast_id ); ?>"
+                            data-forecast-labels='<?php echo wp_json_encode( $forecast_month_labels ); ?>'
+                            data-forecast-actual='<?php echo wp_json_encode( $forecast_actual_series ); ?>'
+                            data-forecast-projection='<?php echo wp_json_encode( $forecast_projection_full ); ?>'
+                        ></canvas>
+                    </div>
+                <?php else : ?>
+                    <p class="ggrp-fe-empty-chart">Onvoldoende data voor een prognose.</p>
+                <?php endif; ?>
+            </div>
+        </section>
+        
         <!-- Dividend grafieken: cumulatief + per maand -->
         <div class="ggrp-fe-chart-row">
             <!-- Cumulatief -->
@@ -1065,6 +1187,163 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
     <?php
     endif;
 
+    // Losse script-blok voor de prognosegrafiek, zodat de bestaande grafieken ongewijzigd blijven.
+    if ( ! empty( $forecast_month_labels ) && ! empty( $forecast_actual_series ) ) : ?>
+        <script>
+        (function() {
+            if (typeof Chart === 'undefined') {
+                return;
+            }
+
+            const canvas = document.getElementById('<?php echo esc_js( $canvas_forecast_id ); ?>');
+            if (!canvas) return;
+
+            const rawLabels      = canvas.dataset.forecastLabels ? JSON.parse(canvas.dataset.forecastLabels) : [];
+            const rawActual      = canvas.dataset.forecastActual ? JSON.parse(canvas.dataset.forecastActual) : [];
+            const rawProjection  = canvas.dataset.forecastProjection ? JSON.parse(canvas.dataset.forecastProjection) : [];
+
+            if (!rawLabels.length) return;
+
+            const monthsLong = [
+                'januari','februari','maart','april','mei','juni',
+                'juli','augustus','september','oktober','november','december'
+            ];
+            const monthsShort = [
+                'Jan','Feb','Mrt','Apr','Mei','Jun',
+                'Jul','Aug','Sep','Okt','Nov','Dec'
+            ];
+
+            const formatMonthShortFromYM = function(ym) {
+                const parts = (ym || '').split('-');
+                if (parts.length < 2) return ym || '';
+                const y = Number(parts[0]);
+                const m = Number(parts[1]);
+                if (!y || !m) return ym;
+                const monthName = monthsShort[m-1] || '';
+                return monthName + "'" + String(y).slice(2);
+            };
+
+            const formatMonthLongFromYM = function(ym) {
+                const parts = (ym || '').split('-');
+                if (parts.length < 2) return ym || '';
+                const y = Number(parts[0]);
+                const m = Number(parts[1]);
+                if (!y || !m) return ym;
+                const monthName = monthsLong[m-1] || '';
+                return monthName + ' ' + y;
+            };
+
+            const formatMoney = function(value) {
+                const val = Number(value) || 0;
+                return '€ ' + val.toLocaleString('nl-NL', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            };
+
+            const yAxisEuro = {
+                grid: {
+                    display: false,
+                    drawBorder: false
+                },
+                ticks: {
+                    callback: function(value) {
+                        return '€ ' + Number(value).toLocaleString('nl-NL', {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0
+                        });
+                    }
+                }
+            };
+
+            const baseLayout = {
+                padding: { top: 8, right: 16, bottom: 8, left: 16 }
+            };
+
+            const hasActual   = rawActual.some((val) => val !== null && !Number.isNaN(val));
+            const hasForecast = rawProjection.some((val) => val !== null && !Number.isNaN(val));
+            if (!hasActual && !hasForecast) return;
+
+            const ctx = canvas.getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: rawLabels.map(formatMonthShortFromYM),
+                    datasets: [
+                        {
+                            label: 'Realisatie',
+                            data: rawActual,
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointHoverRadius: 4,
+                            pointHitRadius: 10,
+                            borderColor: '#709aa7',
+                            backgroundColor: 'rgba(112,154,167,0.18)',
+                            spanGaps: false,
+                        },
+                        {
+                            label: 'Prognose',
+                            data: rawProjection,
+                            fill: false,
+                            tension: 0.3,
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            pointHitRadius: 10,
+                            borderColor: '#111827',
+                            borderDash: [6, 6],
+                            spanGaps: true,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: baseLayout,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: { display: true },
+                        tooltip: {
+                            displayColors: true,
+                            callbacks: {
+                                title: function(items) {
+                                    if (!items.length) return '';
+                                    const idx = items[0].dataIndex;
+                                    const key = rawLabels[idx];
+                                    return formatMonthLongFromYM(key);
+                                },
+                                label: function(context) {
+                                    const value = context.parsed.y;
+                                    if (value === null || Number.isNaN(value)) {
+                                        return '';
+                                    }
+                                    return context.dataset.label + ': ' + formatMoney(value);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            offset: false,
+                            ticks: { maxTicksLimit: 12 },
+                            grid: {
+                                display: false,
+                                drawBorder: false
+                            }
+                        },
+                        y: yAxisEuro
+                    }
+                }
+            });
+        })();
+        </script>
+    <?php endif; // forecast script ?>
+    
     return ob_get_clean();
 }
 add_shortcode( 'ggr_portal_dashboard', 'ggrp_fe_dashboard_shortcode' );
