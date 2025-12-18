@@ -3135,7 +3135,7 @@ function ggr_onboarding_dashboard_shortcode() {
                                     ?>
                                     <a class="ggr-onboarding-step-tab <?php echo $is_active ? 'is-active' : ''; ?> <?php echo $is_available ? '' : 'is-disabled'; ?>"
                                        href="<?php echo esc_url( $step_url ); ?>"
-                                       <?php echo $is_available ? '' : 'aria-disabled="true"'; ?>>
+                                       <?php echo $is_available ? '' : 'aria-disabled="true" tabindex="-1"'; ?>>
                                         <?php echo esc_html( $step_label ); ?>
                                     </a>
                                 <?php endforeach; ?>
