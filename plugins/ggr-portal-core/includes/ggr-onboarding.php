@@ -688,7 +688,13 @@ function ggr_onboarding_get_origin_options() {
 function ggr_onboarding_build_review_sections( $user_id, $user, $participation_profile, $amount_display ) {
     $has_co = get_user_meta( $user_id, 'ggr_has_co_participant', true );
     $has_co = $has_co ? $has_co : 'nee';
-
+    $extra_step_required  = (bool) get_user_meta( $user_id, 'ggr_collecting_extra_required', true );
+    $extra_question_label = get_user_meta( $user_id, 'ggr_collecting_extra_label', true );
+    $extra_upload_label   = get_user_meta( $user_id, 'ggr_collecting_extra_upload_label', true );
+    $extra_response       = get_user_meta( $user_id, 'ggr_collecting_extra_response', true );
+    $extra_upload_label   = $extra_upload_label ? $extra_upload_label : 'Aanvullende upload';
+    $extra_section_title  = $extra_question_label ? $extra_question_label : 'Aanvullende informatie';
+    
     $user_name = function_exists( 'ggr_portal_get_nice_user_name' )
         ? ggr_portal_get_nice_user_name( $user )
         : trim( $user->first_name . ' ' . $user->last_name );
@@ -810,6 +816,16 @@ function ggr_onboarding_build_review_sections( $user_id, $user, $participation_p
         ),
     );
 
+    if ( $extra_step_required ) {
+        $sections[] = array(
+            'title' => $extra_section_title,
+            'items' => array(
+                'Toelichting' => $extra_response ? wp_strip_all_tags( $extra_response ) : '—',
+                $extra_upload_label => get_user_meta( $user_id, 'ggr_doc_extra', true ) ? 'Geüpload' : 'Nog niet aangeleverd',
+            ),
+        );
+    }
+
     $document_labels = array(
         'ggr_doc_id'             => 'Identiteitsbewijs',
         'ggr_doc_funds'          => 'Bewijs herkomst middelen',
@@ -818,7 +834,10 @@ function ggr_onboarding_build_review_sections( $user_id, $user, $participation_p
         'ggr_doc_share_register' => 'Aandeelhoudersregister / overeenkomst',
         'ggr_doc_other'          => 'Overige documenten',
     );
-
+    if ( $extra_step_required ) {
+        $document_labels['ggr_doc_extra'] = $extra_upload_label;
+    }
+    
     $doc_items = array();
     foreach ( $document_labels as $meta_key => $label ) {
         $doc_items[ $label ] = get_user_meta( $user_id, $meta_key, true ) ? 'Geüpload' : 'Nog niet aangeleverd';
@@ -1810,7 +1829,6 @@ function ggr_onboarding_register_shortcode() {
 
     $contract_signed_at      = get_user_meta( $user_id, 'ggr_contract_signed_at', true );
     $payment_confirmation_at = get_user_meta( $user_id, 'ggr_payment_confirmation_at', true );
-    $first_trade_day         = get_user_meta( $user_id, 'ggr_first_trade_day', true );
     $payment_received        = get_user_meta( $user_id, 'ggr_payment_received', true );
 
     $participation_profile = get_user_meta( $user_id, 'ggr_participation_profile', true );
@@ -2635,17 +2653,27 @@ function ggr_onboarding_dashboard_shortcode() {
     $participation_profile  = get_user_meta( $user_id, 'ggr_participation_profile', true );
     $contract_signed_at      = get_user_meta( $user_id, 'ggr_contract_signed_at', true );
     $payment_confirmation_at = get_user_meta( $user_id, 'ggr_payment_confirmation_at', true );
-    $first_trade_day         = get_user_meta( $user_id, 'ggr_first_trade_day', true );
     $payment_received        = get_user_meta( $user_id, 'ggr_payment_received', true );
     $payment_received_at     = get_user_meta( $user_id, 'ggr_payment_received_at', true );
     $has_co_participant      = get_user_meta( $user_id, 'ggr_has_co_participant', true );
-    $has_co_participant      = $has_co_participant ? $has_co_participant : 'nee';    
+    $has_co_participant      = $has_co_participant ? $has_co_participant : 'nee';
+
+    // Aanvullende stap (stap 6) configuratie uit profiel
+    $extra_step_required    = (bool) get_user_meta( $user_id, 'ggr_collecting_extra_required', true );
+    $extra_question_label   = get_user_meta( $user_id, 'ggr_collecting_extra_label', true );
+    $extra_upload_label     = get_user_meta( $user_id, 'ggr_collecting_extra_upload_label', true );
+    $extra_comment_text     = get_user_meta( $user_id, 'ggr_collecting_extra_comment', true );
+    $extra_response         = get_user_meta( $user_id, 'ggr_collecting_extra_response', true );
+    $extra_uploaded_file    = get_user_meta( $user_id, 'ggr_doc_extra', true );
+
+    $extra_question_label = $extra_question_label ? $extra_question_label : 'Aanvullende informatie';
+    $extra_upload_label   = $extra_upload_label ? $extra_upload_label : 'Upload aanvullende documentatie (optioneel)';
+
     $updated_label           = ggr_onboarding_format_datetime_label( $updated );
     $contract_signed_label   = ggr_onboarding_format_datetime_label( $contract_signed_at );
     $payment_confirmation_label = ggr_onboarding_format_datetime_label( $payment_confirmation_at );
     $payment_received_at_label  = ggr_onboarding_format_datetime_label( $payment_received_at );
-    $first_trade_day_label      = ggr_onboarding_format_datetime_label( $first_trade_day, false );
-    
+
     // Messages voor de collecting-flow.
     $messages = array(
         'error'   => array(),
@@ -2663,8 +2691,12 @@ function ggr_onboarding_dashboard_shortcode() {
     $collecting_personal_done    = get_user_meta( $user_id, 'ggr_collecting_personal_done', true );
     $collecting_origin_done      = get_user_meta( $user_id, 'ggr_collecting_origin_done', true );
     $collecting_files_done       = get_user_meta( $user_id, 'ggr_collecting_files_done', true );
+    $collecting_extra_done       = get_user_meta( $user_id, 'ggr_collecting_extra_done', true );
 
     $base_collecting_steps    = array( 'request', 'type', 'personal', 'origin', 'files' );
+    if ( $extra_step_required ) {
+        $base_collecting_steps[] = 'extra';
+    }
     $visible_collecting_steps = $requires_intake_step
         ? array_merge( array( 'intake' ), $base_collecting_steps )
         : $base_collecting_steps;
@@ -2870,6 +2902,12 @@ function ggr_onboarding_dashboard_shortcode() {
         // Stap 5: documenten uploaden.
         if ( isset( $_POST['ggr_collecting_files_submit'] ) ) {
             $files_action = sanitize_text_field( wp_unslash( $_POST['ggr_collecting_files_submit'] ) );
+
+            // Als er een aanvullende stap is, kan hier nog niet definitief ingediend worden.
+            if ( $extra_step_required && 'submit' === $files_action ) {
+                $files_action = 'next';
+            }
+            
             $result       = ggr_onboarding_handle_collecting_files( $user_id );
 
             if ( is_wp_error( $result ) ) {
@@ -2877,16 +2915,18 @@ function ggr_onboarding_dashboard_shortcode() {
                 $current_collecting_step = ( 'save' === $files_action ) ? 'files' : 'files';
             } else {
                 $messages['success'] = ( 'submit' === $files_action )
-                    ? 'Je documenten zijn opgeslagen.'
-                    : 'Je documenten zijn ontvangen. Wij gaan hiermee aan de slag.';
+                    ? 'Je documenten zijn ontvangen. Wij gaan hiermee aan de slag.'
+                    : 'Je documenten zijn opgeslagen.';
                 $updated = current_time( 'mysql' );
                 update_user_meta( $user_id, 'ggr_onboarding_updated_at', $updated );
                 $updated_label = ggr_onboarding_format_datetime_label( $updated );
                 $collecting_files_done  = 1;
                 update_user_meta( $user_id, 'ggr_collecting_files_done', 1 );
-                $current_collecting_step = 'files';
 
-                if ( 'submit' === $files_action ) {
+                // Bij een extra stap doorgaan naar stap 6, anders op bestanden blijven staan.
+                $current_collecting_step = ( 'next' === $files_action && $extra_step_required ) ? 'extra' : 'files';
+
+                if ( 'submit' === $files_action && ! $extra_step_required ) {
                     ggr_onboarding_update_status( $user_id, 'validating' );
                     $status       = 'validating';
                     $status_label = isset( $stages[ $status ] ) ? $stages[ $status ] : $status;
@@ -2909,8 +2949,58 @@ function ggr_onboarding_dashboard_shortcode() {
                 }
             }
         }
-    }
 
+        // Stap 6: aanvullende informatie (optioneel).
+        if ( isset( $_POST['ggr_collecting_extra_submit'] ) ) {
+            $extra_action = sanitize_text_field( wp_unslash( $_POST['ggr_collecting_extra_submit'] ) );
+
+            if ( ! $extra_step_required ) {
+                $messages['error'][]     = 'De aanvullende stap is niet beschikbaar.';
+                $current_collecting_step = 'files';
+            } else {
+                $result = ggr_onboarding_handle_collecting_extra( $user_id );
+
+                if ( is_wp_error( $result ) ) {
+                    $messages['error'][]     = $result->get_error_message();
+                    $current_collecting_step = 'extra';
+                } else {
+                    $messages['success'] = ( 'submit' === $extra_action )
+                        ? 'Je aanvullende informatie is ontvangen. Wij gaan hiermee aan de slag.'
+                        : 'Je aanvullende informatie is opgeslagen.';
+
+                    $updated = current_time( 'mysql' );
+                    update_user_meta( $user_id, 'ggr_onboarding_updated_at', $updated );
+                    $updated_label = ggr_onboarding_format_datetime_label( $updated );
+                    $collecting_extra_done = 1;
+                    update_user_meta( $user_id, 'ggr_collecting_extra_done', 1 );
+                    $current_collecting_step = 'extra';
+
+                    if ( 'submit' === $extra_action ) {
+                        ggr_onboarding_update_status( $user_id, 'validating' );
+                        $status       = 'validating';
+                        $status_label = isset( $stages[ $status ] ) ? $stages[ $status ] : $status;
+
+                        if ( function_exists( 'ggr_meldingen_add' ) ) {
+                            ggr_meldingen_add(
+                                'Documentatie ingediend',
+                                sprintf(
+                                    'Gebruiker %s (%s) heeft alle documentatie en aanvullende informatie aangeleverd.',
+                                    $user->display_name,
+                                    $user->user_email
+                                ),
+                                $user_id,
+                                array(
+                                    'melding_type'      => 'documentatie',
+                                    'onboarding_status' => 'validating',
+                                )
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     $collecting_step_labels = array(
         'request'  => '1. Investeringsbedrag',
         'type'     => '2. Rechtspersoon',
@@ -2918,6 +3008,9 @@ function ggr_onboarding_dashboard_shortcode() {
         'origin'   => '4. Herkomst vermogen',
         'files'    => '5. Documentatie',
     );
+    if ( $extra_step_required ) {
+        $collecting_step_labels['extra'] = '6. ' . $extra_question_label;
+    }
 
     if ( $requires_intake_step ) {
         $collecting_step_labels = array_merge(
@@ -2933,6 +3026,9 @@ function ggr_onboarding_dashboard_shortcode() {
         'origin'   => 'Leg de herkomst van het te investeren bedrag vast.',
         'files'    => 'Upload de benodigde documenten om je inschrijving af te ronden.',
     );
+    if ( $extra_step_required ) {
+        $collecting_step_messages['extra'] = 'Beantwoord de aanvullende vraag en voeg eventueel een document toe.';
+    }
 
     if ( $requires_intake_step ) {
         $collecting_step_messages['intake'] = 'Plan en rond eerst de intake af. Daarna krijg je toegang tot de overige onboarding-stappen.';
@@ -3315,7 +3411,7 @@ function ggr_onboarding_dashboard_shortcode() {
                             <div class="ggr-onboarding-step-card">
                                 <div class="ggr-onboarding-step-text">
                                     <h3 class="ggr-onboarding-step-heading">Rond de betaling af</h3>
-                                   <p class="ggr-onboarding-step-description">Maak het overeengekomen bedrag van <strong><?php echo esc_html( $amount_display ); ?></strong> over naar onze rekening. Zodra we de betaling hebben gecontroleerd, plannen we je startdatum in.</p>
+                                   <p class="ggr-onboarding-step-description">Maak het overeengekomen bedrag van <strong><?php echo esc_html( $amount_display ); ?></strong> over naar onze rekening. Zodra we de betaling hebben gecontroleerd, staat het bedrag definitief in je profiel.</p>
                                 </div>
                                 <div class="ggr-onboarding-alert">
                                     <p><strong>Betaalinstructie:</strong> Maak over naar
@@ -3336,9 +3432,7 @@ function ggr_onboarding_dashboard_shortcode() {
                                     <?php if ( $payment_confirmation_label ) : ?>
                                         <p class="ggr-onboarding-muted" style="margin-top:8px;">Laatste bevestiging: <?php echo esc_html( $payment_confirmation_label ); ?>.</p>
                                     <?php endif; ?>
-                                    <?php if ( $first_trade_day_label ) : ?>
-                                        <p class="ggr-onboarding-muted" style="margin-top:4px;">Geplande eerste handelsdag: <?php echo esc_html( $first_trade_day_label ); ?>.</p>
-                                    <?php elseif ( $payment_received ) : ?>
+                                    <?php if ( $payment_received ) : ?>
                                         <p class="ggr-onboarding-muted" style="margin-top:4px;">
                                             Betaling ontvangen<?php echo $payment_received_at_label ? ' op ' . esc_html( $payment_received_at_label ) : ''; ?>. De eerste handelsdag wordt binnenkort bevestigd.
                                         </p>
@@ -4046,7 +4140,7 @@ function ggr_onboarding_dashboard_shortcode() {
                                     </form>
                                 </div>
                                 
-                            <?php else : ?>
+                            <?php elseif ( 'files' === $current_collecting_step ) : ?>
 
                                 <!-- STAP 5: BESTANDEN UPLOADEN -->
                                 <div class="ggr-onboarding-step-card">
@@ -4140,17 +4234,91 @@ function ggr_onboarding_dashboard_shortcode() {
                                                     class="ggr-onboarding-button ggr-onboarding-button--ghost">
                                                 Opslaan
                                             </button>
-                                            <button type="submit"
-                                                    name="ggr_collecting_files_submit"
-                                                    value="submit"
-                                                    class="ggr-onboarding-button ggr-onboarding-button--accent"
-                                                    data-confirm-docs="true">
-                                                Documentatie indienen
-                                            </button>
+                                            <?php if ( $collecting_next_step ) : ?>
+                                                <button type="submit"
+                                                        name="ggr_collecting_files_submit"
+                                                        value="next"
+                                                        class="ggr-onboarding-button ggr-onboarding-button--primary">
+                                                    Verder
+                                                </button>
+                                            <?php else : ?>
+                                                <button type="submit"
+                                                        name="ggr_collecting_files_submit"
+                                                        value="submit"
+                                                        class="ggr-onboarding-button ggr-onboarding-button--accent"
+                                                        data-confirm-docs="true">
+                                                    Documentatie indienen
+                                                </button>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                     
                                     </form>
+                                </div>
+
+                            <?php elseif ( 'extra' === $current_collecting_step ) : ?>
+
+                                <!-- STAP 6: AANVULLENDE INFORMATIE -->
+                                <div class="ggr-onboarding-step-card">
+                                    <div class="ggr-onboarding-step-text">
+                                        <h3 class="ggr-onboarding-step-heading">Stap 6: <?php echo esc_html( $extra_question_label ); ?></h3>
+                                        <p class="ggr-onboarding-step-description">We hebben nog aanvullende informatie nodig om je onboarding compleet te maken.</p>
+                                    </div>
+
+                                    <form method="post" enctype="multipart/form-data" class="ggr-onboarding-form">
+                                        <?php wp_nonce_field( 'ggr_collecting_extra', 'ggr_collecting_extra_nonce' ); ?>
+
+                                        <?php if ( $extra_comment_text ) : ?>
+                                            <div class="ggr-onboarding-highlight ggr-onboarding-highlight--secondary">
+                                                <p class="ggr-onboarding-note" style="margin:0;"><?php echo esc_html( $extra_comment_text ); ?></p>
+                                            </div>
+                                        <?php endif; ?>
+
+                                        <div class="ggr-onboarding-field">
+                                            <label for="ggr_collecting_extra_response"><?php echo esc_html( $extra_question_label ); ?> *</label>
+                                            <textarea
+                                                id="ggr_collecting_extra_response"
+                                                name="ggr_collecting_extra_response"
+                                                rows="4"
+                                                required
+                                            ><?php echo esc_textarea( $extra_response ); ?></textarea>
+                                        </div>
+
+                                        <div class="ggr-onboarding-field ggr-onboarding-field--file">
+                                            <label for="ggr_doc_extra"><?php echo esc_html( $extra_upload_label ); ?></label>
+                                            <input type="file" id="ggr_doc_extra" name="ggr_doc_extra" accept=".pdf,.jpg,.jpeg,.png">
+                                            <?php if ( $extra_uploaded_file ) : ?>
+                                                <p class="ggr-onboarding-small-print">Reeds geüpload: <a href="<?php echo esc_url( $extra_uploaded_file ); ?>" target="_blank" rel="noopener noreferrer">Bekijken</a></p>
+                                            <?php endif; ?>
+                                        </div>
+
+                                        <div class="ggr-onboarding-form-actions">
+                                            <?php if ( $collecting_prev_step ) : ?>
+                                                <a class="ggr-onboarding-button ggr-onboarding-button--ghost" href="<?php echo esc_url( add_query_arg( 'collecting_step', $collecting_prev_step, $current_url ) ); ?>">
+                                                    Terug
+                                                </a>
+                                            <?php endif; ?>
+                                            <div class="ggr-onboarding-form-actions-buttons">
+                                                <button type="submit"
+                                                        name="ggr_collecting_extra_submit"
+                                                        value="save"
+                                                        class="ggr-onboarding-button ggr-onboarding-button--ghost">
+                                                    Opslaan
+                                                </button>
+                                                <button type="submit"
+                                                        name="ggr_collecting_extra_submit"
+                                                        value="submit"
+                                                        class="ggr-onboarding-button ggr-onboarding-button--accent">
+                                                    Indienen
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+
+                            <?php else : ?>
+                                <div class="ggr-onboarding-step-card">
+                                    <p>Deze stap is niet beschikbaar.</p>
                                 </div>
 
                             <?php endif; // end personal/files switch ?>
@@ -4777,6 +4945,40 @@ function ggr_onboarding_handle_collecting_files( $user_id ) {
     foreach ( $upload_fields as $upload_field ) {
         ggr_onboarding_handle_file_upload( $upload_field, $user_id );
     }
+
+    return true;
+}
+
+/**
+ * Stap 6 collecting: aanvullende informatie en optionele upload.
+ */
+function ggr_onboarding_handle_collecting_extra( $user_id ) {
+
+    if ( ! isset( $_POST['ggr_collecting_extra_nonce'] ) ||
+         ! wp_verify_nonce( $_POST['ggr_collecting_extra_nonce'], 'ggr_collecting_extra' ) ) {
+        return new WP_Error( 'invalid_nonce', 'Ongeldige sessie. Probeer het opnieuw.' );
+    }
+
+    if ( get_current_user_id() !== (int) $user_id ) {
+        return new WP_Error( 'invalid_user', 'Je kunt deze gegevens niet voor een andere gebruiker wijzigen.' );
+    }
+
+    $extra_required = (bool) get_user_meta( $user_id, 'ggr_collecting_extra_required', true );
+    if ( ! $extra_required ) {
+        return new WP_Error( 'extra_disabled', 'De aanvullende stap is niet actief.' );
+    }
+
+    $response = isset( $_POST['ggr_collecting_extra_response'] )
+        ? sanitize_textarea_field( wp_unslash( $_POST['ggr_collecting_extra_response'] ) )
+        : '';
+
+    if ( '' === trim( $response ) ) {
+        return new WP_Error( 'missing_extra_info', 'Vul de aanvullende informatie in.' );
+    }
+
+    update_user_meta( $user_id, 'ggr_collecting_extra_response', $response );
+
+    ggr_onboarding_handle_file_upload( 'ggr_doc_extra', $user_id );
 
     return true;
 }
