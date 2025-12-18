@@ -226,26 +226,21 @@ function ggrp_fe_render_forecast_script() {
             return monthName + ' ' + y;
         };
 
-        const formatMoney = function(value) {
+        const formatPercent = function(value) {
             const val = Number(value) || 0;
-            return '€ ' + val.toLocaleString('nl-NL', {
+            return val.toLocaleString('nl-NL', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
-            });
+            }) + '%';
         };
 
-        const yAxisEuro = {
+        const yAxisPercent = {
             grid: {
                 display: false,
                 drawBorder: false
             },
             ticks: {
-                callback: function(value) {
-                    return '€ ' + Number(value).toLocaleString('nl-NL', {
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0
-                    });
-                }
+                callback: (value) => formatPercent(value)
             }
         };
 
@@ -322,7 +317,7 @@ function ggrp_fe_render_forecast_script() {
                                     if (value === null || Number.isNaN(value)) {
                                         return '';
                                     }
-                                    return context.dataset.label + ': ' + formatMoney(value);
+                                    return context.dataset.label + ': ' + formatPercent(value);
                                 }
                             }
                         }
@@ -336,7 +331,7 @@ function ggrp_fe_render_forecast_script() {
                                 drawBorder: false
                             }
                         },
-                        y: yAxisEuro
+                        y: yAxisPercent
                     }
                 }
             });
@@ -708,21 +703,71 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
         $forecast_actual_keys   = array_slice( $month_keys, -6 );
         $forecast_actual_values = array();
 
-        foreach ( $forecast_actual_keys as $mk ) {
-            $value = isset( $monthly[ $mk ]['positiewaarde'] ) ? (float) $monthly[ $mk ]['positiewaarde'] : null;
-            $forecast_actual_values[] = $value !== null ? round( $value, 2 ) : null;
+        $dividend_per_month_map = array();
+        foreach ( $divMonthKeys as $index => $mk ) {
+            $dividend_per_month_map[ $mk ] = $divPerMonthValues[ $index ];
         }
 
-        $deltas = array();
-        for ( $i = 1; $i < count( $forecast_actual_values ); $i++ ) {
-            if ( $forecast_actual_values[ $i ] !== null && $forecast_actual_values[ $i - 1 ] !== null ) {
-                $deltas[] = $forecast_actual_values[ $i ] - $forecast_actual_values[ $i - 1 ];
+        foreach ( $forecast_actual_keys as $mk ) {
+            $dividend_maand = isset( $dividend_per_month_map[ $mk ] ) ? (float) $dividend_per_month_map[ $mk ] : 0.0;
+            $positie_maand  = isset( $monthly[ $mk ]['positiewaarde'] ) ? (float) $monthly[ $mk ]['positiewaarde'] : null;
+
+            if ( $positie_maand && $positie_maand > 0 ) {
+                $rendement_pct           = ( $dividend_maand / $positie_maand ) * 100;
+                $forecast_actual_values[] = round( $rendement_pct, 4 );
+            } else {
+                $forecast_actual_values[] = null;
             }
         }
 
-        $avg_delta = ! empty( $deltas ) ? array_sum( $deltas ) / count( $deltas ) : 0.0;
-        $last_value = end( $forecast_actual_values );
-        $last_value = ( $last_value !== false && $last_value !== null ) ? (float) $last_value : 0.0;
+        $valid_points = array();
+        foreach ( $forecast_actual_values as $index => $value ) {
+            if ( $value !== null ) {
+                $valid_points[] = array(
+                    'x' => $index,
+                    'y' => $value,
+                );
+            }
+        }
+
+        $slope      = 0.0;
+        $intercept  = 0.0;
+        $point_count = count( $valid_points );
+
+        if ( $point_count >= 2 ) {
+            $sum_x  = 0.0;
+            $sum_y  = 0.0;
+            $sum_xy = 0.0;
+            $sum_x2 = 0.0;
+
+            foreach ( $valid_points as $point ) {
+                $sum_x  += $point['x'];
+                $sum_y  += $point['y'];
+                $sum_xy += $point['x'] * $point['y'];
+                $sum_x2 += $point['x'] * $point['x'];
+            }
+
+            $denominator = ( $point_count * $sum_x2 ) - ( $sum_x * $sum_x );
+            if ( $denominator !== 0.0 ) {
+                $slope = ( ( $point_count * $sum_xy ) - ( $sum_x * $sum_y ) ) / $denominator;
+            }
+
+            $intercept = ( $sum_y - ( $slope * $sum_x ) ) / $point_count;
+        } elseif ( $point_count === 1 ) {
+            $intercept = $valid_points[0]['y'];
+        }
+
+        $last_known_value = null;
+        for ( $i = count( $forecast_actual_values ) - 1; $i >= 0; $i-- ) {
+            if ( $forecast_actual_values[ $i ] !== null ) {
+                $last_known_value = $forecast_actual_values[ $i ];
+                break;
+            }
+        }
+
+        if ( $last_known_value === null ) {
+            $last_known_value = 0.0;
+        }
 
         $forecast_months_to_add = max( 0, 12 - count( $forecast_actual_keys ) );
         $forecast_months_to_add = min( 6, $forecast_months_to_add );
@@ -736,9 +781,11 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
                 for ( $i = 1; $i <= $forecast_months_to_add; $i++ ) {
                     $future = clone $last_month_date;
                     $future->modify( '+' . $i . ' month' );
-                    $future_keys[]   = $future->format( 'Y-m' );
-                    $last_value      += $avg_delta;
-                    $future_values[] = round( $last_value, 2 );
+                    $future_keys[] = $future->format( 'Y-m' );
+
+                    $x_value        = ( count( $forecast_actual_values ) - 1 ) + $i;
+                    $predicted      = $intercept + ( $slope * $x_value );
+                    $future_values[] = round( $predicted, 4 );
                 }
             }
         }
@@ -746,7 +793,7 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
         $forecast_month_labels = array_merge( $forecast_actual_keys, $future_keys );
 
         if ( ! empty( $forecast_month_labels ) ) {
-            $forecast_length       = count( $forecast_month_labels );
+            $forecast_length        = count( $forecast_month_labels );
             $forecast_actual_series = array_merge(
                 $forecast_actual_values,
                 array_fill( 0, $forecast_length - count( $forecast_actual_values ), null )
@@ -754,12 +801,8 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
             $forecast_projection_full = array_fill( 0, $forecast_length, null );
 
             if ( ! empty( $forecast_actual_values ) ) {
-                $last_actual_value_for_chart = end( $forecast_actual_values );
-                if ( $last_actual_value_for_chart === false || $last_actual_value_for_chart === null ) {
-                    $last_actual_value_for_chart = 0;
-                }
                 $actual_count = count( $forecast_actual_values );
-                $forecast_projection_full[ $actual_count - 1 ] = $last_actual_value_for_chart;
+                $forecast_projection_full[ $actual_count - 1 ] = $last_known_value;
 
                 foreach ( $future_values as $index => $value ) {
                     $forecast_projection_full[ $actual_count + $index ] = $value;
@@ -845,11 +888,10 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
                 </p>
             </div>
             <div class="ggrp-fe-header-meta">
-                <span class="ggrp-fe-meta-label">Volgende handelsmoment</span>
+                <span class="ggrp-fe-meta-label">Volgende handelsdag</span>
                 <span class="ggrp-fe-trade-chip">
-                    <?php echo esc_html( $next_trade_day_label ? $next_trade_day_label : 'Nog niet bekend' ); ?>
+                    <strong><?php echo esc_html( $next_trade_day_label ? $next_trade_day_label : 'Nog niet bekend' ); ?></strong>
                 </span>
-                <span class="ggrp-fe-meta-note">Standaard de eerste maandag van de maand</span>
             </div>            
         </header>
 
@@ -973,8 +1015,7 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
         <!-- Prognose grafiek -->
         <section class="ggrp-fe-panel">
             <div class="ggrp-fe-panel-header">
-                <h2>Vooruitblik 12 maanden</h2>
-                <p class="ggrp-fe-meta-note">Op basis van de laatste 6 maanden</p>
+                <h2>Dividend rendement (%) per maand + Prognose voor 6 maanden</h2>
             </div>
             <div class="ggrp-fe-panel-body ggrp-fe-panel-body--chart">
                 <?php if ( ! empty( $forecast_month_labels ) && ! empty( $forecast_actual_series ) ) : ?>
