@@ -3246,7 +3246,6 @@ function ggr_onboarding_dashboard_shortcode() {
                                     </a>
                                 <?php endforeach; ?>
                             </div>
-                        <?php endif; ?>
                     </div>
 
                         <?php if ( ! empty( $messages['error'] ) ) : ?>
