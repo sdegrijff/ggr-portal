@@ -61,10 +61,10 @@
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    background: #eef2ff;
-    border: 1px solid #e0e7ff;
-    border-radius: 999px;
-    color: #4338ca;
+    background: var(--ggr-accent-soft);
+    border: 1px solid var(--ggr-accent);
+    border-radius: 5px;
+    color: var(--ggr-accent);
     font-weight: 600;
     font-size: 13px;
 }
