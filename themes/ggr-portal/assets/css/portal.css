@@ -413,7 +413,13 @@
 .ggrp-fe-wijziging-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 16px;
+    margin-bottom: 15px;
+    margin-right: 15px;
+}
+
+.ggrp-fe-wijziging-grid H2 {
+    margin: 0px!important;
+
 }
 
 .ggrp-fe-wijziging-card {
