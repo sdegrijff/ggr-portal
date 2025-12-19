@@ -59,10 +59,20 @@ function ggr_ibkr_nav_has_credentials() {
 }
 
 /**
+ * Cron uitschakelen als er geen geldige credentials zijn.
+ */
+function ggr_ibkr_nav_clear_cron() {
+    while ( ( $timestamp = wp_next_scheduled( 'ggr_ibkr_nav_fetch_event' ) ) !== false ) {
+        wp_unschedule_event( $timestamp, 'ggr_ibkr_nav_fetch_event' );
+    }
+}
+
+/**
  * Cron plannen (dagelijks).
  */
 function ggr_ibkr_nav_schedule_cron() {
     if ( ! ggr_ibkr_nav_has_credentials() ) {
+        ggr_ibkr_nav_clear_cron();
         return;
     }
 
