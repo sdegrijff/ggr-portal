@@ -1533,10 +1533,12 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
     $onboarding_status  = function_exists( 'ggr_onboarding_get_status' ) ? ggr_onboarding_get_status( $user->ID ) : get_user_meta( $user->ID, 'ggr_onboarding_status', true );
     $onboarding_updated = get_user_meta( $user->ID, 'ggr_onboarding_updated_at', true );
     $extra_step_required  = (bool) get_user_meta( $user->ID, 'ggr_collecting_extra_required', true );
+    $extra_step_label     = get_user_meta( $user->ID, 'ggr_collecting_extra_step_label', true );    
     $extra_question_label = get_user_meta( $user->ID, 'ggr_collecting_extra_label', true );
     $extra_upload_label   = get_user_meta( $user->ID, 'ggr_collecting_extra_upload_label', true );
     $extra_comment_text   = get_user_meta( $user->ID, 'ggr_collecting_extra_comment', true );
     $extra_response       = get_user_meta( $user->ID, 'ggr_collecting_extra_response', true );
+    $extra_step_label     = $extra_step_label ? $extra_step_label : 'Aanvullende informatie';
     $extra_question_label = $extra_question_label ? $extra_question_label : 'Aanvullende informatie';
     $extra_upload_label   = $extra_upload_label ? $extra_upload_label : 'Upload aanvullende documentatie (optioneel)';
     
@@ -1750,6 +1752,12 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
                             </label>
                         </div>
 
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_collecting_extra_step_label">Staplabel</label>
+                            <input type="text" id="ggr_collecting_extra_step_label" name="ggr_collecting_extra_step_label"
+                                   value="<?php echo esc_attr( $extra_step_label ); ?>" />
+                        </div>
+                        
                         <div class="ggr-admin-inline-field">
                             <label for="ggr_collecting_extra_label">Vraaglabel</label>
                             <input type="text" id="ggr_collecting_extra_label" name="ggr_collecting_extra_label"
@@ -2056,6 +2064,14 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     // Aanvullende stap in onboarding
     $extra_required = ! empty( $_POST['ggr_collecting_extra_required'] ) ? 1 : 0;
     update_user_meta( $user_id, 'ggr_collecting_extra_required', $extra_required );
+
+    if ( isset( $_POST['ggr_collecting_extra_step_label'] ) ) {
+        update_user_meta(
+            $user_id,
+            'ggr_collecting_extra_step_label',
+            sanitize_text_field( wp_unslash( $_POST['ggr_collecting_extra_step_label'] ) )
+        );
+    }
 
     if ( isset( $_POST['ggr_collecting_extra_label'] ) ) {
         update_user_meta(
@@ -2560,12 +2576,14 @@ function ggr_portal_render_participant_profile_page() {
 
     // Aanvullende onboardingstap
     $extra_step_required  = (bool) get_user_meta( $user_id, 'ggr_collecting_extra_required', true );
+    $extra_step_label     = get_user_meta( $user_id, 'ggr_collecting_extra_step_label', true );
     $extra_question_label = get_user_meta( $user_id, 'ggr_collecting_extra_label', true );
     $extra_upload_label   = get_user_meta( $user_id, 'ggr_collecting_extra_upload_label', true );
     $extra_comment_text   = get_user_meta( $user_id, 'ggr_collecting_extra_comment', true );
     $extra_response       = get_user_meta( $user_id, 'ggr_collecting_extra_response', true );
     $extra_upload_url     = get_user_meta( $user_id, 'ggr_doc_extra', true );
-    $extra_question_label = $extra_question_label ? $extra_question_label : 'Aanvullende informatie';
+    $extra_step_label     = $extra_step_label ? $extra_step_label : 'Aanvullende informatie';
+    $extra_question_label = $extra_question_label ? $extra_question_label : $extra_step_label;
     $extra_upload_label   = $extra_upload_label ? $extra_upload_label : 'Upload aanvullende documentatie (optioneel)';
     
     $profile_updated_raw = isset( $meta['ggr_profile_updated_at'][0] ) ? $meta['ggr_profile_updated_at'][0] : '';
@@ -2641,10 +2659,11 @@ function ggr_portal_render_participant_profile_page() {
     }
 
 
-    // GGR details (nog gebaseerd op oude berekening)
-    $ggr_latest = function_exists( 'ggr_portal_get_latest_calculated_values_for_user' )
-        ? ggr_portal_get_latest_calculated_values_for_user( $user_id )
-        : false;
+    // GGR details: eerste transactie tonen
+    $history_rows = function_exists( 'ggr_portal_get_history_for_user' )
+        ? ggr_portal_get_history_for_user( $user_id )
+        : array();
+    $first_transaction = ! empty( $history_rows ) ? reset( $history_rows ) : null;
 
     $all_roles     = get_editable_roles();
     $current_roles = (array) $user->roles;
@@ -3159,6 +3178,10 @@ function ggr_portal_render_participant_profile_page() {
                             <p class="description">Activeer deze optie als er aanvullende informatie of een upload gevraagd moet worden in stap 6.</p>
                         </div>
                         <div class="ggr-admin-inline-field">
+                            <label for="ggr_collecting_extra_step_label">Staplabel</label>
+                            <input type="text" id="ggr_collecting_extra_step_label" name="ggr_collecting_extra_step_label" value="<?php echo esc_attr( $extra_step_label ); ?>" placeholder="Aanvullende informatie" />
+                        </div>                        
+                        <div class="ggr-admin-inline-field">
                             <label for="ggr_collecting_extra_label">Vraaglabel</label>
                             <input type="text" id="ggr_collecting_extra_label" name="ggr_collecting_extra_label" value="<?php echo esc_attr( $extra_question_label ); ?>" placeholder="Aanvullende informatie" />
                         </div>
@@ -3246,29 +3269,34 @@ function ggr_portal_render_participant_profile_page() {
             <h2 class="title">GGR details</h2>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row">Laatste stand</th>
+                    <th scope="row">Eerste transactie</th>
                     <td>
-                        <?php if ( $ggr_latest ) : ?>
+                        <?php if ( $first_transaction ) : ?>
                             <table class="widefat striped" style="max-width:600px;">
                                 <thead>
                                 <tr>
-                                    <th>Datum</th>
-                                    <th>Positiewaarde</th>
-                                    <th>Totaal participaties</th>
-                                    <th>Dividend totaal</th>
+                                    <th>Transactie ID</th>                                    
+                                    <th>Inleg (BIJ)</th>
+                                    <th>Opname (AF)</th>
+                                    <th>Distributie</th>
+                                    <th>Nieuwe participaties</th>
+                                    <th>Verkochte participaties</th>
                                 </tr>
                                 </thead>
                                 <tbody>
                                 <tr>
+                                    <td><?php echo esc_html( $first_transaction->transactie_code ); ?></td>                                    
                                     <td>
                                         <?php
-                                        $d = DateTime::createFromFormat( 'Y-m-d', $ggr_latest['datum'] );
-                                        echo $d ? esc_html( $d->format( 'd-m-Y' ) ) : esc_html( $ggr_latest['datum'] );
+                                        $d = DateTime::createFromFormat( 'Y-m-d', $first_transaction->datum );
+                                        echo $d ? esc_html( $d->format( 'd-m-Y' ) ) : esc_html( $first_transaction->datum );
                                         ?>
                                     </td>
-                                    <td><?php echo '€ ' . number_format( (float) $ggr_latest['positiewaarde'], 2, ',', '.' ); ?></td>
-                                    <td><?php echo number_format( (float) $ggr_latest['totaal_participaties'], 4, ',', '.' ); ?></td>
-                                    <td><?php echo '€ ' . number_format( (float) $ggr_latest['distributievergoeding'], 2, ',', '.' ); ?></td>
+                                    <td><?php echo '€ ' . number_format( (float) $first_transaction->inlegbedrag, 2, ',', '.' ); ?></td>
+                                    <td><?php echo '€ ' . number_format( (float) $first_transaction->opnamebedrag, 2, ',', '.' ); ?></td>
+                                    <td><?php echo '€ ' . number_format( (float) $first_transaction->distributievergoeding, 2, ',', '.' ); ?></td>
+                                    <td><?php echo number_format( (float) $first_transaction->nieuwe_participaties, 4, ',', '.' ); ?></td>
+                                    <td><?php echo number_format( (float) $first_transaction->verkochte_participaties, 4, ',', '.' ); ?></td>
                                 </tr>
                                 </tbody>
                             </table>
