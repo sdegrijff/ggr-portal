@@ -888,7 +888,7 @@
 
 :root {
     --ggr-accent: #f29f75;
-    --ggr-accent-soft: rgba(242, 158, 117, 0.1); 
+    --ggr-accent-soft: #fef5f0; 
     --ggr-border-soft: rgba(41, 40, 47, 0.2);
     --ggr-border-strong: #f29f75;
     --ggr-text-main: #111827;
