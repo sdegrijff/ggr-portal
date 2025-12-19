@@ -880,7 +880,7 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
             <div class="ggrp-fe-header-meta">
                 <span class="ggrp-fe-meta-label">Volgende handelsdag</span>
                 <span class="ggrp-fe-trade-chip">
-                    <strong><?php echo esc_html( $next_trade_day_label ? $next_trade_day_label : 'Nog niet bekend' ); ?></strong>
+                   <?php echo esc_html( $next_trade_day_label ? $next_trade_day_label : 'Nog niet bekend' ); ?>
                 </span>
             </div>            
         </header>
