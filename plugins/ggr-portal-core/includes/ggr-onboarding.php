@@ -2700,18 +2700,24 @@ function ggr_onboarding_dashboard_shortcode() {
     $collecting_files_done       = get_user_meta( $user_id, 'ggr_collecting_files_done', true );
     $collecting_extra_done       = get_user_meta( $user_id, 'ggr_collecting_extra_done', true );
 
-    $base_collecting_steps    = array( 'request', 'type', 'personal', 'origin', 'files' );
+    $base_collecting_steps = array( 'request', 'type', 'personal', 'origin', 'files' );
     if ( $extra_step_required ) {
         $base_collecting_steps[] = 'extra';
     }
-    $visible_collecting_steps = $requires_intake_step
-        ? array_merge( array( 'intake' ), $base_collecting_steps )
-        : $base_collecting_steps;
 
-    $available_collecting_steps = ( $requires_intake_step && ! $intake_completed )
-        ? array( 'intake' )
-        : $visible_collecting_steps;
-        
+    if ( $requires_intake_step ) {
+        if ( $intake_completed ) {
+            $visible_collecting_steps   = $base_collecting_steps;
+            $available_collecting_steps = $base_collecting_steps;
+        } else {
+            $visible_collecting_steps   = array_merge( array( 'intake' ), $base_collecting_steps );
+            $available_collecting_steps = array( 'intake' );
+        }
+    } else {
+        $visible_collecting_steps   = $base_collecting_steps;
+        $available_collecting_steps = $base_collecting_steps;
+    }
+    
     $requested_collecting_step  = isset( $_GET['collecting_step'] )
         ? sanitize_key( wp_unslash( $_GET['collecting_step'] ) )
         : '';
@@ -3025,7 +3031,7 @@ function ggr_onboarding_dashboard_shortcode() {
         $collecting_step_labels['extra'] = '6. ' . $extra_step_label;
     }
 
-    if ( $requires_intake_step ) {
+    if ( $requires_intake_step && ! $intake_completed ) {
         $collecting_step_labels = array_merge(
             array( 'intake' => 'Intake' ),
             $collecting_step_labels
@@ -3043,13 +3049,16 @@ function ggr_onboarding_dashboard_shortcode() {
         $collecting_step_messages['extra'] = 'Beantwoord de aanvullende vraag en voeg eventueel een document toe.';
     }
 
-    if ( $requires_intake_step ) {
+    if ( $requires_intake_step && ! $intake_completed ) {
         $collecting_step_messages['intake'] = 'Plan en rond eerst de intake af. Daarna krijg je toegang tot de overige onboarding-stappen.';
     }
     
     $collecting_step_keys = $available_collecting_steps;
     $should_show_collecting_switch = true;
     if ( $investment_amount > 0 && $investment_amount < 100000 && ! $intake_completed ) {
+        $should_show_collecting_switch = false;
+    }
+    if ( 'extra' === $current_collecting_step ) {
         $should_show_collecting_switch = false;
     }
     $collecting_prev_step = '';
