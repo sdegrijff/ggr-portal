@@ -694,7 +694,8 @@ function ggr_onboarding_build_review_sections( $user_id, $user, $participation_p
     $extra_upload_label   = get_user_meta( $user_id, 'ggr_collecting_extra_upload_label', true );
     $extra_response       = get_user_meta( $user_id, 'ggr_collecting_extra_response', true );
     $extra_upload_label   = $extra_upload_label ? $extra_upload_label : 'Aanvullende upload';
-    $extra_step_label     = $extra_step_label ? $extra_step_label : 'Aanvullende informatie';
+    $extra_step_default_label = 'Aanvullende informatie';
+    $extra_step_label     = $extra_step_label ? $extra_step_label : $extra_step_default_label;
     $extra_question_label = $extra_question_label ? $extra_question_label : $extra_step_label;
     $extra_section_title  = $extra_step_label;
     
@@ -3040,6 +3041,7 @@ function ggr_onboarding_dashboard_shortcode() {
     }
     
     $collecting_step_keys = $available_collecting_steps;
+    $should_show_collecting_switch = ! ( $requires_intake_step && ! $intake_completed );    
     $collecting_prev_step = '';
     $collecting_next_step = '';
     $current_url          = '';
@@ -3231,21 +3233,23 @@ function ggr_onboarding_dashboard_shortcode() {
                                 $step_tabs = array( 'extra' => $collecting_step_labels['extra'] );
                             }
                             ?>
-                            <div class="ggr-onboarding-step-switch ggr-onboarding-step-switch--inline">
-                                <?php foreach ( $step_tabs as $step_key => $step_label ) :
-                                    $is_available = in_array( $step_key, $available_collecting_steps, true );
-                                    $step_url     = $is_available
-                                        ? add_query_arg( 'collecting_step', $step_key, $current_url )
-                                        : '#';
-                                    $is_active    = ( $current_collecting_step === $step_key );
-                                    ?>
-                                    <a class="ggr-onboarding-step-tab <?php echo $is_active ? 'is-active' : ''; ?> <?php echo $is_available ? '' : 'is-disabled'; ?>"
-                                       href="<?php echo esc_url( $step_url ); ?>"
-                                       <?php echo $is_available ? '' : 'aria-disabled="true" tabindex="-1"'; ?>>
-                                        <?php echo esc_html( $step_label ); ?>
-                                    </a>
-                                <?php endforeach; ?>
-                            </div>
+                            <?php if ( $should_show_collecting_switch ) : ?>
+                                <div class="ggr-onboarding-step-switch ggr-onboarding-step-switch--inline">
+                                    <?php foreach ( $step_tabs as $step_key => $step_label ) :
+                                        $is_available = in_array( $step_key, $available_collecting_steps, true );
+                                        $step_url     = $is_available
+                                            ? add_query_arg( 'collecting_step', $step_key, $current_url )
+                                            : '#';
+                                        $is_active    = ( $current_collecting_step === $step_key );
+                                        ?>
+                                        <a class="ggr-onboarding-step-tab <?php echo $is_active ? 'is-active' : ''; ?> <?php echo $is_available ? '' : 'is-disabled'; ?>"
+                                           href="<?php echo esc_url( $step_url ); ?>"
+                                           <?php echo $is_available ? '' : 'aria-disabled="true" tabindex="-1"'; ?>>
+                                            <?php echo esc_html( $step_label ); ?>
+                                        </a>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
                     </div>
 
                         <?php if ( ! empty( $messages['error'] ) ) : ?>
@@ -4270,7 +4274,7 @@ function ggr_onboarding_dashboard_shortcode() {
                                 <!-- STAP 6: AANVULLENDE INFORMATIE -->
                                 <div class="ggr-onboarding-step-card">
                                     <div class="ggr-onboarding-step-text">
-                                        <h3 class="ggr-onboarding-step-heading">Stap 6: <?php echo esc_html( $extra_step_label ); ?></h3>
+                                        <h3 class="ggr-onboarding-step-heading">Stap 6: <?php echo esc_html( $extra_step_default_label ); ?></h3>
                                         <p class="ggr-onboarding-step-description">We hebben nog aanvullende informatie nodig om je onboarding compleet te maken.</p>
                                     </div>
 
