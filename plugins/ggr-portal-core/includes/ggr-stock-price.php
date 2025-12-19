@@ -392,6 +392,10 @@ function ggr_render_stock_price_page() {
     $error  = '';
     $ibkr_xml_input = '';
 
+    $ibkr_token    = function_exists( 'ggr_ibkr_nav_get_token' ) ? ggr_ibkr_nav_get_token() : '';
+    $ibkr_query_id = function_exists( 'ggr_ibkr_nav_get_query_id' ) ? ggr_ibkr_nav_get_query_id() : '';
+    $ibkr_base_url = function_exists( 'ggr_ibkr_nav_get_base_url' ) ? ggr_ibkr_nav_get_base_url() : '';
+
     $total_participations_today = function_exists( 'ggr_portal_get_total_participations_all_users' )
         ? ggr_portal_get_total_participations_all_users()
         : null;
@@ -434,6 +438,63 @@ function ggr_render_stock_price_page() {
             $form_date  = $row['price_date'];
             $form_value = $row['price_value'];
             $is_edit    = true;
+        }
+    }
+
+    /* -----------------------------------------------------------
+     * IBKR FLEX API – credentials opslaan
+     * --------------------------------------------------------- */
+    if ( isset( $_POST['ggr_ibkr_credentials_submit'] ) ) {
+        check_admin_referer( 'ggr_ibkr_credentials' );
+
+        $ibkr_token_input    = isset( $_POST['ggr_ibkr_flex_token'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_ibkr_flex_token'] ) ) : '';
+        $ibkr_query_id_input = isset( $_POST['ggr_ibkr_flex_query_id'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_ibkr_flex_query_id'] ) ) : '';
+
+        update_option( 'ggr_ibkr_flex_token', $ibkr_token_input );
+        update_option( 'ggr_ibkr_flex_query_id', $ibkr_query_id_input );
+
+        $ibkr_token    = $ibkr_token_input;
+        $ibkr_query_id = $ibkr_query_id_input;
+
+        if ( function_exists( 'ggr_ibkr_nav_schedule_cron' ) ) {
+            if ( $ibkr_token && $ibkr_query_id ) {
+                ggr_ibkr_nav_schedule_cron();
+            } elseif ( function_exists( 'ggr_ibkr_nav_clear_cron' ) ) {
+                ggr_ibkr_nav_clear_cron();
+            }
+        }
+
+        if ( $ibkr_token && $ibkr_query_id ) {
+            $notice = 'IBKR Flex token en Query ID zijn opgeslagen. Automatische dagelijkse import staat aan.';
+        } else {
+            $notice = 'IBKR Flex instellingen bijgewerkt. Vul zowel token als Query ID in voor automatische import.';
+        }
+    }
+
+    /* -----------------------------------------------------------
+     * IBKR FLEX API – handmatig ophalen
+     * --------------------------------------------------------- */
+    if ( isset( $_POST['ggr_ibkr_manual_fetch_submit'] ) ) {
+        check_admin_referer( 'ggr_ibkr_manual_fetch' );
+
+        if ( function_exists( 'ggr_ibkr_nav_fetch_and_store' ) ) {
+            $result = ggr_ibkr_nav_fetch_and_store();
+
+            if ( is_wp_error( $result ) ) {
+                $error = 'IBKR NAV ophalen is mislukt: ' . $result->get_error_message();
+            } else {
+                $notice = sprintf(
+                    'IBKR NAV opgeslagen voor %s: € %s per participatie.',
+                    esc_html( $result['date'] ),
+                    number_format( (float) $result['value'], 6, ',', '.' )
+                );
+
+                $form_date  = $result['date'];
+                $form_value = '';
+                $is_edit    = false;
+            }
+        } else {
+            $error = 'IBKR NAV module is niet beschikbaar.';
         }
     }
 
@@ -720,6 +781,64 @@ function ggr_render_stock_price_page() {
                 </p>
             </div>
         <?php endif; ?>
+
+        <h2>IBKR Flex API (automatisch)</h2>
+        <p>Vul je Flex Web Service token en Query ID in om dagelijks automatisch de NAV op te halen via de IBKR Flex API. Je kunt ook direct een handmatige import starten.</p>
+
+        <form method="post">
+            <?php wp_nonce_field( 'ggr_ibkr_credentials' ); ?>
+
+            <table class="form-table" role="presentation">
+                <tbody>
+                    <tr>
+                        <th scope="row"><label for="ggr_ibkr_flex_token">Flex Web Service token</label></th>
+                        <td>
+                            <input
+                                type="text"
+                                id="ggr_ibkr_flex_token"
+                                name="ggr_ibkr_flex_token"
+                                value="<?php echo esc_attr( $ibkr_token ); ?>"
+                                class="regular-text"
+                            />
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><label for="ggr_ibkr_flex_query_id">Flex Query ID</label></th>
+                        <td>
+                            <input
+                                type="text"
+                                id="ggr_ibkr_flex_query_id"
+                                name="ggr_ibkr_flex_query_id"
+                                value="<?php echo esc_attr( $ibkr_query_id ); ?>"
+                                class="regular-text"
+                            />
+                            <p class="description">
+                                De query moet een Flex-rapport opleveren met NAV per participatie (bijv. Equity Summary).
+                            </p>
+                        </td>
+                    </tr>
+
+                    <?php if ( $ibkr_base_url ) : ?>
+                        <tr>
+                            <th scope="row">Flex API endpoint</th>
+                            <td>
+                                <code><?php echo esc_html( $ibkr_base_url ); ?></code>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+
+            <?php submit_button( 'IBKR instellingen opslaan', 'secondary', 'ggr_ibkr_credentials_submit' ); ?>
+        </form>
+
+        <form method="post" style="margin-top: 1rem;">
+            <?php wp_nonce_field( 'ggr_ibkr_manual_fetch' ); ?>
+            <?php submit_button( 'Handmatig ophalen via IBKR API', 'secondary', 'ggr_ibkr_manual_fetch_submit' ); ?>
+        </form>
+
+        <hr />
 
         <h2>IBKR Flex XML import</h2>
         <p>Plak hier de Flex Query XML. We lezen <code>total</code> en <code>reportDate</code> uit de <code>EquitySummaryByReportDateInBase</code>-node en berekenen de NAV als <code>total / totaal participaties</code>.</p>
