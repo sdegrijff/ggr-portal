@@ -307,6 +307,74 @@ function ggr_get_latest_stock_price() {
     return ( $value !== null && $value !== '' ) ? (float) $value : null;
 }
 
+/**
+ * Haal totaal en datum uit IBKR Flex XML (EquitySummaryByReportDateInBase).
+ *
+ * @param string $xml_raw De volledige XML-string.
+ *
+ * @return array|WP_Error {
+ *     @type float  $total       Totale waarde (EUR) uit het Flex-rapport.
+ *     @type string $report_date Datum in Y-m-d formaat.
+ * }
+ */
+function ggr_parse_ibkr_flex_equity_summary( $xml_raw ) {
+    $xml_raw = trim( (string) $xml_raw );
+
+    if ( $xml_raw === '' ) {
+        return new WP_Error( 'empty_xml', 'Geen IBKR XML ontvangen.' );
+    }
+
+    $libxml_previous_state = libxml_use_internal_errors( true );
+    $xml                   = simplexml_load_string( $xml_raw );
+    libxml_clear_errors();
+    libxml_use_internal_errors( $libxml_previous_state );
+
+    if ( false === $xml ) {
+        return new WP_Error( 'invalid_xml', 'IBKR XML kon niet worden gelezen.' );
+    }
+
+    $nodes = $xml->xpath( '/FlexQueryResponse/FlexStatements/FlexStatement/EquitySummaryInBase/EquitySummaryByReportDateInBase' );
+    if ( empty( $nodes ) || ! isset( $nodes[0] ) ) {
+        return new WP_Error( 'missing_summary', 'EquitySummaryByReportDateInBase niet gevonden in IBKR XML.' );
+    }
+
+    $summary_node = $nodes[0];
+
+    $total_raw       = isset( $summary_node['total'] ) ? (string) $summary_node['total'] : '';
+    $report_date_raw = isset( $summary_node['reportDate'] ) ? (string) $summary_node['reportDate'] : '';
+
+    if ( $total_raw === '' || $report_date_raw === '' ) {
+        return new WP_Error( 'missing_values', 'Total of reportDate ontbreekt in IBKR XML.' );
+    }
+
+    $total_value = (float) str_replace( array( ' ', ',' ), array( '', '' ), $total_raw );
+    if ( $total_value <= 0 ) {
+        return new WP_Error( 'invalid_total', 'Ongeldige total-waarde in IBKR XML.' );
+    }
+
+    $report_date_mysql = '';
+
+    if ( preg_match( '/^\d{8}$/', $report_date_raw ) ) {
+        $dt = DateTime::createFromFormat( 'Ymd', $report_date_raw );
+        if ( $dt instanceof DateTime ) {
+            $report_date_mysql = $dt->format( 'Y-m-d' );
+        }
+    }
+
+    if ( ! $report_date_mysql && function_exists( 'ggr_portal_parse_date_to_mysql' ) ) {
+        $report_date_mysql = ggr_portal_parse_date_to_mysql( $report_date_raw );
+    }
+
+    if ( empty( $report_date_mysql ) ) {
+        return new WP_Error( 'invalid_date', 'Ongeldige reportDate in IBKR XML: ' . $report_date_raw );
+    }
+
+    return array(
+        'total'       => $total_value,
+        'report_date' => $report_date_mysql,
+    );
+}
+
 /* ============================================================================
  * 5. ADMIN PAGINA (UI + import/save/edit)
  * ============================================================================
@@ -322,7 +390,12 @@ function ggr_render_stock_price_page() {
 
     $notice = '';
     $error  = '';
+    $ibkr_xml_input = '';
 
+    $total_participations_today = function_exists( 'ggr_portal_get_total_participations_all_users' )
+        ? ggr_portal_get_total_participations_all_users()
+        : null;
+        
     // Meldingen via ?msg=...
     if ( isset( $_GET['msg'] ) ) {
         switch ( $_GET['msg'] ) {
@@ -361,6 +434,52 @@ function ggr_render_stock_price_page() {
             $form_date  = $row['price_date'];
             $form_value = $row['price_value'];
             $is_edit    = true;
+        }
+    }
+
+    /* -----------------------------------------------------------
+     * IBKR FLEX XML → automatische koers (total / participaties)
+     * --------------------------------------------------------- */
+    if ( isset( $_POST['ggr_ibkr_import_submit'] ) ) {
+        check_admin_referer( 'ggr_ibkr_import' );
+
+        $ibkr_xml_input = isset( $_POST['ggr_ibkr_xml'] ) ? wp_unslash( $_POST['ggr_ibkr_xml'] ) : '';
+        $parsed_ibkr    = ggr_parse_ibkr_flex_equity_summary( $ibkr_xml_input );
+
+        if ( is_wp_error( $parsed_ibkr ) ) {
+            $error = $parsed_ibkr->get_error_message();
+        } else {
+            $report_date = $parsed_ibkr['report_date'];
+            $fund_total  = (float) $parsed_ibkr['total'];
+
+            $total_parts = function_exists( 'ggr_portal_get_total_participations_all_users' )
+                ? ggr_portal_get_total_participations_all_users( $report_date )
+                : 0.0;
+
+            if ( $total_parts <= 0 ) {
+                $error = 'Geen participaties gevonden om de stock price mee te berekenen.';
+            } else {
+                $calculated_price = round( $fund_total / $total_parts, 6 );
+
+                $saved = ggr_upsert_stock_price( $report_date, $calculated_price );
+
+                if ( $saved ) {
+                    $notice = sprintf(
+                        'IBKR Flex snapshot opgeslagen voor %s. Totaal: € %s, participaties: %s, NAV per participatie: € %s.',
+                        $report_date,
+                        number_format( $fund_total, 2, ',', '.' ),
+                        number_format( $total_parts, 4, ',', '.' ),
+                        number_format( $calculated_price, 6, ',', '.' )
+                    );
+
+                    $form_date      = $report_date;
+                    $form_value     = '';
+                    $ibkr_xml_input = '';
+                    $is_edit        = false;
+                } else {
+                    $error = 'Kon de koers uit IBKR XML niet opslaan.';
+                }
+            }
         }
     }
 
@@ -592,6 +711,55 @@ function ggr_render_stock_price_page() {
                 <p><?php echo esc_html( $error ); ?></p>
             </div>
         <?php endif; ?>
+
+        <?php if ( $total_participations_today !== null ) : ?>
+            <div class="notice notice-info is-dismissible">
+                <p>
+                    Totaal aantal uitgegeven participaties (t/m vandaag):
+                    <strong><?php echo esc_html( number_format( $total_participations_today, 4, ',', '.' ) ); ?></strong>
+                </p>
+            </div>
+        <?php endif; ?>
+
+        <h2>IBKR Flex XML import</h2>
+        <p>Plak hier de Flex Query XML. We lezen <code>total</code> en <code>reportDate</code> uit de <code>EquitySummaryByReportDateInBase</code>-node en berekenen de NAV als <code>total / totaal participaties</code>.</p>
+
+        <form method="post">
+            <?php wp_nonce_field( 'ggr_ibkr_import' ); ?>
+
+            <table class="form-table" role="presentation">
+                <tbody>
+                    <tr>
+                        <th scope="row"><label for="ggr_ibkr_xml">IBKR Flex XML</label></th>
+                        <td>
+                            <textarea
+                                id="ggr_ibkr_xml"
+                                name="ggr_ibkr_xml"
+                                rows="8"
+                                class="large-text code"
+                            ><?php echo esc_textarea( $ibkr_xml_input ); ?></textarea>
+                            <p class="description">
+                                Voorbeeld-node: <code>&lt;EquitySummaryByReportDateInBase total="12345" reportDate="20251218" ... /&gt;</code>.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <?php if ( $total_participations_today !== null ) : ?>
+                        <tr>
+                            <th scope="row">Totaal participaties</th>
+                            <td>
+                                <strong><?php echo esc_html( number_format( $total_participations_today, 4, ',', '.' ) ); ?></strong><br />
+                                <span class="description">Bij het verwerken gebruiken we de waarde t/m de rapportdatum uit IBKR.</span>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+
+            <?php submit_button( 'IBKR XML verwerken', 'secondary', 'ggr_ibkr_import_submit' ); ?>
+        </form>
+
+        <hr />
 
         <h2><?php echo $is_edit ? 'Waarde bewerken' : 'Nieuwe / bestaande waarde invoeren'; ?></h2>
 
@@ -882,4 +1050,3 @@ function ggr_api_update_stock_price( WP_REST_Request $request ) {
         'price'   => $price_float,
     );
 }
-
