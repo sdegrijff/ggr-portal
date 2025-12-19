@@ -178,6 +178,43 @@ function ggr_portal_get_history_for_user( $user_id ) {
 }
 
 /**
+ * Totale participaties (alle users) t/m een datum.
+ *
+ * @param string|null $as_of_date Datum in elk formaat dat ggr_portal_parse_date_to_mysql accepteert. Leeg = vandaag.
+ *
+ * @return float
+ */
+function ggr_portal_get_total_participations_all_users( $as_of_date = null ) {
+    global $wpdb;
+
+    $table_name = $wpdb->prefix . 'user_participatie_history';
+
+    if ( empty( $as_of_date ) ) {
+        $as_of_date = current_time( 'Y-m-d' );
+    } else {
+        $as_of_date = ggr_portal_parse_date_to_mysql( $as_of_date );
+    }
+
+    if ( empty( $as_of_date ) ) {
+        return 0.0;
+    }
+
+    $total = $wpdb->get_var(
+        $wpdb->prepare(
+            "
+            SELECT SUM(nieuwe_participaties - verkochte_participaties) AS total_parts
+            FROM {$table_name}
+            WHERE datum <= %s
+            ",
+            $as_of_date
+        )
+    );
+
+    return ( $total !== null ) ? (float) $total : 0.0;
+}
+
+
+/**
  * Specifieke regel
  */
 function ggr_portal_get_history_entry( $id ) {
