@@ -730,43 +730,6 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
             }
         }
 
-        $valid_points = array();
-        foreach ( $forecast_actual_values as $index => $value ) {
-            if ( $value !== null ) {
-                $valid_points[] = array(
-                    'x' => $index,
-                    'y' => $value,
-                );
-            }
-        }
-
-        $slope      = 0.0;
-        $intercept  = 0.0;
-        $point_count = count( $valid_points );
-
-        if ( $point_count >= 2 ) {
-            $sum_x  = 0.0;
-            $sum_y  = 0.0;
-            $sum_xy = 0.0;
-            $sum_x2 = 0.0;
-
-            foreach ( $valid_points as $point ) {
-                $sum_x  += $point['x'];
-                $sum_y  += $point['y'];
-                $sum_xy += $point['x'] * $point['y'];
-                $sum_x2 += $point['x'] * $point['x'];
-            }
-
-            $denominator = ( $point_count * $sum_x2 ) - ( $sum_x * $sum_x );
-            if ( $denominator !== 0.0 ) {
-                $slope = ( ( $point_count * $sum_xy ) - ( $sum_x * $sum_y ) ) / $denominator;
-            }
-
-            $intercept = ( $sum_y - ( $slope * $sum_x ) ) / $point_count;
-        } elseif ( $point_count === 1 ) {
-            $intercept = $valid_points[0]['y'];
-        }
-
         $last_known_value = null;
         for ( $i = count( $forecast_actual_values ) - 1; $i >= 0; $i-- ) {
             if ( $forecast_actual_values[ $i ] !== null ) {
@@ -784,6 +747,24 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
 
         $future_keys   = array();
         $future_values = array();
+        $recent_non_null_values = array_values(
+            array_filter(
+                $forecast_actual_values,
+                function( $value ) {
+                    return $value !== null;
+                }
+            )
+        );
+        $recent_three = array_slice( $recent_non_null_values, -3 );
+        $average_recent = 0.0;
+        if ( ! empty( $recent_three ) ) {
+            $average_recent = array_sum( $recent_three ) / count( $recent_three );
+        } elseif ( $last_known_value !== null ) {
+            $average_recent = $last_known_value;
+        }
+
+        $growth_factor = 1.0101;
+        
         $last_month_key = end( $forecast_actual_keys );
         if ( $last_month_key ) {
             $last_month_date = DateTime::createFromFormat( 'Y-m', $last_month_key );
@@ -793,8 +774,7 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
                     $future->modify( '+' . $i . ' month' );
                     $future_keys[] = $future->format( 'Y-m' );
 
-                    $x_value        = ( count( $forecast_actual_values ) - 1 ) + $i;
-                    $predicted      = $intercept + ( $slope * $x_value );
+                    $predicted       = $average_recent * pow( $growth_factor, $i );
                     $future_values[] = round( $predicted, 4 );
                 }
             }
