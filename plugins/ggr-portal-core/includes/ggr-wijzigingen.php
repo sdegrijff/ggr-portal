@@ -266,54 +266,72 @@ function ggr_portal_investeren_shortcode() {
 
         <?php if ( ! $selected_action ) : ?>
             <div class="ggrp-fe-wijziging-grid">
-                <div class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split">
+                <a href="<?php echo esc_url( add_query_arg( 'change', 'deposit' ) ); ?>"
+                   class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split ggrp-fe-wijziging-card--clickable">
+                
                     <div class="ggrp-fe-wijziging-icon" aria-hidden="true">
-                    <i class="ri-money-euro-circle-line"></i>
+                        <i class="ri-money-euro-circle-line"></i>
                     </div>
+                
                     <div class="ggrp-fe-wijziging-content">
                         <p class="ggrp-fe-kicker">Storten</p>
                         <h2>Geld storten</h2>
-                        <p class="ggrp-fe-card-text">Meld een geplande of afgeronde storting met de juiste referentie.</p>
-                        <a class="ggrp-fe-button" href="<?php echo esc_url( add_query_arg( 'change', 'deposit' ) ); ?>">Open</a>
+                        <p class="ggrp-fe-card-text">
+                            Wil je meer geld storten in het GGR Income fund? 
+                        </p>
                     </div>
-                </div>
                 
-                <div class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split">
+                </a>
+                <a href="<?php echo esc_url( add_query_arg( 'change', 'strategy' ) ); ?>"
+                   class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split ggrp-fe-wijziging-card--clickable">
+                
                     <div class="ggrp-fe-wijziging-icon" aria-hidden="true">
                         <i class="ri-token-swap-line"></i>
                     </div>
+                
                     <div class="ggrp-fe-wijziging-content">
                         <p class="ggrp-fe-kicker">Strategie</p>
                         <h2>Uitkeren of herinvesteren</h2>
-                        <p class="ggrp-fe-card-text">Pas je voorkeur aan naar herbeleggen of uitkeren.</p>
-                        <a class="ggrp-fe-button" href="<?php echo esc_url( add_query_arg( 'change', 'strategy' ) ); ?>">Open</a>
+                        <p class="ggrp-fe-card-text">
+                            Pas je voorkeur aan naar herbeleggen of uitkeren.
+                        </p>
                     </div>
+                </a>
                 </div>
-                </div>
+                
             <div class="ggrp-fe-wijziging-grid">
-                <div class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split">
+                <a href="<?php echo esc_url( add_query_arg( 'change', 'bank_change' ) ); ?>"
+                   class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split ggrp-fe-wijziging-card--clickable">
+                
                     <div class="ggrp-fe-wijziging-icon" aria-hidden="true">
                         <i class="ri-bank-line"></i>
                     </div>
+                
                     <div class="ggrp-fe-wijziging-content">
                         <p class="ggrp-fe-kicker">Rekening</p>
                         <h2>Rekeningnummer wijzigen</h2>
-                        <p class="ggrp-fe-card-text">Vraag een wijziging van je uitbetalingsrekening aan.</p>
-                        <a class="ggrp-fe-button" href="<?php echo esc_url( add_query_arg( 'change', 'bank_change' ) ); ?>">Open</a>
+                        <p class="ggrp-fe-card-text">
+                            Vraag een wijziging van je uitbetalingsrekening aan.
+                        </p>
                     </div>
-                </div>
-
-                <div class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split">
+                
+                </a>
+                <a href="<?php echo esc_url( add_query_arg( 'change', 'feedback' ) ); ?>"
+                   class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split ggrp-fe-wijziging-card--clickable">
+                
                     <div class="ggrp-fe-wijziging-icon" aria-hidden="true">
                         <i class="ri-feedback-line"></i>
                     </div>
+                
                     <div class="ggrp-fe-wijziging-content">
                         <p class="ggrp-fe-kicker">Feedback</p>
                         <h2>Verbetering doorgeven</h2>
-                        <p class="ggrp-fe-card-text">Deel je suggesties om deze pagina handiger te maken.</p>
-                        <a class="ggrp-fe-button" href="<?php echo esc_url( add_query_arg( 'change', 'feedback' ) ); ?>">Open</a>
+                        <p class="ggrp-fe-card-text">
+                            Deel je suggesties om deze pagina handiger te maken.
+                        </p>
                     </div>
-                </div>
+                
+                </a>
             </div>
         <?php else : ?>
             <div class="ggrp-fe-wijziging-grid">
