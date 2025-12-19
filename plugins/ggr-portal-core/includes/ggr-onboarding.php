@@ -2671,7 +2671,8 @@ function ggr_onboarding_dashboard_shortcode() {
     $extra_response         = get_user_meta( $user_id, 'ggr_collecting_extra_response', true );
     $extra_uploaded_file    = get_user_meta( $user_id, 'ggr_doc_extra', true );
 
-    $extra_step_label     = $extra_step_label ? $extra_step_label : 'Aanvullende informatie';
+    $extra_step_default_label = 'Aanvullende informatie';
+    $extra_step_label     = $extra_step_label ? $extra_step_label : $extra_step_default_label;
     $extra_question_label = $extra_question_label ? $extra_question_label : $extra_step_label;
     $extra_upload_label   = $extra_upload_label ? $extra_upload_label : 'Upload aanvullende documentatie (optioneel)';
 
@@ -2715,7 +2716,13 @@ function ggr_onboarding_dashboard_shortcode() {
         ? sanitize_key( wp_unslash( $_GET['collecting_step'] ) )
         : '';
         
-    $default_collecting_step = ( $requires_intake_step && ! $intake_completed ) ? 'intake' : 'request';
+    if ( $requires_intake_step && ! $intake_completed ) {
+        $default_collecting_step = 'intake';
+    } elseif ( $extra_step_required ) {
+        $default_collecting_step = 'extra';
+    } else {
+        $default_collecting_step = 'request';
+    }
 
     $current_collecting_step = in_array( $requested_collecting_step, $available_collecting_steps, true )
         ? $requested_collecting_step
@@ -3041,7 +3048,10 @@ function ggr_onboarding_dashboard_shortcode() {
     }
     
     $collecting_step_keys = $available_collecting_steps;
-    $should_show_collecting_switch = ! ( $requires_intake_step && ! $intake_completed );    
+    $should_show_collecting_switch = true;
+    if ( $investment_amount > 0 && $investment_amount < 100000 && ! $intake_completed ) {
+        $should_show_collecting_switch = false;
+    }
     $collecting_prev_step = '';
     $collecting_next_step = '';
     $current_url          = '';
