@@ -689,11 +689,14 @@ function ggr_onboarding_build_review_sections( $user_id, $user, $participation_p
     $has_co = get_user_meta( $user_id, 'ggr_has_co_participant', true );
     $has_co = $has_co ? $has_co : 'nee';
     $extra_step_required  = (bool) get_user_meta( $user_id, 'ggr_collecting_extra_required', true );
+    $extra_step_label     = get_user_meta( $user_id, 'ggr_collecting_extra_step_label', true );    
     $extra_question_label = get_user_meta( $user_id, 'ggr_collecting_extra_label', true );
     $extra_upload_label   = get_user_meta( $user_id, 'ggr_collecting_extra_upload_label', true );
     $extra_response       = get_user_meta( $user_id, 'ggr_collecting_extra_response', true );
     $extra_upload_label   = $extra_upload_label ? $extra_upload_label : 'Aanvullende upload';
-    $extra_section_title  = $extra_question_label ? $extra_question_label : 'Aanvullende informatie';
+    $extra_step_label     = $extra_step_label ? $extra_step_label : 'Aanvullende informatie';
+    $extra_question_label = $extra_question_label ? $extra_question_label : $extra_step_label;
+    $extra_section_title  = $extra_step_label;
     
     $user_name = function_exists( 'ggr_portal_get_nice_user_name' )
         ? ggr_portal_get_nice_user_name( $user )
@@ -2660,13 +2663,15 @@ function ggr_onboarding_dashboard_shortcode() {
 
     // Aanvullende stap (stap 6) configuratie uit profiel
     $extra_step_required    = (bool) get_user_meta( $user_id, 'ggr_collecting_extra_required', true );
+    $extra_step_label       = get_user_meta( $user_id, 'ggr_collecting_extra_step_label', true );    
     $extra_question_label   = get_user_meta( $user_id, 'ggr_collecting_extra_label', true );
     $extra_upload_label     = get_user_meta( $user_id, 'ggr_collecting_extra_upload_label', true );
     $extra_comment_text     = get_user_meta( $user_id, 'ggr_collecting_extra_comment', true );
     $extra_response         = get_user_meta( $user_id, 'ggr_collecting_extra_response', true );
     $extra_uploaded_file    = get_user_meta( $user_id, 'ggr_doc_extra', true );
 
-    $extra_question_label = $extra_question_label ? $extra_question_label : 'Aanvullende informatie';
+    $extra_step_label     = $extra_step_label ? $extra_step_label : 'Aanvullende informatie';
+    $extra_question_label = $extra_question_label ? $extra_question_label : $extra_step_label;
     $extra_upload_label   = $extra_upload_label ? $extra_upload_label : 'Upload aanvullende documentatie (optioneel)';
 
     $updated_label           = ggr_onboarding_format_datetime_label( $updated );
@@ -3009,7 +3014,7 @@ function ggr_onboarding_dashboard_shortcode() {
         'files'    => '5. Documentatie',
     );
     if ( $extra_step_required ) {
-        $collecting_step_labels['extra'] = '6. ' . $extra_question_label;
+        $collecting_step_labels['extra'] = '6. ' . $extra_step_label;
     }
 
     if ( $requires_intake_step ) {
@@ -3220,9 +3225,14 @@ function ggr_onboarding_dashboard_shortcode() {
                                 <p><?php echo esc_html( $collecting_message ); ?></p>
                             </div>
                         <?php endif; ?>
-                        <?php if ( 'collecting' === $status && ! ( $requires_intake_step && ! $intake_completed && 'intake' === $current_collecting_step ) ) : ?>
+                            <?php
+                            $step_tabs = $collecting_step_labels;
+                            if ( 'extra' === $current_collecting_step && isset( $collecting_step_labels['extra'] ) ) {
+                                $step_tabs = array( 'extra' => $collecting_step_labels['extra'] );
+                            }
+                            ?>
                             <div class="ggr-onboarding-step-switch ggr-onboarding-step-switch--inline">
-                                <?php foreach ( $collecting_step_labels as $step_key => $step_label ) :
+                                <?php foreach ( $step_tabs as $step_key => $step_label ) :
                                     $is_available = in_array( $step_key, $available_collecting_steps, true );
                                     $step_url     = $is_available
                                         ? add_query_arg( 'collecting_step', $step_key, $current_url )
@@ -4261,7 +4271,7 @@ function ggr_onboarding_dashboard_shortcode() {
                                 <!-- STAP 6: AANVULLENDE INFORMATIE -->
                                 <div class="ggr-onboarding-step-card">
                                     <div class="ggr-onboarding-step-text">
-                                        <h3 class="ggr-onboarding-step-heading">Stap 6: <?php echo esc_html( $extra_question_label ); ?></h3>
+                                        <h3 class="ggr-onboarding-step-heading">Stap 6: <?php echo esc_html( $extra_step_label ); ?></h3>
                                         <p class="ggr-onboarding-step-description">We hebben nog aanvullende informatie nodig om je onboarding compleet te maken.</p>
                                     </div>
 
