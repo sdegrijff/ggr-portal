@@ -242,6 +242,11 @@ function ggr_upsert_stock_price( $date_mysql, $price, $extra = array() ) {
     $fund_total          = array_key_exists( 'fund_total', $extra ) && $extra['fund_total'] !== null ? (float) $extra['fund_total'] : null;
     $total_participation = array_key_exists( 'total_participations', $extra ) && $extra['total_participations'] !== null ? (float) $extra['total_participations'] : null;
 
+    if ( null === $total_participation && function_exists( 'ggr_portal_get_total_participations_all_users' ) ) {
+        $computed_total = ggr_portal_get_total_participations_all_users( $date_mysql );
+        $total_participation = ( $computed_total !== null ) ? (float) $computed_total : null;
+    }
+
     // Bestaat er al een record voor deze datum?
     $existing_id = $wpdb->get_var(
         $wpdb->prepare(
@@ -678,8 +683,6 @@ function ggr_render_stock_price_page() {
         } elseif ( $price_value <= 0 ) {
             $error = 'Waarde moet groter zijn dan 0.';
         } else {
-            $now = current_time( 'mysql' );
-
             // Bestaat er al een record voor deze datum?
             $existing_id = $wpdb->get_var(
                 $wpdb->prepare(
@@ -688,48 +691,20 @@ function ggr_render_stock_price_page() {
                 )
             );
 
-            if ( $existing_id ) {
-                // Update
-                $updated = $wpdb->update(
-                    $table_name,
-                    array(
-                        'price_value' => $price_value,
-                        'updated_at'  => $now,
-                    ),
-                    array( 'id' => (int) $existing_id ),
-                    array( '%f', '%s' ),
-                    array( '%d' )
-                );
+            $saved = ggr_upsert_stock_price( $price_date, $price_value );
 
-                if ( $updated !== false ) {
-                    $notice = 'Waarde per 1 GGR-participatie voor ' . esc_html( $price_date ) . ' is bijgewerkt.';
-                    $form_date  = $price_date;
-                    $form_value = '';
-                    $is_edit    = false;
-                } else {
-                    $error  = 'Bijwerken van de GGR-waarde is mislukt.';
-                }
+            if ( $saved ) {
+                $notice = $existing_id
+                    ? 'Waarde per 1 GGR-participatie voor ' . esc_html( $price_date ) . ' is bijgewerkt.'
+                    : 'Waarde per 1 GGR-participatie voor ' . esc_html( $price_date ) . ' is opgeslagen.';
+
+                $form_date  = $price_date;
+                $form_value = '';
+                $is_edit    = false;
             } else {
-                // Insert
-                $inserted = $wpdb->insert(
-                    $table_name,
-                    array(
-                        'price_date'  => $price_date,
-                        'price_value' => $price_value,
-                        'created_at'  => $now,
-                        'updated_at'  => $now,
-                    ),
-                    array( '%s', '%f', '%s', '%s' )
-                );
-
-                if ( $inserted ) {
-                    $notice = 'Waarde per 1 GGR-participatie voor ' . esc_html( $price_date ) . ' is opgeslagen.';
-                    $form_date  = $price_date;
-                    $form_value = '';
-                    $is_edit    = false;
-                } else {
-                    $error  = 'Opslaan van de GGR-waarde is mislukt.';
-                }
+                $error  = $existing_id
+                    ? 'Bijwerken van de GGR-waarde is mislukt.'
+                    : 'Opslaan van de GGR-waarde is mislukt.';
             }
         }
     }
@@ -747,7 +722,6 @@ function ggr_render_stock_price_page() {
             $contents  = file_get_contents( $file_tmp );
             $lines     = preg_split( '/\r\n|\r|\n/', $contents );
             $imported  = 0;
-            $now       = current_time( 'mysql' );
 
             foreach ( $lines as $idx => $line ) {
                 $line = trim( $line );
@@ -783,39 +757,11 @@ function ggr_render_stock_price_page() {
                     continue;
                 }
 
-                // Upsert per datum
-                $existing_id = $wpdb->get_var(
-                    $wpdb->prepare(
-                        "SELECT id FROM {$table_name} WHERE price_date = %s LIMIT 1",
-                        $date
-                    )
-                );
+                $saved = ggr_upsert_stock_price( $date, $value );
 
-                if ( $existing_id ) {
-                    $wpdb->update(
-                        $table_name,
-                        array(
-                            'price_value' => $value,
-                            'updated_at'  => $now,
-                        ),
-                        array( 'id' => (int) $existing_id ),
-                        array( '%f', '%s' ),
-                        array( '%d' )
-                    );
-                } else {
-                    $wpdb->insert(
-                        $table_name,
-                        array(
-                            'price_date'  => $date,
-                            'price_value' => $value,
-                            'created_at'  => $now,
-                            'updated_at'  => $now,
-                        ),
-                        array( '%s', '%f', '%s', '%s' )
-                    );
+                if ( $saved ) {
+                    $imported++;
                 }
-
-                $imported++;
             }
 
             if ( $imported > 0 ) {
@@ -833,6 +779,28 @@ function ggr_render_stock_price_page() {
         "SELECT * FROM {$table_name} ORDER BY price_date DESC",
         ARRAY_A
     );
+
+    if ( function_exists( 'ggr_portal_get_total_participations_all_users' ) && ! empty( $rows ) ) {
+        foreach ( $rows as &$row ) {
+            $needs_backfill = ! array_key_exists( 'total_participations', $row )
+                || $row['total_participations'] === null
+                || $row['total_participations'] === '';
+
+            if ( $needs_backfill ) {
+                $computed_total_parts          = ggr_portal_get_total_participations_all_users( $row['price_date'] );
+                $row['total_participations'] = (float) $computed_total_parts;
+
+                $wpdb->update(
+                    $table_name,
+                    array( 'total_participations' => $computed_total_parts ),
+                    array( 'id' => (int) $row['id'] ),
+                    array( '%f' ),
+                    array( '%d' )
+                );
+            }
+        }
+        unset( $row );
+    }
 
     // URLs voor export en delete all
     $export_url = wp_nonce_url(
