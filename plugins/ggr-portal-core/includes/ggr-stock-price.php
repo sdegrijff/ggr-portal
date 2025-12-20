@@ -829,7 +829,9 @@ function ggr_render_stock_price_page() {
             $contents  = file_get_contents( $file_tmp );
             $lines     = preg_split( '/\r\n|\r|\n/', $contents );
             $imported  = 0;
-
+            $skipped   = 0;
+            $skip_msgs = array();
+            
             foreach ( $lines as $idx => $line ) {
                 $line = trim( $line );
                 if ( $line === '' ) {
@@ -850,31 +852,59 @@ function ggr_render_stock_price_page() {
                     continue;
                 }
 
-                $date_raw  = trim( $parts[0] );
-                $value_raw = trim( $parts[1] );
+                $date_raw     = trim( $parts[0] );
+                $fund_total_raw = trim( $parts[1] );
 
-                if ( $date_raw === '' || $value_raw === '' ) {
+                if ( $date_raw === '' || $fund_total_raw === '' ) {
                     continue;
                 }
 
-                $date  = date( 'Y-m-d', strtotime( $date_raw ) );
-                $value = (float) str_replace( ',', '.', $value_raw );
-
-                if ( ! $date || $value <= 0 ) {
+                $date = date( 'Y-m-d', strtotime( $date_raw ) );
+                $fund_total = (float) str_replace( array( '.', ' ', ',' ), array( '', '', '.' ), $fund_total_raw );
+                
+                if ( ! $date || $fund_total <= 0 ) {
                     continue;
                 }
 
-                $saved = ggr_upsert_stock_price( $date, $value );
+                $total_parts = function_exists( 'ggr_portal_get_total_participations_all_users' )
+                    ? ggr_portal_get_total_participations_all_users( $date )
+                    : null;
+
+                if ( null === $total_parts || $total_parts <= 0 ) {
+                    $skipped++;
+                    $skip_msgs[] = sprintf( '%s (geen participaties gevonden)', $date_raw );
+                    continue;
+                }
+
+                $calculated_price = round( $fund_total / $total_parts, 6 );
+
+                $saved = ggr_upsert_stock_price(
+                    $date,
+                    $calculated_price,
+                    array(
+                        'fund_total'           => $fund_total,
+                        'total_participations' => $total_parts,
+                    )
+                );
 
                 if ( $saved ) {
                     $imported++;
+                } else {
+                    $skipped++;
+                    $skip_msgs[] = sprintf( '%s (opslaan mislukt)', $date_raw );                    
                 }
             }
 
             if ( $imported > 0 ) {
-                $notice = $imported . ' waardes geïmporteerd of bijgewerkt.';
+                $notice = $imported . ' IBKR totalen geïmporteerd en NAV berekend.';
+                if ( $skipped > 0 ) {
+                    $notice .= ' ' . $skipped . ' regels overgeslagen: ' . implode( '; ', $skip_msgs );
+                }
             } else {
-                $error  = 'Geen geldige waardes gevonden in importbestand.';
+                $error  = 'Geen geldige IBKR totalen gevonden in importbestand.';
+                if ( ! empty( $skip_msgs ) ) {
+                    $error .= ' Overgeslagen: ' . implode( '; ', $skip_msgs );
+                }
             }
         }
     }
@@ -1139,7 +1169,7 @@ function ggr_render_stock_price_page() {
         <h2>Recente GGR-waardes</h2>
 
         <h3>Importeer waardes (CSV)</h3>
-        <p>Verwacht formaat: <code>date,value</code> (bijvoorbeeld: <code>2025-01-31,102.35</code>). Eerste regel mag een header zijn.</p>
+        <p>Verwacht formaat: <code>date,total</code> (bijvoorbeeld: <code>2025-01-31,1000000</code>). We berekenen automatisch de NAV per participatie op basis van het aantal participaties op die datum. Eerste regel mag een header zijn.</p>
         <form method="post" enctype="multipart/form-data">
             <?php wp_nonce_field( 'ggr_import_price' ); ?>
             <input type="file" name="ggr_price_import_file" accept=".csv,text/csv" />
