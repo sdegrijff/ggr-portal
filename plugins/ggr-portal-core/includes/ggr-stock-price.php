@@ -11,6 +11,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+if ( ! defined( 'GGR_STOCK_PRICE_DB_VERSION' ) ) {
+    define( 'GGR_STOCK_PRICE_DB_VERSION', '2.0' );
+}
+
+add_action( 'plugins_loaded', 'ggr_maybe_upgrade_stock_price_table' );
+
 /* ============================================================================
  * 1. DATABASE TABEL
  * ============================================================================
@@ -33,6 +39,8 @@ function ggr_create_ggr_stock_price_table() {
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             price_date DATE NOT NULL,
             price_value DECIMAL(15,6) NOT NULL,
+            fund_total DECIMAL(20,4) DEFAULT NULL,
+            total_participations DECIMAL(20,4) DEFAULT NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             PRIMARY KEY  (id),
@@ -42,8 +50,56 @@ function ggr_create_ggr_stock_price_table() {
 
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
     dbDelta( $sql );
+
+    update_option( 'ggr_stock_price_db_version', GGR_STOCK_PRICE_DB_VERSION );    
 }
 
+/**
+ * Migratie: extra kolommen voor IBKR total en participaties.
+ */
+function ggr_maybe_upgrade_stock_price_table() {
+    global $wpdb;
+
+    $installed = get_option( 'ggr_stock_price_db_version', '1.0' );
+
+    if ( version_compare( $installed, GGR_STOCK_PRICE_DB_VERSION, '>=' ) ) {
+        return;
+    }
+
+    $table_name = $wpdb->prefix . 'ggr_stock_prices';
+
+    $schema = $wpdb->dbname ? $wpdb->dbname : DB_NAME;
+
+    $columns = $wpdb->get_results(
+        $wpdb->prepare(
+            "
+            SELECT COLUMN_NAME
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = %s
+              AND TABLE_NAME = %s
+            ",
+            $schema,
+            $table_name
+        ),
+        ARRAY_A
+    );
+
+    if ( ! is_array( $columns ) ) {
+        return;
+    }
+
+    $existing_columns = wp_list_pluck( $columns, 'COLUMN_NAME' );
+
+    if ( ! in_array( 'fund_total', $existing_columns, true ) ) {
+        $wpdb->query( "ALTER TABLE {$table_name} ADD fund_total DECIMAL(20,4) DEFAULT NULL AFTER price_value" );
+    }
+
+    if ( ! in_array( 'total_participations', $existing_columns, true ) ) {
+        $wpdb->query( "ALTER TABLE {$table_name} ADD total_participations DECIMAL(20,4) DEFAULT NULL AFTER fund_total" );
+    }
+
+    update_option( 'ggr_stock_price_db_version', GGR_STOCK_PRICE_DB_VERSION );
+}
 /* ============================================================================
  * 2. ADMIN MENU (top-level item)
  * ============================================================================
@@ -177,11 +233,14 @@ function ggr_handle_stock_price_actions() {
  *
  * @return bool
  */
-function ggr_upsert_stock_price( $date_mysql, $price ) {
+function ggr_upsert_stock_price( $date_mysql, $price, $extra = array() ) {
     global $wpdb;
 
     $table_name = $wpdb->prefix . 'ggr_stock_prices';
     $now        = current_time( 'mysql' );
+
+    $fund_total          = array_key_exists( 'fund_total', $extra ) && $extra['fund_total'] !== null ? (float) $extra['fund_total'] : null;
+    $total_participation = array_key_exists( 'total_participations', $extra ) && $extra['total_participations'] !== null ? (float) $extra['total_participations'] : null;
 
     // Bestaat er al een record voor deze datum?
     $existing_id = $wpdb->get_var(
@@ -193,31 +252,76 @@ function ggr_upsert_stock_price( $date_mysql, $price ) {
 
     if ( $existing_id ) {
         // Update bestaande snapshot
-        $updated = $wpdb->update(
-            $table_name,
-            array(
-                'price_value' => (float) $price,
-                'updated_at'  => $now,
-            ),
-            array( 'id' => (int) $existing_id ),
-            array( '%f', '%s' ),
-            array( '%d' )
+        $set_parts = array(
+            'price_value = %f',
+            'updated_at = %s',
+        );
+        $params = array(
+            (float) $price,
+            $now,
         );
 
+        if ( null !== $fund_total ) {
+            $set_parts[] = 'fund_total = %f';
+            $params[]    = $fund_total;
+        } else {
+            $set_parts[] = 'fund_total = NULL';
+        }
+
+        if ( null !== $total_participation ) {
+            $set_parts[] = 'total_participations = %f';
+            $params[]    = $total_participation;
+        } else {
+            $set_parts[] = 'total_participations = NULL';
+        }
+
+        $params[] = (int) $existing_id;
+
+        $sql      = "UPDATE {$table_name} SET " . implode( ', ', $set_parts ) . " WHERE id = %d";
+        $prepared = $wpdb->prepare( $sql, $params );
+        $updated  = $wpdb->query( $prepared );
+        
         return $updated !== false;
     }
 
     // Nieuwe snapshot
-    $inserted = $wpdb->insert(
+    $columns      = array();
+    $placeholders = array();
+    $values       = array();
+
+    // Helper to append column/placeholder/value keeping alignment
+    $add_field = static function ( $column, $placeholder, $value ) use ( &$columns, &$placeholders, &$values ) {
+        $columns[] = $column;
+        $placeholders[] = $placeholder;
+
+        if ( 'NULL' !== $placeholder ) {
+            $values[] = $value;
+        }
+    };
+
+    $add_field( 'price_date', '%s', $date_mysql );
+    $add_field( 'price_value', '%f', (float) $price );
+    $add_field( 'fund_total', null !== $fund_total ? '%f' : 'NULL', $fund_total );
+    $add_field( 'total_participations', null !== $total_participation ? '%f' : 'NULL', $total_participation );
+    $add_field( 'created_at', '%s', $now );
+    $add_field( 'updated_at', '%s', $now );
+
+    // Build SQL with NULL literals baked in
+    $prepared_placeholders = array();
+    foreach ( $placeholders as $ph ) {
+        $prepared_placeholders[] = ( 'NULL' === $ph ) ? 'NULL' : $ph;
+    }
+
+    $sql = sprintf(
+        'INSERT INTO %s (%s) VALUES (%s)',
         $table_name,
-        array(
-            'price_date'  => $date_mysql,
-            'price_value' => (float) $price,
-            'created_at'  => $now,
-            'updated_at'  => $now,
-        ),
-        array( '%s', '%f', '%s', '%s' )
+        implode( ', ', $columns ),
+        implode( ', ', $prepared_placeholders )
     );
+    
+    $prepared_values = $values;
+    $prepared        = $wpdb->prepare( $sql, $prepared_values );
+    $inserted = $wpdb->query( $prepared );
 
     return (bool) $inserted;
 }
@@ -484,9 +588,11 @@ function ggr_render_stock_price_page() {
                 $error = 'IBKR NAV ophalen is mislukt: ' . $result->get_error_message();
             } else {
                 $notice = sprintf(
-                    'IBKR NAV opgeslagen voor %s: € %s per participatie.',
+                    'IBKR NAV opgeslagen voor %s: € %s per participatie (totaal: € %s, participaties: %s).',
                     esc_html( $result['date'] ),
-                    number_format( (float) $result['value'], 6, ',', '.' )
+                    number_format( (float) $result['value'], 6, ',', '.' ),
+                    isset( $result['total'] ) ? number_format( (float) $result['total'], 2, ',', '.' ) : '-',
+                    isset( $result['total_participations'] ) ? number_format( (float) $result['total_participations'], 4, ',', '.' ) : '-'
                 );
 
                 $form_date  = $result['date'];
@@ -522,7 +628,14 @@ function ggr_render_stock_price_page() {
             } else {
                 $calculated_price = round( $fund_total / $total_parts, 6 );
 
-                $saved = ggr_upsert_stock_price( $report_date, $calculated_price );
+                $saved = ggr_upsert_stock_price(
+                    $report_date,
+                    $calculated_price,
+                    array(
+                        'fund_total'           => $fund_total,
+                        'total_participations' => $total_parts,
+                    )
+                );
 
                 if ( $saved ) {
                     $notice = sprintf(
@@ -943,6 +1056,8 @@ function ggr_render_stock_price_page() {
                     <tr>
                         <th scope="col">Datum</th>
                         <th scope="col">Waarde per 1 GGR-participatie</th>
+                        <th scope="col">Totaal uit IBKR</th>
+                        <th scope="col">Totaal participaties</th>                        
                         <th scope="col">Δ t.o.v. vorige (%)</th>
                         <th scope="col">Aangemaakt</th>
                         <th scope="col">Laatst bijgewerkt</th>
@@ -957,8 +1072,12 @@ function ggr_render_stock_price_page() {
                         $date_raw  = $row['price_date'];
                         $date_disp = date_i18n( 'd-m-Y', strtotime( $date_raw ) );
 
-                        $value      = (float) $row['price_value'];
-                        $value_disp = number_format( $value, 4, ',', '.' );
+                        $value           = (float) $row['price_value'];
+                        $value_disp      = number_format( $value, 4, ',', '.' );
+                        $fund_total      = isset( $row['fund_total'] ) ? (float) $row['fund_total'] : null;
+                        $total_parts     = isset( $row['total_participations'] ) ? (float) $row['total_participations'] : null;
+                        $fund_total_disp = $fund_total !== null ? number_format( $fund_total, 2, ',', '.' ) : '-';
+                        $total_parts_disp = $total_parts !== null ? number_format( $total_parts, 4, ',', '.' ) : '-';
 
                         // Vorige waarde in de reeks (DESC → volgende index)
                         $diff_disp = '-';
@@ -998,6 +1117,8 @@ function ggr_render_stock_price_page() {
                         <tr>
                             <td><?php echo esc_html( $date_disp ); ?></td>
                             <td><?php echo esc_html( $value_disp ); ?></td>
+                            <td><?php echo esc_html( $fund_total_disp ); ?></td>
+                            <td><?php echo esc_html( $total_parts_disp ); ?></td>                            
                             <td><?php echo esc_html( $diff_disp ); ?></td>
                             <td><?php echo esc_html( $created_disp ); ?></td>
                             <td><?php echo esc_html( $updated_disp ); ?></td>
