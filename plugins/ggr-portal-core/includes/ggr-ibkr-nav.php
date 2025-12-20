@@ -280,8 +280,30 @@ function ggr_ibkr_nav_parse_statement( $body ) {
         return new WP_Error( 'ggr_ibkr_invalid_xml', 'Ongeldige XML in GetStatement response.' );
     }
 
-    $date        = ggr_ibkr_nav_extract_date_from_xml( $xml );
-    $total_value = ggr_ibkr_nav_extract_total_from_xml( $xml );
+    $date        = null;
+    $total_value = null;
+
+    // Probeer eerst dezelfde parser als de handmatige import te gebruiken, zodat API en manual import identiek werken.
+    if ( function_exists( 'ggr_parse_ibkr_flex_equity_summary' ) ) {
+        $parsed_summary = ggr_parse_ibkr_flex_equity_summary( $body );
+
+        if ( is_array( $parsed_summary ) && isset( $parsed_summary['report_date'], $parsed_summary['total'] ) ) {
+            $date        = $parsed_summary['report_date'];
+            $total_value = (float) $parsed_summary['total'];
+        } elseif ( is_wp_error( $parsed_summary ) ) {
+            // Laat oude fallback lopen, maar log wel de fout voor debug-doeleinden.
+            ggr_ibkr_nav_log_error( 'IBKR Flex manual parser gaf een fout, val terug op generieke parser.', $parsed_summary );
+        }
+    }
+
+    // Fallback op generieke extractie als de manual parser niets opleverde.
+    if ( ! $date ) {
+        $date = ggr_ibkr_nav_extract_date_from_xml( $xml );
+    }
+
+    if ( null === $total_value ) {
+        $total_value = ggr_ibkr_nav_extract_total_from_xml( $xml );
+    }
 
     $date        = apply_filters( 'ggr_ibkr_nav_extracted_date', $date, $xml );
     $total_value = apply_filters( 'ggr_ibkr_nav_extracted_total', $total_value, $xml );
@@ -538,7 +560,31 @@ public function xml( $args, $assoc_args ) {
          *     wp ggr ibkr-nav --token=XXX --query-id=123 --no-store
          */
         public function __invoke( $args, $assoc_args ) {
-            // Default gedrag: zelfde als "fetch"
+            // Ondersteun expliciet subcommand-aliases, voor het geval WP-CLI test/xml/status niet als subcommand herkent.
+            if ( isset( $args[0] ) ) {
+                $subcommand = array_shift( $args );
+
+                switch ( $subcommand ) {
+                    case 'test':
+                        $this->test( $args, $assoc_args );
+                        return;
+                    case 'xml':
+                        $this->xml( $args, $assoc_args );
+                        return;
+                    case 'status':
+                        $this->status();
+                        return;
+                    case 'fetch':
+                        // expliciet fetch subcommand (valt normaal ook op default).
+                        break;
+                    default:
+                        // Onbekende subcommand → laat reguliere fetch lopen zodat WP-CLI een nette foutmelding geeft.
+                        $args = array_merge( array( $subcommand ), $args );
+                        break;
+                }
+            }
+
+            // Default gedrag: zelfde als "fetch".
             $this->fetch( $args, $assoc_args );
         }
 
