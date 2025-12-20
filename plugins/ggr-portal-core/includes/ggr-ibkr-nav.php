@@ -88,20 +88,18 @@ add_action( 'init', 'ggr_ibkr_nav_schedule_cron' );
 add_action( 'ggr_ibkr_nav_fetch_event', 'ggr_ibkr_nav_fetch_and_store' );
 
 /**
- * Handmatige helper voor directe run (bijv. vanuit WP-CLI of een admin-actie).
+ * NAV ophalen en parsen zonder opslag.
  *
+ * @param string|null $token
+ * @param string|null $query_id
  * @return array|WP_Error
  */
-function ggr_ibkr_nav_fetch_and_store() {
-    $token    = ggr_ibkr_nav_get_token();
-    $query_id = ggr_ibkr_nav_get_query_id();
+function ggr_ibkr_nav_fetch( $token = null, $query_id = null ) {
+    $token    = $token ?: ggr_ibkr_nav_get_token();
+    $query_id = $query_id ?: ggr_ibkr_nav_get_query_id();
 
     if ( ! $token || ! $query_id ) {
         return new WP_Error( 'ggr_ibkr_missing_credentials', 'Flex token of Query ID ontbreekt.' );
-    }
-
-    if ( ! function_exists( 'ggr_upsert_stock_price' ) ) {
-        return new WP_Error( 'ggr_ibkr_missing_helpers', 'ggr_upsert_stock_price() is niet beschikbaar.' );
     }
 
     $reference_code = ggr_ibkr_nav_request_reference_code( $token, $query_id );
@@ -125,15 +123,42 @@ function ggr_ibkr_nav_fetch_and_store() {
         return $parsed;
     }
 
-    $stored = ggr_upsert_stock_price( $parsed['date'], $parsed['value'] );
+    return array_merge(
+        $parsed,
+        array(
+            'statement'      => $statement_body,
+            'reference_code' => $reference_code,
+        )
+    );
+}
+
+/**
+ * Handmatige helper voor directe run (bijv. vanuit WP-CLI of een admin-actie).
+ *
+ * @param string|null $token
+ * @param string|null $query_id
+ * @return array|WP_Error
+ */
+function ggr_ibkr_nav_fetch_and_store( $token = null, $query_id = null ) {
+    if ( ! function_exists( 'ggr_upsert_stock_price' ) ) {
+        return new WP_Error( 'ggr_ibkr_missing_helpers', 'ggr_upsert_stock_price() is niet beschikbaar.' );
+    }
+
+    $result = ggr_ibkr_nav_fetch( $token, $query_id );
+
+    if ( is_wp_error( $result ) ) {
+        return $result;
+    }
+
+    $stored = ggr_upsert_stock_price( $result['date'], $result['value'] );
 
     if ( ! $stored ) {
         return new WP_Error( 'ggr_ibkr_nav_store_failed', 'Opslaan in ggr_stock_prices is mislukt.' );
     }
 
-    do_action( 'ggr_ibkr_nav_stored', $parsed['date'], $parsed['value'], $statement_body );
+    do_action( 'ggr_ibkr_nav_stored', $result['date'], $result['value'], $result['statement'] );
 
-    return $parsed;
+    return $result;
 }
 
 /**
@@ -410,10 +435,137 @@ function ggr_ibkr_nav_log_error( $message, $error ) {
  * WP-CLI helper: wp ggr ibkr-nav
  */
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
-    WP_CLI::add_command(
-        'ggr ibkr-nav',
-        function() {
-            $result = ggr_ibkr_nav_fetch_and_store();
+
+    /**
+     * CLI helpers voor IBKR NAV.
+     */
+    class GGR_IBKR_NAV_CLI_Command extends WP_CLI_Command {
+/**
+ * Haal het volledige Flex XML statement op (zonder parsing/DB).
+ *
+ * ## OPTIONS
+ *
+ * [--token=<token>]
+ * : Overschrijf het Flex token.
+ *
+ * [--query-id=<id>]
+ * : Overschrijf de Flex Query ID.
+ *
+ * [--file=<path>]
+ * : Schrijf het XML statement naar bestand. Als weglaten: print naar stdout.
+ *
+ * @subcommand xml
+ */
+public function xml( $args, $assoc_args ) {
+    $token    = isset( $assoc_args['token'] ) ? trim( (string) $assoc_args['token'] ) : '';
+    $query_id = isset( $assoc_args['query-id'] ) ? trim( (string) $assoc_args['query-id'] ) : '';
+    $file     = isset( $assoc_args['file'] ) ? trim( (string) $assoc_args['file'] ) : '';
+
+    $token    = $token ?: ggr_ibkr_nav_get_token();
+    $query_id = $query_id ?: ggr_ibkr_nav_get_query_id();
+
+    if ( ! $token || ! $query_id ) {
+        WP_CLI::error( 'Flex token of Query ID ontbreekt.' );
+    }
+
+    $result = ggr_ibkr_ibkr_fetch_xml_statement( $token, $query_id );
+
+    if ( is_wp_error( $result ) ) {
+        WP_CLI::error( $result->get_error_message() );
+    }
+
+    $xml = $result['statement'];
+
+    if ( $file ) {
+        $written = @file_put_contents( $file, $xml );
+        if ( false === $written ) {
+            WP_CLI::error( 'Kon XML niet wegschrijven naar: ' . $file );
+        }
+
+        WP_CLI::success(
+            sprintf(
+                'XML opgeslagen naar %s (ReferenceCode: %s)',
+                $file,
+                $result['reference_code']
+            )
+        );
+        return;
+    }
+
+    WP_CLI::log( $xml );
+}
+
+        /**
+         * Default: NAV ophalen en opslaan.
+         *
+         * ## OPTIONS
+         *
+         * [--token=<token>]
+         * : Overschrijf het Flex token (anders gebruiken we de opgeslagen waarde).
+         *
+         * [--query-id=<id>]
+         * : Overschrijf de Flex Query ID (anders gebruiken we de opgeslagen waarde).
+         *
+         * [--no-store]
+         * : Haal de NAV op, maar sla niet op in de database.
+         *
+         * ## EXAMPLES
+         *
+         *     wp ggr ibkr-nav
+         *     wp ggr ibkr-nav --no-store
+         *     wp ggr ibkr-nav --token=XXX --query-id=123 --no-store
+         */
+        public function __invoke( $args, $assoc_args ) {
+            // Default gedrag: zelfde als "fetch"
+            $this->fetch( $args, $assoc_args );
+        }
+
+        /**
+         * NAV ophalen (en optioneel opslaan).
+         *
+         * ## OPTIONS
+         *
+         * [--token=<token>]
+         * : Overschrijf het Flex token (anders gebruiken we de opgeslagen waarde).
+         *
+         * [--query-id=<id>]
+         * : Overschrijf de Flex Query ID (anders gebruiken we de opgeslagen waarde).
+         *
+         * [--no-store]
+         * : Haal de NAV op, maar sla niet op in de database.
+         *
+         * @subcommand fetch
+         */
+        public function fetch( $args, $assoc_args ) {
+            $token    = isset( $assoc_args['token'] ) ? trim( (string) $assoc_args['token'] ) : '';
+            $query_id = isset( $assoc_args['query-id'] ) ? trim( (string) $assoc_args['query-id'] ) : '';
+
+            $token    = $token ?: ggr_ibkr_nav_get_token();
+            $query_id = $query_id ?: ggr_ibkr_nav_get_query_id();
+
+            if ( ! $token || ! $query_id ) {
+                WP_CLI::error( 'Flex token of Query ID ontbreekt.' );
+            }
+
+            if ( isset( $assoc_args['no-store'] ) ) {
+                $result = ggr_ibkr_nav_fetch( $token, $query_id );
+
+                if ( is_wp_error( $result ) ) {
+                    WP_CLI::error( $result->get_error_message() );
+                }
+
+                WP_CLI::success(
+                    sprintf(
+                        'NAV opgehaald (niet opgeslagen) voor %s: %s (ReferenceCode: %s)',
+                        $result['date'],
+                        $result['value'],
+                        $result['reference_code']
+                    )
+                );
+                return;
+            }
+
+            $result = ggr_ibkr_nav_fetch_and_store( $token, $query_id );
 
             if ( is_wp_error( $result ) ) {
                 WP_CLI::error( $result->get_error_message() );
@@ -427,5 +579,29 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
                 )
             );
         }
-    );
+
+        /**
+         * Controleer de huidige IBKR Flex status en cron.
+         *
+         * @subcommand status
+         */
+        public function status() {
+            $has_token    = (bool) ggr_ibkr_nav_get_token();
+            $has_query_id = (bool) ggr_ibkr_nav_get_query_id();
+            $next_run     = wp_next_scheduled( 'ggr_ibkr_nav_fetch_event' );
+
+            WP_CLI::log( 'Flex token: ' . ( $has_token ? 'ingevuld' : 'ontbreekt' ) );
+            WP_CLI::log( 'Flex Query ID: ' . ( $has_query_id ? 'ingevuld' : 'ontbreekt' ) );
+            WP_CLI::log( 'Flex base URL: ' . ggr_ibkr_nav_get_base_url() );
+
+            if ( $next_run ) {
+                WP_CLI::log( 'Cron volgende run: ' . wp_date( 'Y-m-d H:i:s', $next_run ) );
+            } else {
+                WP_CLI::warning( 'Cron event ggr_ibkr_nav_fetch_event staat niet ingepland.' );
+            }
+        }
+    }
+
+    // Belangrijk: assoc_args = true, anders kan WP-CLI soms vreemd doen met args parsing.
+    WP_CLI::add_command( 'ggr ibkr-nav', 'GGR_IBKR_NAV_CLI_Command', array( 'shortdesc' => 'IBKR Flex NAV ophalen en opslaan.' ) );
 }
