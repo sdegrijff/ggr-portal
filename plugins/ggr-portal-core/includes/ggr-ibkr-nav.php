@@ -761,5 +761,28 @@ public function xml( $args, $assoc_args ) {
     }
 
     // Belangrijk: assoc_args = true, anders kan WP-CLI soms vreemd doen met args parsing.
-    WP_CLI::add_command( 'ggr ibkr-nav', 'GGR_IBKR_NAV_CLI_Command', array( 'shortdesc' => 'IBKR Flex NAV ophalen en opslaan.' ) );
+    WP_CLI::add_command(
+        'ggr ibkr-nav',
+        'GGR_IBKR_NAV_CLI_Command',
+        array(
+            'shortdesc' => 'IBKR Flex NAV ophalen en opslaan.',
+            // Sta een optionele positional voor subcommands (test/xml/status/fetch) en eventuele extra args toe,
+            // zodat WP-CLI niet klaagt over "Too many positional arguments: test".
+            'synopsis'  => array(
+                array(
+                    'type'        => 'positional',
+                    'name'        => 'subcommand',
+                    'optional'    => true,
+                    'description' => 'Subcommand: test, xml, status of fetch.',
+                ),
+                array(
+                    'type'        => 'positional',
+                    'name'        => 'args',
+                    'optional'    => true,
+                    'repeating'   => true,
+                    'description' => 'Extra argumenten voor het subcommand.',
+                ),
+            ),
+        )
+    );
 }
