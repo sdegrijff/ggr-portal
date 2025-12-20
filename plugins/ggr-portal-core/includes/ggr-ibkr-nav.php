@@ -83,6 +83,43 @@ function ggr_ibkr_nav_schedule_cron() {
 add_action( 'init', 'ggr_ibkr_nav_schedule_cron' );
 
 /**
+ * Laatste succesvolle run opslaan (voor statusweergave en meldingen).
+ *
+ * @param string $date
+ * @param float  $nav
+ * @param float|null $fund_total
+ * @param float|null $total_participations
+ */
+function ggr_ibkr_nav_set_last_run( $date, $nav, $fund_total = null, $total_participations = null ) {
+    $payload = array(
+        'date'                 => $date,
+        'nav'                  => (float) $nav,
+        'fund_total'           => ( null !== $fund_total ) ? (float) $fund_total : null,
+        'total_participations' => ( null !== $total_participations ) ? (float) $total_participations : null,
+        'timestamp'            => current_time( 'timestamp' ),
+    );
+
+    update_option( 'ggr_ibkr_nav_last_run', $payload, false );
+}
+
+/**
+ * Statusinformatie over de IBKR cron en laatste succesvolle run.
+ *
+ * @return array{
+ *     has_credentials: bool,
+ *     next_run: int|false,
+ *     last_run: array|null
+ * }
+ */
+function ggr_ibkr_nav_get_status() {
+    return array(
+        'has_credentials' => ggr_ibkr_nav_has_credentials(),
+        'next_run'        => wp_next_scheduled( 'ggr_ibkr_nav_fetch_event' ),
+        'last_run'        => get_option( 'ggr_ibkr_nav_last_run' ),
+    );
+}
+
+/**
  * Cron hook → ophalen en opslaan.
  */
 add_action( 'ggr_ibkr_nav_fetch_event', 'ggr_ibkr_nav_fetch_and_store' );
@@ -175,7 +212,16 @@ function ggr_ibkr_nav_fetch_and_store( $token = null, $query_id = null ) {
     $result['value']                = $nav_per_participation; // backwards compat: value = NAV per participatie
     $result['total_participations'] = $total_parts;
 
-    do_action( 'ggr_ibkr_nav_stored', $result['date'], $nav_per_participation, $result['statement'] );
+    ggr_ibkr_nav_set_last_run( $result['date'], $nav_per_participation, $result['total'], $total_parts );
+
+    do_action(
+        'ggr_ibkr_nav_stored',
+        $result['date'],
+        $nav_per_participation,
+        $result['statement'],
+        $result['total'],
+        $total_parts
+    );
     
     return $result;
 }
@@ -473,6 +519,44 @@ function ggr_ibkr_nav_log_error( $message, $error ) {
 
     error_log( '[GGR IBKR NAV] ' . $message . ' | ' . wp_json_encode( $context ) );
 }
+
+/**
+ * Stuur de beheerder een eenvoudige bevestiging wanneer de IBKR NAV is opgeslagen.
+ *
+ * @param string $date
+ * @param float  $nav_per_participation
+ * @param string $statement
+ * @param float|null $fund_total
+ * @param float|null $total_participations
+ */
+function ggr_ibkr_nav_send_admin_notification( $date, $nav_per_participation, $statement, $fund_total = null, $total_participations = null ) {
+    $admin_email = get_option( 'admin_email' );
+
+    if ( ! $admin_email || ! is_email( $admin_email ) ) {
+        return;
+    }
+
+    $subject = sprintf( 'IBKR NAV opgeslagen voor %s', $date );
+
+    $lines   = array();
+    $lines[] = sprintf( 'De IBKR Flex API is succesvol uitgevoerd op %s.', wp_date( 'Y-m-d H:i:s' ) );
+    $lines[] = sprintf( 'Datum rapport: %s', $date );
+    $lines[] = sprintf( 'NAV per participatie: € %s', number_format( (float) $nav_per_participation, 6, ',', '.' ) );
+
+    if ( null !== $fund_total ) {
+        $lines[] = sprintf( 'Totaal uit IBKR: € %s', number_format( (float) $fund_total, 2, ',', '.' ) );
+    }
+
+    if ( null !== $total_participations ) {
+        $lines[] = sprintf( 'Participaties: %s', number_format( (float) $total_participations, 4, ',', '.' ) );
+    }
+
+    $lines[] = '';
+    $lines[] = 'Dit is een automatische melding vanuit de GGR Portal.';
+
+    wp_mail( $admin_email, $subject, implode( "\n", $lines ) );
+}
+add_action( 'ggr_ibkr_nav_stored', 'ggr_ibkr_nav_send_admin_notification', 10, 5 );
 
 /**
  * WP-CLI helper: wp ggr ibkr-nav
