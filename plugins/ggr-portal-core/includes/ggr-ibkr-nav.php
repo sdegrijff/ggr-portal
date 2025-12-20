@@ -140,8 +140,8 @@ function ggr_ibkr_nav_fetch( $token = null, $query_id = null ) {
  * @return array|WP_Error
  */
 function ggr_ibkr_nav_fetch_and_store( $token = null, $query_id = null ) {
-    if ( ! function_exists( 'ggr_upsert_stock_price' ) ) {
-        return new WP_Error( 'ggr_ibkr_missing_helpers', 'ggr_upsert_stock_price() is niet beschikbaar.' );
+    if ( ! function_exists( 'ggr_upsert_stock_price' ) || ! function_exists( 'ggr_portal_get_total_participations_all_users' ) ) {
+        return new WP_Error( 'ggr_ibkr_missing_helpers', 'Benodigde helpers niet beschikbaar.' );
     }
 
     $result = ggr_ibkr_nav_fetch( $token, $query_id );
@@ -150,14 +150,33 @@ function ggr_ibkr_nav_fetch_and_store( $token = null, $query_id = null ) {
         return $result;
     }
 
-    $stored = ggr_upsert_stock_price( $result['date'], $result['value'] );
+    $total_parts = ggr_portal_get_total_participations_all_users( $result['date'] );
+
+    if ( $total_parts <= 0 ) {
+        return new WP_Error( 'ggr_ibkr_nav_missing_participations', 'Geen participaties gevonden om NAV te berekenen.' );
+    }
+
+    $nav_per_participation = round( $result['total'] / $total_parts, 6 );
+
+    $stored = ggr_upsert_stock_price(
+        $result['date'],
+        $nav_per_participation,
+        array(
+            'fund_total'           => $result['total'],
+            'total_participations' => $total_parts,
+        )
+    );
 
     if ( ! $stored ) {
         return new WP_Error( 'ggr_ibkr_nav_store_failed', 'Opslaan in ggr_stock_prices is mislukt.' );
     }
 
-    do_action( 'ggr_ibkr_nav_stored', $result['date'], $result['value'], $result['statement'] );
+    $result['nav']                  = $nav_per_participation;
+    $result['value']                = $nav_per_participation; // backwards compat: value = NAV per participatie
+    $result['total_participations'] = $total_parts;
 
+    do_action( 'ggr_ibkr_nav_stored', $result['date'], $nav_per_participation, $result['statement'] );
+    
     return $result;
 }
 
@@ -261,23 +280,25 @@ function ggr_ibkr_nav_parse_statement( $body ) {
         return new WP_Error( 'ggr_ibkr_invalid_xml', 'Ongeldige XML in GetStatement response.' );
     }
 
-    $date  = ggr_ibkr_nav_extract_date_from_xml( $xml );
-    $value = ggr_ibkr_nav_extract_value_from_xml( $xml );
+    $date        = ggr_ibkr_nav_extract_date_from_xml( $xml );
+    $total_value = ggr_ibkr_nav_extract_total_from_xml( $xml );
 
-    $date  = apply_filters( 'ggr_ibkr_nav_extracted_date', $date, $xml );
-    $value = apply_filters( 'ggr_ibkr_nav_extracted_value', $value, $xml );
+    $date        = apply_filters( 'ggr_ibkr_nav_extracted_date', $date, $xml );
+    $total_value = apply_filters( 'ggr_ibkr_nav_extracted_total', $total_value, $xml );
+    $total_value = apply_filters( 'ggr_ibkr_nav_extracted_value', $total_value, $xml ); // backward compat: voorheen nav/value filter
 
     if ( ! $date ) {
         return new WP_Error( 'ggr_ibkr_missing_date', 'Geen datum gevonden in Flex statement.' );
     }
 
-    if ( null === $value ) {
-        return new WP_Error( 'ggr_ibkr_missing_value', 'Geen NAV waarde gevonden in Flex statement.' );
+    if ( null === $total_value ) {
+        return new WP_Error( 'ggr_ibkr_missing_value', 'Geen total waarde gevonden in Flex statement.' );
     }
 
     return array(
-        'date'  => $date,
-        'value' => $value,
+        'date'   => $date,
+        'total'  => $total_value,
+        'value'  => $total_value, // legacy voor bestaande hooks; NAV wordt elders berekend
     );
 }
 
@@ -313,17 +334,17 @@ function ggr_ibkr_nav_extract_date_from_xml( SimpleXMLElement $xml ) {
 }
 
 /**
- * Zoek een NAV/NAV per share in het XML.
+ * Zoek de total-waarde in het XML.
  *
  * @param SimpleXMLElement $xml
  * @return float|null
  */
-function ggr_ibkr_nav_extract_value_from_xml( SimpleXMLElement $xml ) {
+function ggr_ibkr_nav_extract_total_from_xml( SimpleXMLElement $xml ) {
     $attribute_candidates = array(
-        ggr_ibkr_nav_get_attribute( $xml, array( 'nav', 'NAV', 'navPrice', 'navPerShare', 'NetAssetValue' ) ),
+        ggr_ibkr_nav_get_attribute( $xml, array( 'total', 'Total' ) ),
     );
 
-    $nodes = $xml->xpath( '//@nav | //@NAV | //@NetAssetValue | //@navPerShare | //@navPrice' );
+    $nodes = $xml->xpath( '//@total | //@Total' );
 
     if ( $nodes && is_array( $nodes ) ) {
         foreach ( $nodes as $node ) {
@@ -468,7 +489,8 @@ public function xml( $args, $assoc_args ) {
         WP_CLI::error( 'Flex token of Query ID ontbreekt.' );
     }
 
-    $result = ggr_ibkr_ibkr_fetch_xml_statement( $token, $query_id );
+    // Haal de statement op zonder te schrijven naar de database.
+    $result = ggr_ibkr_nav_fetch( $token, $query_id );
 
     if ( is_wp_error( $result ) ) {
         WP_CLI::error( $result->get_error_message() );
@@ -554,14 +576,24 @@ public function xml( $args, $assoc_args ) {
                     WP_CLI::error( $result->get_error_message() );
                 }
 
-                WP_CLI::success(
-                    sprintf(
-                        'NAV opgehaald (niet opgeslagen) voor %s: %s (ReferenceCode: %s)',
-                        $result['date'],
-                        $result['value'],
-                        $result['reference_code']
-                    )
+                $total_parts = function_exists( 'ggr_portal_get_total_participations_all_users' )
+                    ? ggr_portal_get_total_participations_all_users( $result['date'] )
+                    : null;
+
+                $nav_per_participation = ( $total_parts > 0 ) ? round( $result['total'] / $total_parts, 6 ) : null;
+
+                $message = sprintf(
+                    'IBKR total opgehaald (niet opgeslagen) voor %s: %s (ReferenceCode: %s)',
+                    $result['date'],
+                    $result['total'],
+                    $result['reference_code']
                 );
+
+                if ( null !== $nav_per_participation ) {
+                    $message .= sprintf( ' | NAV per participatie: %s (participaties: %s)', $nav_per_participation, $total_parts );
+                }
+
+                WP_CLI::success( $message );
                 return;
             }
 
@@ -571,13 +603,21 @@ public function xml( $args, $assoc_args ) {
                 WP_CLI::error( $result->get_error_message() );
             }
 
-            WP_CLI::success(
-                sprintf(
-                    'NAV opgeslagen voor %s: %s',
-                    $result['date'],
-                    $result['value']
-                )
+            $message = sprintf(
+                'NAV per participatie opgeslagen voor %s: %s',
+                $result['date'],
+                $result['value']
             );
+
+            if ( isset( $result['total'] ) && isset( $result['total_participations'] ) ) {
+                $message .= sprintf(
+                    ' | Totaal: %s | Participaties: %s',
+                    $result['total'],
+                    $result['total_participations']
+                );
+            }
+
+            WP_CLI::success( $message );
         }
         
         /**
@@ -639,7 +679,11 @@ public function xml( $args, $assoc_args ) {
 
             $message = $store_result
                 ? sprintf( 'Test-run voltooid en opgeslagen voor %s: %s', $result['date'], $result['value'] )
-                : sprintf( 'Test-run voltooid (niet opgeslagen) voor %s: %s', $result['date'], $result['value'] );
+                : sprintf( 'Test-run voltooid (niet opgeslagen) voor %s: %s (total)', $result['date'], $result['total'] );
+
+            if ( isset( $result['nav'] ) && isset( $result['total_participations'] ) ) {
+                $message .= sprintf( ' | Totaal: %s | Participaties: %s', $result['total'], $result['total_participations'] );
+            }
 
             WP_CLI::success( $message );
 
