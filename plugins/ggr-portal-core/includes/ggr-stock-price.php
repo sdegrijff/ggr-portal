@@ -333,6 +333,80 @@ function ggr_upsert_stock_price( $date_mysql, $price, $extra = array() ) {
 
 
 /**
+ * Herbereken total_participations voor alle waardes (optioneel vanaf een datum).
+ *
+ * @param string|null $start_date_only Vanaf welke datum (in elk formaat dat ggr_portal_parse_date_to_mysql accepteert).
+ *
+ * @return int Aantal rijen die zijn bijgewerkt.
+ */
+function ggr_stock_price_refresh_total_participations_from_date( $start_date_only = null ) {
+    if ( ! function_exists( 'ggr_portal_get_total_participations_all_users' ) ) {
+        return 0;
+    }
+
+    global $wpdb;
+
+    $table_name = $wpdb->prefix . 'ggr_stock_prices';
+    $start_date = '';
+
+    if ( $start_date_only ) {
+        if ( function_exists( 'ggr_portal_parse_date_to_mysql' ) ) {
+            $start_date = ggr_portal_parse_date_to_mysql( $start_date_only );
+        } else {
+            $timestamp  = strtotime( $start_date_only );
+            $start_date = $timestamp ? date( 'Y-m-d', $timestamp ) : '';
+        }
+    }
+
+    $sql = "SELECT id, price_date, total_participations FROM {$table_name}";
+    if ( $start_date ) {
+        $sql .= $wpdb->prepare( ' WHERE price_date >= %s', $start_date );
+    }
+    $sql .= ' ORDER BY price_date ASC';
+
+    $rows = $wpdb->get_results( $sql, ARRAY_A );
+
+    if ( empty( $rows ) ) {
+        return 0;
+    }
+
+    $now          = current_time( 'mysql' );
+    $updated_rows = 0;
+
+    foreach ( $rows as $row ) {
+        $calculated_total = ggr_portal_get_total_participations_all_users( $row['price_date'] );
+        $calculated_total = round( $calculated_total, 4 );
+
+        $stored_raw   = $row['total_participations'];
+        $stored_value = ( $stored_raw !== null && $stored_raw !== '' ) ? round( (float) $stored_raw, 4 ) : null;
+
+        $needs_update = ( null === $stored_value ) || abs( $stored_value - $calculated_total ) >= 0.0001;
+
+        if ( ! $needs_update ) {
+            continue;
+        }
+
+        $result = $wpdb->update(
+            $table_name,
+            array(
+                'total_participations' => $calculated_total,
+                'updated_at'           => $now,
+            ),
+            array( 'id' => (int) $row['id'] ),
+            array( '%f', '%s' ),
+            array( '%d' )
+        );
+
+        if ( $result !== false ) {
+            $updated_rows++;
+        }
+    }
+
+    return $updated_rows;
+}
+
+
+/**
  * Haal GGR waarde op voor een datum.
  *
  * Functioneel gedrag:
