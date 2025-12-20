@@ -579,6 +579,74 @@ public function xml( $args, $assoc_args ) {
                 )
             );
         }
+        
+        /**
+         * Test de IBKR Flex run via SSH/WP-CLI, met optioneel opslaan en wegschrijven van de XML.
+         *
+         * ## OPTIONS
+         *
+         * [--token=<token>]
+         * : Overschrijf het Flex token (anders gebruiken we de opgeslagen waarde).
+         *
+         * [--query-id=<id>]
+         * : Overschrijf de Flex Query ID (anders gebruiken we de opgeslagen waarde).
+         *
+         * [--no-store]
+         * : Haal de NAV op, maar sla niet op in de database.
+         *
+         * [--output-file=<path>]
+         * : Schrijf de opgehaalde XML naar dit pad (bijv. /tmp/ibkr-test.xml).
+         *
+         * ## EXAMPLES
+         *
+         *     wp ggr ibkr-nav test
+         *     wp ggr ibkr-nav test --no-store --output-file=/tmp/ibkr.xml
+         *     wp ggr ibkr-nav test --token=XXX --query-id=123
+         *
+         * @subcommand test
+         */
+        public function test( $args, $assoc_args ) {
+            $token       = isset( $assoc_args['token'] ) ? trim( (string) $assoc_args['token'] ) : '';
+            $query_id    = isset( $assoc_args['query-id'] ) ? trim( (string) $assoc_args['query-id'] ) : '';
+            $output_file = isset( $assoc_args['output-file'] ) ? trim( (string) $assoc_args['output-file'] ) : '';
+
+            $token    = $token ?: ggr_ibkr_nav_get_token();
+            $query_id = $query_id ?: ggr_ibkr_nav_get_query_id();
+
+            if ( ! $token || ! $query_id ) {
+                WP_CLI::error( 'Flex token of Query ID ontbreekt.' );
+            }
+
+            $store_result = ! isset( $assoc_args['no-store'] );
+
+            $result = $store_result
+                ? ggr_ibkr_nav_fetch_and_store( $token, $query_id )
+                : ggr_ibkr_nav_fetch( $token, $query_id );
+
+            if ( is_wp_error( $result ) ) {
+                WP_CLI::error( $result->get_error_message() );
+            }
+
+            if ( $output_file ) {
+                $written = @file_put_contents( $output_file, $result['statement'] );
+
+                if ( false === $written ) {
+                    WP_CLI::warning( 'Kon XML niet wegschrijven naar: ' . $output_file );
+                } else {
+                    WP_CLI::log( 'XML opgeslagen naar: ' . $output_file );
+                }
+            }
+
+            $message = $store_result
+                ? sprintf( 'Test-run voltooid en opgeslagen voor %s: %s', $result['date'], $result['value'] )
+                : sprintf( 'Test-run voltooid (niet opgeslagen) voor %s: %s', $result['date'], $result['value'] );
+
+            WP_CLI::success( $message );
+
+            if ( isset( $result['reference_code'] ) ) {
+                WP_CLI::log( 'ReferenceCode: ' . $result['reference_code'] );
+            }
+        }
 
         /**
          * Controleer de huidige IBKR Flex status en cron.
