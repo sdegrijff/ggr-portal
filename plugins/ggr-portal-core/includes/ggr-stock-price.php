@@ -504,6 +504,7 @@ function ggr_render_stock_price_page() {
     $ibkr_token    = function_exists( 'ggr_ibkr_nav_get_token' ) ? ggr_ibkr_nav_get_token() : '';
     $ibkr_query_id = function_exists( 'ggr_ibkr_nav_get_query_id' ) ? ggr_ibkr_nav_get_query_id() : '';
     $ibkr_base_url = function_exists( 'ggr_ibkr_nav_get_base_url' ) ? ggr_ibkr_nav_get_base_url() : '';
+    $ibkr_status   = function_exists( 'ggr_ibkr_nav_get_status' ) ? ggr_ibkr_nav_get_status() : array();
 
     $total_participations_today = function_exists( 'ggr_portal_get_total_participations_all_users' )
         ? ggr_portal_get_total_participations_all_users()
@@ -526,7 +527,7 @@ function ggr_render_stock_price_page() {
 
     $today      = current_time( 'Y-m-d' );
     $form_date  = $today;
-    $form_value = '';
+    $form_total = '';
     $is_edit    = false;
 
     /* -----------------------------------------------------------
@@ -545,7 +546,7 @@ function ggr_render_stock_price_page() {
 
         if ( $row ) {
             $form_date  = $row['price_date'];
-            $form_value = $row['price_value'];
+            $form_total = isset( $row['fund_total'] ) ? number_format( (float) $row['fund_total'], 2, ',', '' ) : '';
             $is_edit    = true;
         }
     }
@@ -601,7 +602,7 @@ function ggr_render_stock_price_page() {
                 );
 
                 $form_date  = $result['date'];
-                $form_value = '';
+                $form_total = '';
                 $is_edit    = false;
             }
         } else {
@@ -652,7 +653,7 @@ function ggr_render_stock_price_page() {
                     );
 
                     $form_date      = $report_date;
-                    $form_value     = '';
+                    $form_total     = '';
                     $ibkr_xml_input = '';
                     $is_edit        = false;
                 } else {
@@ -669,19 +670,19 @@ function ggr_render_stock_price_page() {
         check_admin_referer( 'ggr_save_price' );
 
         $price_date_raw  = isset( $_POST['price_date'] ) ? sanitize_text_field( $_POST['price_date'] ) : '';
-        $price_value_raw = isset( $_POST['price_value'] ) ? sanitize_text_field( $_POST['price_value'] ) : '';
+        $fund_total_raw  = isset( $_POST['fund_total'] ) ? sanitize_text_field( $_POST['fund_total'] ) : '';
 
         $price_date  = $price_date_raw ? date( 'Y-m-d', strtotime( $price_date_raw ) ) : '';
-        $price_value = $price_value_raw !== '' ? (float) str_replace( ',', '.', $price_value_raw ) : 0;
+        $fund_total  = $fund_total_raw !== '' ? (float) str_replace( array( '.', ' ', ',' ), array( '', '', '.' ), $fund_total_raw ) : 0;
 
         // Form-velden terugvullen bij fout
         $form_date  = $price_date_raw;
-        $form_value = $price_value_raw;
+        $form_total = $fund_total_raw;
 
-        if ( ! $price_date || $price_value_raw === '' ) {
-            $error = 'Datum en waarde zijn verplicht.';
-        } elseif ( $price_value <= 0 ) {
-            $error = 'Waarde moet groter zijn dan 0.';
+        if ( ! $price_date || $fund_total_raw === '' ) {
+            $error = 'Datum en totaalwaarde uit IBKR zijn verplicht.';
+        } elseif ( $fund_total <= 0 ) {
+            $error = 'Totaalwaarde moet groter zijn dan 0.';
         } else {
             // Bestaat er al een record voor deze datum?
             $existing_id = $wpdb->get_var(
@@ -691,20 +692,52 @@ function ggr_render_stock_price_page() {
                 )
             );
 
-            $saved = ggr_upsert_stock_price( $price_date, $price_value );
+            $total_parts = function_exists( 'ggr_portal_get_total_participations_all_users' )
+                ? ggr_portal_get_total_participations_all_users( $price_date )
+                : null;
 
-            if ( $saved ) {
-                $notice = $existing_id
-                    ? 'Waarde per 1 GGR-participatie voor ' . esc_html( $price_date ) . ' is bijgewerkt.'
-                    : 'Waarde per 1 GGR-participatie voor ' . esc_html( $price_date ) . ' is opgeslagen.';
+            if ( null === $total_parts || $total_parts <= 0 ) {
+                $total_parts = $existing_id
+                    ? (float) $wpdb->get_var(
+                        $wpdb->prepare(
+                            "SELECT total_participations FROM {$table_name} WHERE id = %d LIMIT 1",
+                            $existing_id
+                        )
+                    )
+                    : null;
+            }
 
-                $form_date  = $price_date;
-                $form_value = '';
-                $is_edit    = false;
+            if ( null === $total_parts || $total_parts <= 0 ) {
+                $error = 'Geen participaties gevonden om de NAV mee te berekenen.';
             } else {
-                $error  = $existing_id
-                    ? 'Bijwerken van de GGR-waarde is mislukt.'
-                    : 'Opslaan van de GGR-waarde is mislukt.';
+                $calculated_price = round( $fund_total / $total_parts, 6 );
+
+                $saved = ggr_upsert_stock_price(
+                    $price_date,
+                    $calculated_price,
+                    array(
+                        'fund_total'           => $fund_total,
+                        'total_participations' => $total_parts,
+                    )
+                );
+
+                if ( $saved ) {
+                    $notice = sprintf(
+                        'Totaal uit IBKR voor %s is %s. NAV per participatie berekend op %s (participaties: %s).',
+                        esc_html( $price_date ),
+                        number_format( $fund_total, 2, ',', '.' ),
+                        number_format( $calculated_price, 6, ',', '.' ),
+                        number_format( $total_parts, 4, ',', '.' )
+                    );
+
+                    $form_date  = $price_date;
+                    $form_total = '';
+                    $is_edit    = false;
+                } else {
+                    $error  = $existing_id
+                        ? 'Bijwerken van de IBKR-waarde is mislukt.'
+                        : 'Opslaan van de IBKR-waarde is mislukt.';
+                }
             }
         }
     }
@@ -866,6 +899,27 @@ function ggr_render_stock_price_page() {
         <h2>IBKR Flex API (automatisch)</h2>
         <p>Vul je Flex Web Service token en Query ID in om dagelijks automatisch de NAV op te halen via de IBKR Flex API. Je kunt ook direct een handmatige import starten.</p>
 
+        <?php if ( ! empty( $ibkr_status ) ) : ?>
+            <div class="notice notice-info is-dismissible">
+                <p>
+                    <strong>Cron status:</strong>
+                    <?php if ( ! empty( $ibkr_status['has_credentials'] ) && ! empty( $ibkr_status['next_run'] ) ) : ?>
+                        Dagelijkse IBKR import staat ingepland.
+                        Volgende run: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', $ibkr_status['next_run'] ) ); ?></strong>.
+                    <?php else : ?>
+                        Automatische import staat nog niet ingepland. Vul token en Query ID in en sla op.
+                    <?php endif; ?>
+                </p>
+                <?php if ( ! empty( $ibkr_status['last_run'] ) && is_array( $ibkr_status['last_run'] ) ) : ?>
+                    <p>
+                        Laatste succesvolle import: <strong><?php echo esc_html( $ibkr_status['last_run']['date'] ); ?></strong>
+                        (NAV: € <?php echo esc_html( number_format( (float) $ibkr_status['last_run']['nav'], 6, ',', '.' ) ); ?>,
+                        bijgewerkt op <?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_status['last_run']['timestamp'] ) ); ?>).
+                    </p>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+
         <form method="post">
             <?php wp_nonce_field( 'ggr_ibkr_credentials' ); ?>
 
@@ -984,17 +1038,19 @@ function ggr_render_stock_price_page() {
                     </tr>
 
                     <tr>
-                        <th scope="row"><label for="price_value">Waarde per 1 GGR-participatie</label></th>
+                        <th scope="row"><label for="fund_total">Totaal uit IBKR</label></th>
                         <td>
                             <input
-                                type="text"
-                                id="price_value"
-                                name="price_value"
-                                value="<?php echo esc_attr( $form_value ); ?>"
-                                placeholder="Bijv: 102.35"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                id="fund_total"
+                                name="fund_total"
+                                value="<?php echo esc_attr( $form_total ); ?>"
+                                placeholder="Bijv: 1000000"
                             />
                             <p class="description">
-                                Gebruik punt of komma als decimaalteken.
+                                We berekenen automatisch de NAV per participatie aan de hand van het totaal en het aantal participaties op deze datum.
                             </p>
                         </td>
                     </tr>
