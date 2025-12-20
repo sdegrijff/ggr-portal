@@ -154,6 +154,10 @@ function ggr_portal_add_history_entry( $user_id, $datum, $inlegbedrag, $opnamebe
         );
     }
 
+    if ( function_exists( 'ggr_stock_price_refresh_total_participations_from_date' ) ) {
+        ggr_stock_price_refresh_total_participations_from_date( $datum_mysql );
+    }
+    
     return true;
 }
 
@@ -271,7 +275,13 @@ function ggr_portal_update_history_entry( $id, $datum, $inlegbedrag, $opnamebedr
         array( '%d' )
     );
 
-    return $updated !== false;
+    $success = $updated !== false;
+
+    if ( $success && function_exists( 'ggr_stock_price_refresh_total_participations_from_date' ) ) {
+        ggr_stock_price_refresh_total_participations_from_date( $datum_mysql );
+    }
+
+    return $success;
 }
 
 /**
@@ -283,7 +293,18 @@ function ggr_portal_delete_history_entry( $id ) {
     $table_name = $wpdb->prefix . 'user_participatie_history';
     $id         = (int) $id;
 
-    return (bool) $wpdb->delete( $table_name, array( 'id' => $id ), array( '%d' ) );
+    $entry = ggr_portal_get_history_entry( $id );
+    if ( ! $entry ) {
+        return false;
+    }
+
+    $deleted = (bool) $wpdb->delete( $table_name, array( 'id' => $id ), array( '%d' ) );
+
+    if ( $deleted && function_exists( 'ggr_stock_price_refresh_total_participations_from_date' ) ) {
+        ggr_stock_price_refresh_total_participations_from_date( $entry->datum );
+    }
+
+    return $deleted;
 }
 
 /**
@@ -299,9 +320,22 @@ function ggr_portal_delete_all_history_for_user( $user_id ) {
         return false;
     }
 
+    $earliest_date = $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT MIN(datum) FROM {$table_name} WHERE user_id = %d",
+            $user_id
+        )
+    );
+    
     $deleted = $wpdb->delete( $table_name, array( 'user_id' => $user_id ), array( '%d' ) );
 
-    return $deleted !== false;
+    $success = $deleted !== false;
+
+    if ( $success && $earliest_date && function_exists( 'ggr_stock_price_refresh_total_participations_from_date' ) ) {
+        ggr_stock_price_refresh_total_participations_from_date( $earliest_date );
+    }
+
+    return $success;
 }
 
 /**
