@@ -1200,9 +1200,28 @@ $greeting_name = $first_name ? $first_name : $naam;
             function updatePosChart(rangeKey) {
                 if (!posChart) return;
                 const filtered = getFilteredPosData(rangeKey);
+                const rangeValues = filtered.values.length ? filtered.values : posValues;
+                const minVal = Math.min(...rangeValues);
+                const maxVal = Math.max(...rangeValues);
+                const delta = Math.max(maxVal - minVal, 1);
+                const pad = delta * 0.2;
+
+                const currentDates = filtered.dates.length ? filtered.dates : basePosDates;
+                const monthFromDate = (dateStr) => formatMonthShortFromYMD(dateStr || '');
+                
                 posChart.data.labels = filtered.labels;
                 posChart.data.datasets[0].data = filtered.values;
                 posChart.options.scales.x.ticks.maxTicksLimit = filtered.tickLimit;
+                posChart.options.scales.x.ticks.callback = function(value, index) {
+                    const rawDate = currentDates[index] || '';
+                    if (!rawDate) return '';
+                    if (index > 0 && monthFromDate(rawDate) === monthFromDate(currentDates[index - 1])) {
+                        return '';
+                    }
+                    return monthFromDate(rawDate);
+                };
+                posChart.options.scales.y.suggestedMin = Math.max(0, minVal - pad);
+                posChart.options.scales.y.suggestedMax = maxVal + pad;                
                 posChart.update();
             }
 
@@ -1218,9 +1237,12 @@ $greeting_name = $first_name ? $first_name : $naam;
                             minimumFractionDigits: 0,
                             maximumFractionDigits: 0
                         });
-                    }
+                    },
+                    stepSize: 500
                 },
-                grace: '5%'
+                grace: '20%',
+                suggestedMin: undefined,
+                suggestedMax: undefined
             };
 
             // Gemeenschappelijke layout: wat lucht binnen de card
