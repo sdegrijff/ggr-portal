@@ -1522,6 +1522,11 @@ a.ggr-bericht-options-item.ggr-bericht-options-item--pdf {
     display: none;
 }
 
+.ggrp-fe-hallo h1 {
+    margin: 0px;
+    margin-bottom: 5px!important;
+}
+
 .download-pdf {
     margin-left: 10px;
 }
@@ -1598,6 +1603,8 @@ a.ggr-bericht-options-item.ggr-bericht-options-item--pdf {
     .ggrp-fe-header-meta {
         align-items: flex-start;
         text-align: left;
+        margin-bottom: 10px;
+        margin-top: 5px;
     }
 }
 
