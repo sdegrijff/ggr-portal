@@ -876,7 +876,7 @@ function ggr_portal_render_single_message( $bericht_id, $user_id ) {
                class="ggr-bericht-options-item ggr-bericht-options-item--pdf"
                target="_blank" rel="noopener">
                 <span class="ggr-icon ggr-icon-pdf"></span>
-                <span>Download bericht als PDF</span>
+                <span class="download-pdf">Download bericht als PDF</span>
             </a>
 
         </div>
