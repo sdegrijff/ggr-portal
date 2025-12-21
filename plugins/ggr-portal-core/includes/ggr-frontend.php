@@ -1098,7 +1098,7 @@ $greeting_name = $first_name ? $first_name : $naam;
 
             function formatMoney(value) {
                 const val = Number(value) || 0;
-                return '€ ' + val.toLocaleString('nl-NL', {
+                return '€' + val.toLocaleString('nl-NL', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                 });
@@ -1214,7 +1214,7 @@ $greeting_name = $first_name ? $first_name : $naam;
                 },
                 ticks: {
                     callback: function(value) {
-                        return '€ ' + Number(value).toLocaleString('nl-NL', {
+                        return '€' + Number(value).toLocaleString('nl-NL', {
                             minimumFractionDigits: 0,
                             maximumFractionDigits: 0
                         });
@@ -1603,7 +1603,7 @@ function ggrp_fe_transacties_shortcode( $atts ) {
                         $d = DateTime::createFromFormat( 'Y-m-d', $row->datum );
                         $datum_label = $d ? $d->format( 'd M Y' ) : $row->datum;
 
-                        $bedrag_fmt = '€ ' . number_format( $bedrag, 2, ',', '.' );
+                        $bedrag_fmt = '€' . number_format( $bedrag, 2, ',', '.' );
 
                         // Status
                         $status_raw = isset( $row->status ) ? trim( (string) $row->status ) : '';
