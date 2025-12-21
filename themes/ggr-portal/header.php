@@ -173,6 +173,11 @@ if ( function_exists( 'ggr_portal_is_onboarding_page' ) && ggr_portal_is_onboard
                 </div>
 
                 <div class="ggr-mobile-actions">
+                    <a href="<?php echo esc_url( wp_logout_url( home_url( '/' ) ) ); ?>"
+                       class="ggr-mobile-icon-btn <?php echo is_page( 'mijn-account' ) ? 'is-active' : ''; ?>">
+                        <i class="ri-logout-box-line"></i>
+                    </a>
+                    
                     <a href="<?php echo home_url( '/berichten/' ); ?>"
                        class="ggr-mobile-icon-btn <?php echo is_page( 'berichten' ) ? 'is-active' : ''; ?>">
                         <i class="ri-notification-3-line"></i>
