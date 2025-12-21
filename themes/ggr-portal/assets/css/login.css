@@ -12,6 +12,27 @@ body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+.ggr-input-wrap{
+  position: relative;
+  display: block;
+}
+
+.ggr-input-wrap > i{
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  pointer-events: none;
+  font-size: 18px;
+  line-height: 1;
+  opacity: .7;
+}
+
+.ggr-input-wrap > input{
+  padding-left: 42px !important; /* forceer ruimte */
+}
+
 /* Verberg portal-/theme-shell op login-achtige pagina's
    (header, footer, sidebar, mobiele nav, etc.) */
 header,
@@ -81,22 +102,23 @@ footer,
 .ggr-login-header-cta {
     font-size: 15px;
     font-weight: 600;
-    color: #c57a54;
+    color: #f49c6b!important;
     text-decoration: underline;
 }
 
 .ggr-login-header-cta:hover {
-    color: #a96845;
+    color: #f49c6b;
 }
 
 /* Mobiel: compacter */
 @media (max-width: 640px) {
     .ggr-login-header {
         padding: 14px 18px;
+        justify-content: center!important;
     }
 
     .ggr-login-logo {
-        height: 44px !important;
+        height: 70px !important;
     }
 
     .ggr-login-header-right span,
@@ -203,7 +225,7 @@ footer,
     box-sizing: border-box;
     border-radius: 8px;
     border: 1px solid #d1d5db;
-    padding: 10px 12px;
+    padding: 15px 12px;
     font-size: 14px;
     color: #111827;
     background: #ffffff;
@@ -262,6 +284,7 @@ footer,
 .ggr-login-notice--info {
     background: #eff6ff;
     color: #1d4ed8;
+    text-align: center;
 }
 
 .ggr-login-notice--error {
@@ -289,7 +312,7 @@ footer,
     color: #ffffff;
     font-size: 14px;
     font-weight: 600;
-    padding: 12px 18px;
+    padding: 15px 18px;
     cursor: pointer;
     text-align: center;
     text-decoration: none;
@@ -347,6 +370,7 @@ footer,
 .ggr-2fa-resend .ggr-link-button {
     color: #e39b6c !important;
     font-weight: 600;
+    margin-top: 16px;
 }
 
 .ggr-2fa-resend .ggr-link-button:hover {
@@ -462,14 +486,13 @@ footer,
 
     .ggr-login-wrapper {
         padding: 0;
+        margin-top: 50px;
+        min-height: 0vh;
     }
 
     .ggr-login-shell {
         max-width: 100%;
-        background: #fff;
-        padding: 24px 20px 22px 20px;
         border-radius: 15px;
-        margin: 10px;
     }
 
     .ggr-login-card {
@@ -477,11 +500,11 @@ footer,
         padding: 24px 20px 22px 20px;
         box-shadow: none;
         display: content !important;
-        margin: 10px;
+        background: none;
     }
 
     .ggr-login-title {
-        font-size: 22px;
+        font-size: 28px;
     }
 
     .ggr-login-toast {
@@ -521,10 +544,9 @@ footer,
     box-sizing: border-box;
     border-radius: 8px;
     border: 1px solid #d1d5db;
-    padding: 10px 12px;
+    padding: 15px 12px;
     font-size: 14px;
     color: #111827;
-    background: #ffffff;
     transition: border-color 0.15s ease,
                 box-shadow 0.15s ease,
                 background-color 0.15s ease;
@@ -546,6 +568,10 @@ footer,
 .ggr-login-card input[type="number"]::placeholder {
     color: #b8b8b8;
     opacity: 1;
+}
+
+.ggr-login-header-right { 
+    display: none!important;
 }
 
 /* Checkboxes netjes uitlijnen */
