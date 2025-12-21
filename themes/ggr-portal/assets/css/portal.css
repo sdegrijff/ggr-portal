@@ -15,6 +15,11 @@
     box-sizing: border-box;
 }
 
+.ggrp-fe-hallo h1 {
+    margin: 0px;
+    margin-bottom: 5px!important;
+}
+
 /* ====== Header ====== */
 
 .ggrp-fe-header {
@@ -1539,6 +1544,11 @@ a.ggr-bericht-options-item.ggr-bericht-options-item--pdf {
     
 .ggrp-fe-header h1 {
     display: none;
+}
+
+.ggrp-fe-hallo {
+    display: flex;
+    flex-direction: row;
 }
 
 .ggrp-fe-hallo h1 {
