@@ -73,7 +73,7 @@ body {
 }
 
 .ggr-shell-divider {
-    height: 1px;
+    height: 0px;
     background: #f3f4f6;
     margin: 4px 0 10px;
 }
