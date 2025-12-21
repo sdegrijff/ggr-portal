@@ -548,10 +548,50 @@ document.addEventListener('DOMContentLoaded', function() {
         el.style.display = 'none';
     });
 
-    // Grijze placeholders standaard
+    // Grijze placeholders standaard + iconen/verbeteringen
     if (userField && !userField.placeholder) userField.placeholder = 'E-mailadres';
     if (passField && !passField.placeholder) passField.placeholder = 'Wachtwoord';
 
+    function enhanceInput(el, options) {
+        if (!el) return;
+
+        if (el.parentElement && el.parentElement.classList.contains('ggr-input-wrapper')) {
+            return;
+        }
+
+        var wrapper = document.createElement('div');
+        wrapper.className = 'ggr-input-wrapper';
+        el.parentNode.insertBefore(wrapper, el);
+        wrapper.appendChild(el);
+
+        if (options && options.iconClass) {
+            var icon = document.createElement('span');
+            icon.className = 'ggr-input-icon';
+            icon.innerHTML = '<i class="' + options.iconClass + '"></i>';
+            wrapper.appendChild(icon);
+        }
+
+        if (options && options.addToggle) {
+            var toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'ggr-password-toggle';
+            toggle.setAttribute('aria-label', 'Wachtwoord tonen');
+            toggle.innerHTML = '<i class="ri-eye-line"></i>';
+
+            toggle.addEventListener('click', function() {
+                var isHidden = el.getAttribute('type') === 'password';
+                el.setAttribute('type', isHidden ? 'text' : 'password');
+                toggle.innerHTML = isHidden ? '<i class="ri-eye-off-line"></i>' : '<i class="ri-eye-line"></i>';
+                toggle.setAttribute('aria-label', isHidden ? 'Wachtwoord verbergen' : 'Wachtwoord tonen');
+            });
+
+            wrapper.appendChild(toggle);
+        }
+    }
+
+    enhanceInput(userField, { iconClass: 'ri-mail-line' });
+    enhanceInput(passField, { iconClass: 'ri-lock-line', addToggle: true });
+    
     function markEmptyField(el) {
         if (!el) return;
         el.classList.add('ggr-input-error');
@@ -792,19 +832,23 @@ function ggr_lost_password_form_shortcode() {
                       action="<?php echo esc_url( $action_url ); ?>"
                       method="post">
 
-                    <div class="ggr-login-fields" style="text-align:left;">
-                        <div class="ggr-field">
-                            <label for="user_login">E-mailadres</label>
-                            <input type="email"
-                                   name="user_login"
-                                   id="user_login"
-                                   class="input"
-                                   value=""
-                                   size="20"
-                                   placeholder="E-mailadres"
-                                   required />
-                        </div>
-                    </div>
+<div class="ggr-login-fields" style="text-align:left;">
+  <div class="ggr-field">
+    <label for="user_login">E-mailadres</label>
+
+    <div class="ggr-input-wrap">
+      <i class="ri-mail-line" aria-hidden="true"></i>
+      <input type="email"
+             name="user_login"
+             id="user_login"
+             class="input"
+             value=""
+             size="20"
+             placeholder="E-mailadres"
+             required />
+    </div>
+  </div>
+</div>
 
                     <div class="ggr-login-actions">
                         <button type="submit"
