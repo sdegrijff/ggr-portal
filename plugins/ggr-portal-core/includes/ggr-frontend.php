@@ -1204,7 +1204,7 @@ $greeting_name = $first_name ? $first_name : $naam;
                 const minVal = Math.min(...rangeValues);
                 const maxVal = Math.max(...rangeValues);
                 const delta = Math.max(maxVal - minVal, 1);
-                const pad = delta * 0.2;
+                const pad = delta * 0.20;
 
                 const currentDates = filtered.dates.length ? filtered.dates : basePosDates;
                 const monthFromDate = (dateStr) => formatMonthShortFromYMD(dateStr || '');
@@ -1225,8 +1225,8 @@ $greeting_name = $first_name ? $first_name : $naam;
                 posChart.update();
             }
 
-            // Gedeelde y-as: geen grid/rand, wel euro-format + 5% extra ruimte
-            const yAxisEuro = {
+            // Gedeelde y-as helper
+            const makeYAxisEuro = (overrides = {}) => ({
                 grid: {
                     display: false,
                     drawBorder: false
@@ -1238,13 +1238,22 @@ $greeting_name = $first_name ? $first_name : $naam;
                             maximumFractionDigits: 0
                         });
                     },
-                    stepSize: 500
+                    ...overrides.ticks
                 },
-                grace: '20%',
-                suggestedMin: undefined,
-                suggestedMax: undefined
-            };
+                ...overrides.base
+            });
 
+            const yAxisEuroBase = makeYAxisEuro();
+            const yAxisEuroPos = makeYAxisEuro({
+                base: {
+                    grace: '20%',
+                    suggestedMin: undefined,
+                    suggestedMax: undefined
+                },
+                ticks: {
+                    stepSize: 500
+                }                    
+            });
             // Gemeenschappelijke layout: wat lucht binnen de card
             const baseLayout = {
                 padding: { top: 8, right: 16, bottom: 8, left: 16 }
@@ -1305,7 +1314,7 @@ $greeting_name = $first_name ? $first_name : $naam;
                                 drawBorder: false
                             }
                         },
-                        y: yAxisEuro
+                        y: yAxisEuroPos
                     }
                 }
             });
@@ -1375,7 +1384,7 @@ $greeting_name = $first_name ? $first_name : $naam;
                                 drawBorder: false
                             }
                         },
-                        y: yAxisEuro
+                       y: yAxisEuroBase
                     }
                 }
             });
@@ -1430,7 +1439,7 @@ $greeting_name = $first_name ? $first_name : $naam;
                                 drawBorder: false
                             }
                         },
-                        y: yAxisEuro
+                        y: yAxisEuroBase
                     }
                 }
             });
