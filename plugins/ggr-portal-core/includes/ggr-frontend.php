@@ -1206,7 +1206,7 @@ $greeting_name = $first_name ? $first_name : $naam;
                 posChart.update();
             }
 
-            // Gedeelde y-as: geen grid/rand, wel euro-format
+            // Gedeelde y-as: geen grid/rand, wel euro-format + 5% extra ruimte
             const yAxisEuro = {
                 grid: {
                     display: false,
@@ -1219,7 +1219,8 @@ $greeting_name = $first_name ? $first_name : $naam;
                             maximumFractionDigits: 0
                         });
                     }
-                }
+                },
+                grace: '5%'
             };
 
             // Gemeenschappelijke layout: wat lucht binnen de card
