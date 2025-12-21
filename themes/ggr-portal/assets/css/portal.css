@@ -1414,6 +1414,7 @@
     
     .ggr-berichten-card {
         border-radius: 18px;
+        margin: 10px;
         
     }
 
@@ -1424,12 +1425,13 @@
     }
 
     .ggr-berichten-toolbar-actions {
-        align-self: flex-end;
+        align-self: self-start;
     }
 
     .ggr-bericht-main {
-        flex-direction: column;
+        flex-direction: row;
         align-items: flex-start;
+        gap: 0.5rem;
     }
 
     .ggr-bericht-date {
@@ -1492,14 +1494,20 @@
 
 @media (max-width: 1100px) {
     .ggrp-fe {
-        padding: 0 0 32px;
+        padding: 0 10px 32px;
     }
 }
 
 @media (max-width: 960px) {
     .ggrp-fe-kpi-row {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-bottom:16px;
+        gap: 8px;
     }
+    
+.ggr-berichten-wrapper {
+    margin-bottom: 15vh;
+}
 
     .ggrp-fe-row-main,
     .ggrp-fe-table-head {
@@ -1518,8 +1526,13 @@
 
 @media (max-width: 640px) {
     .ggrp-fe {
-        padding: 0 0 24px;
+        padding: 0 10px 24px;
+        margin-bottom: 10vh;
     }
+    
+.ggrp-fe-chart-row {
+    gap: inherit;
+}
     
 .ggrp-fe-header {
     flex-direction: column!important;
@@ -1758,8 +1771,8 @@
 
 @media (max-width: 768px) {
     
-    .ggrp-fe--account {
-        margin: 0 1rem 3rem;
+    .ggrp-fe-account-row {
+        display: inherit;
     }
 
     .ggrp-fe-account-card {
