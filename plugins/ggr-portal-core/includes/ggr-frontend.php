@@ -1641,7 +1641,7 @@ function ggrp_fe_transacties_shortcode( $atts ) {
                                         <?php echo esc_html( $status_raw ); ?>
                                     </span>
                                 </div>
-                                <div class="ggrp-fe-trans-col">
+                                <div class="ggrp-fe-trans-col-date">
                                     <?php echo esc_html( $datum_label ); ?>
                                 </div>
                             </div>
