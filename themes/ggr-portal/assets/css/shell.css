@@ -224,6 +224,10 @@ body {
         top: 0;
         z-index: 20;
     }
+    
+    .ggr-shell-main {
+        padding: 0px!important;
+    }
 
     .ggr-mobile-header-top {
         display: flex;
