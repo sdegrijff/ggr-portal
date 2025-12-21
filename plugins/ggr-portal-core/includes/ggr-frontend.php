@@ -379,9 +379,19 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
         return $maybe_error;
     }
 
-    $user    = wp_get_current_user();
-    $naam    = $user && $user->display_name ? $user->display_name : 'investeerder';
-    $user_id = get_current_user_id();
+$user    = wp_get_current_user();
+$user_id = get_current_user_id();
+
+$first_name = '';
+if ( $user && ! empty( $user->first_name ) ) {
+    $first_name = $user->first_name;
+}
+
+// fallback: display_name (of 'investeerder')
+$naam = $user && ! empty( $user->display_name ) ? $user->display_name : 'investeerder';
+
+// uiteindelijke groetnaam: voornaam als die er is, anders display_name/fallback
+$greeting_name = $first_name ? $first_name : $naam;
 
     if ( ! function_exists( 'ggr_portal_get_history_for_user' ) || ! $user_id ) {
         return '<section class="ggrp-fe"><h1>Dashboard</h1><p>Historie niet beschikbaar.</p></section>';
@@ -867,9 +877,9 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
     ob_start();
     ?>
     <section class="ggrp-fe ggrp-fe--dashboard">
-        <header class="ggrp-fe-header">
+        <header class="ggrp-fe-hallo">
             <div>
-                <h1>Hallo <?php echo esc_html( $naam ); ?>,</h1>
+                <h1>Hallo <?php echo esc_html( $greeting_name ); ?>,</h1>
                 <p class="ggrp-fe-subtitle">
                     Laatst geüpdatet op <?php echo esc_html( $laatste_datum_display ); ?>
                     <?php if ( $laatste_tijd_display ) : ?>
