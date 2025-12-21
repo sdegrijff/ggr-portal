@@ -742,8 +742,21 @@
 
 .ggrp-fe-trans-col {
     display: flex;
-    align-items: center;
+    align-self: left;
     gap: 0.35rem;
+}
+
+body .ggrp-fe--transacties .ggrp-fe-trans-row-main .ggrp-fe-trans-col:nth-child(4), body .ggrp-fe--transacties .ggrp-fe-trans-row-main .ggrp-fe-trans-col:nth-child(5) {
+    align-self: flex-end!important;
+}
+
+.ggrp-fe-trans-col-date {
+    align-self: flex-end !important;
+    text-align: right;
+} 
+
+.ggrp-fe-status-badge {
+    margin-top: -25px;
 }
 
 .ggrp-fe-trans-col--type strong {
@@ -1517,6 +1530,12 @@ a.ggr-bericht-options-item.ggr-bericht-options-item--pdf {
         margin-bottom:16px;
         gap: 8px;
     }
+    
+.ggrp-fe-trans-col-date {
+    order: -1;
+    margin-bottom: -25px;
+    font-size: 13px;
+}
     
 .ggrp-fe-header h1 {
     display: none;
