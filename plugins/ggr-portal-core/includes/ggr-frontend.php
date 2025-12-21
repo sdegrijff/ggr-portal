@@ -878,7 +878,7 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
                 </p>
             </div>
             <div class="ggrp-fe-header-meta">
-                <span class="ggrp-fe-meta-label">Volgende handelsdag</span>
+                <span class="ggrp-fe-meta-label">Volgende handelsdag: </span>
                 <span class="ggrp-fe-trade-chip">
                    <?php echo esc_html( $next_trade_day_label ? $next_trade_day_label : 'Nog niet bekend' ); ?>
                 </span>
@@ -1000,12 +1000,10 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
                 </div>
             </section>
         </div>
-    </section>
-
-        <!-- Prognose grafiek -->
+                <!-- Prognose grafiek -->
         <section class="ggrp-fe-panel">
             <div class="ggrp-fe-panel-header">
-                <h2>Dividend rendement (%) per maand + Prognose voor 6 maanden</h2>
+                <h2>Dividend rendement (%)</h2>
             </div>
             <div class="ggrp-fe-panel-body ggrp-fe-panel-body--chart">
                 <?php if ( ! empty( $forecast_month_labels ) && ! empty( $forecast_actual_series ) ) : ?>
@@ -1023,6 +1021,8 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
                 <?php endif; ?>
             </div>
         </section>
+        
+    </section>
 
     <?php
 
