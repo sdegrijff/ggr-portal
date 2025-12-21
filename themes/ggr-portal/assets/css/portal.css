@@ -257,7 +257,7 @@
 }
 
 .ggrp-fe-panel-body {
-    padding: 0px 0px 20px;
+    padding: 0px 0px 10px;
 }
 
 .ggrp-fe-panel-body--chart {
@@ -265,7 +265,7 @@
 }
 
 .ggrp-fe-panel-body--chart-small {
-    height: 260px;
+    height: 380px;
 }
 
 .ggr-positie-grafiek-wrapper {
@@ -372,12 +372,12 @@
 }
 
 .ggrp-fe-button:hover {
-    background: #0f172a;
+    background: #739aac;
     box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
 }
 
 .ggrp-fe-button--primary {
-    background: #0f172a;
+    background: var(--ggr-accent);
 }
 
 .ggrp-fe-alert {
@@ -419,7 +419,31 @@
 
 .ggrp-fe-wijziging-grid H2 {
     margin: 0px!important;
+}
 
+.ggrp-fe-wijziging-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: right;
+    gap: 12px;
+    margin-bottom: -17px;
+}
+
+.ggrp-fe-back-link {
+    text-decoration: none;
+    color: var(--ggr-accent);
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    margin-bottom: 10px;
+    padding-left: 15px;
+}
+
+.ggrp-fe-back-link:hover,
+.ggrp-fe-back-link:focus-visible {
+    text-decoration: underline;
 }
 
 .ggrp-fe-wijziging-card--clickable {
@@ -494,7 +518,7 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: #6b7280;
-    margin: 0 0 2px;
+    margin: 0px 0 2px;
 }
 
 .ggrp-fe-card-text {
@@ -548,17 +572,12 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 10px;
     border-radius: 5px;
     font-weight: 600;
     font-size: 12px;
-    background: rgba(115, 154, 172, 0.1);
     color: #739aac;
-    border: 1px solid rgba(115, 154, 172, 0.2);
-    width: 100%;
-    max-width: 90px;
-    margin-top: 10px;
-    margin-bottom: 10px;
+    width: auto;
+    max-width: 100px;
 }
 
 .ggrp-fe-summary-list {
@@ -1501,13 +1520,38 @@
     .ggrp-fe {
         padding: 0 0 24px;
     }
+    
+.ggrp-fe-header {
+    flex-direction: column!important;
+}
+    
+.ggrp-fe-panel-body--chart {
+    height: 250px;
+}
 
-    .ggrp-fe-kpi-row {
-        grid-template-columns: 1fr;
-    }
+.ggrp-fe-panel-body--chart-small {
+    height: 250px;
+}
+    
+  .ggrp-fe-chip{
+    width: auto !important;
+    max-width: none !important;
+    display: inline-flex !important;
+    flex: 0 0 auto !important;
+    align-self: flex-start;        /* voorkomt stretch in flex-parents */
+    white-space: nowrap !important; /* voorkomt + / bedrag op nieuwe regel */
+  }
+
+  /* als er spans of andere elementen binnenin block zijn */
+  .ggrp-fe-chip *{
+    display: inline !important;
+    white-space: nowrap !important;
+  }
+}
+
 
     .ggrp-fe-header {
-        flex-direction: column;
+        flex-direction: row;
         gap: 8px;
     }
 
