@@ -14,6 +14,25 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
+ * Bepaal deelname-type (MIF/IF) op basis van beoogd investeringsbedrag.
+ *
+ * - Onder €100.000 => MIF
+ * - Vanaf €100.000  => IF
+ */
+function ggr_portal_calculate_participation_type( $amount ) {
+    $amount = (float) $amount;
+    if ( $amount > 0 && $amount < 100000 ) {
+        return 'mif';
+    }
+
+    if ( $amount > 0 ) {
+        return 'if';
+    }
+
+    return '';
+}
+
+/**
  * 1. DATABASE-TABEL VOOR PARTICIPATIE-HISTORIE
  */
 function ggr_portal_create_history_table() {
@@ -2062,6 +2081,7 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     }
     
     // Stap 1: bedrag
+    $amount_value = get_user_meta( $user_id, 'ggr_participation_amount', true );    
     if ( isset( $_POST['ggr_participation_amount'] ) ) {
         $amount_raw = sanitize_text_field( wp_unslash( $_POST['ggr_participation_amount'] ) );
         if ( function_exists( 'ggr_onboarding_parse_amount' ) ) {
@@ -2073,6 +2093,18 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
         update_user_meta( $user_id, 'ggr_participation_amount', $amount_value );
         update_user_meta( $user_id, 'ggr_investment_amount', $amount_value );
         update_user_meta( $user_id, 'ggr_investment', $amount_raw );
+    }
+
+    // Deelname-type (MIF/IF)
+    $participation_type_input = isset( $_POST['ggr_participation_type'] )
+        ? sanitize_key( wp_unslash( $_POST['ggr_participation_type'] ) )
+        : '';
+    $participation_type = in_array( $participation_type_input, array( 'mif', 'if' ), true )
+        ? $participation_type_input
+        : ggr_portal_calculate_participation_type( $amount_value );
+
+    if ( $participation_type ) {
+        update_user_meta( $user_id, 'ggr_participation_type', $participation_type );
     }
     
     // Stap 2: profiel
@@ -2603,8 +2635,13 @@ function ggr_portal_render_participant_profile_page() {
     $bank_name = isset( $meta['bank_account_name'][0] ) ? $meta['bank_account_name'][0] : '';
 
     $participation_profile = isset( $meta['ggr_participation_profile'][0] ) ? $meta['ggr_participation_profile'][0] : '';
+    $participation_type    = isset( $meta['ggr_participation_type'][0] ) ? $meta['ggr_participation_type'][0] : '';
     $has_co_participant    = isset( $meta['ggr_has_co_participant'][0] ) ? $meta['ggr_has_co_participant'][0] : 'nee';
     $participation_amount  = isset( $meta['ggr_participation_amount'][0] ) ? $meta['ggr_participation_amount'][0] : '';
+
+    if ( ! $participation_type && function_exists( 'ggr_portal_calculate_participation_type' ) ) {
+        $participation_type = ggr_portal_calculate_participation_type( $participation_amount );
+    }
 
     $kyc_first_name   = isset( $meta['ggr_kyc_first_name'][0] )   ? $meta['ggr_kyc_first_name'][0]   : $first_name;
     $kyc_last_name    = isset( $meta['ggr_kyc_last_name'][0] )    ? $meta['ggr_kyc_last_name'][0]    : $last_name;
@@ -2876,6 +2913,15 @@ function ggr_portal_render_participant_profile_page() {
                                         <p class="description">Laatste login: <?php echo esc_html( $last_login_label ); ?></p>
                                     <?php endif; ?>
                                 </div>
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_participation_type">Deelname-type</label>
+                                    <select name="ggr_participation_type" id="ggr_participation_type">
+                                        <option value="">Automatisch (op basis van bedrag)</option>
+                                        <option value="mif" <?php selected( $participation_type, 'mif' ); ?>>MIF (onder € 100.000)</option>
+                                        <option value="if" <?php selected( $participation_type, 'if' ); ?>>IF (≥ € 100.000)</option>
+                                    </select>
+                                    <p class="description">Standaardkeuze: onder € 100.000 = MIF, vanaf € 100.000 = IF. Handmatig aanpassen kan hier.</p>
+                                </div>                                
                                 <div class="ggr-admin-inline-field">
                                     <label>
                                         <input type="checkbox" name="ggr_marketing_optin" id="ggr_marketing_optin" value="1" <?php checked( 1, $marketing_optin ); ?> />
