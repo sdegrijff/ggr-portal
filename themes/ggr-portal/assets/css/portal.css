@@ -957,6 +957,19 @@
     color: var(--ggr-text-main);
 }
 
+a.ggr-bericht-options-item.ggr-bericht-options-item--pdf {
+    text-decoration: none;
+    color: #000;
+    padding-top:10px;
+}
+
+.download-pdf {
+    font-weight: 500;   
+    font-size: 16px;    
+  
+}
+
+
 .ggr-berichten-title {
     font-size: 30px;
     font-weight: 700;
@@ -1400,12 +1413,12 @@
     justify-content: center;
     font-size: 0.68rem;
     font-weight: 600;
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
     border-radius: 10px;
-    border: 1px solid #fecaca;
-    background: #fef2f2;
-    color: #b91c1c;
+    border: 1px solid rgba(242, 159, 117, 0.20);
+    background: var(--ggr-accent-soft);
+    color: var(--ggr-accent);
 }
 
 /* Responsive tweaks ------------------------------------------------------ */
@@ -1504,6 +1517,20 @@
         margin-bottom:16px;
         gap: 8px;
     }
+    
+.ggrp-fe-header h1 {
+    display: none;
+}
+
+.download-pdf {
+    margin-left: 10px;
+}
+
+.ggr-bericht-options-item--pdf::before {
+    margin-top:10px;
+}
+
+    
     
 .ggr-berichten-wrapper {
     margin-bottom: 15vh;
