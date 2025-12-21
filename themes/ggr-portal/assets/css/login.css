@@ -234,6 +234,51 @@ footer,
                 background-color 0.15s ease;
 }
 
+.ggr-input-wrapper {
+    position: relative;
+}
+
+.ggr-input-wrapper input[type="text"],
+.ggr-input-wrapper input[type="email"],
+.ggr-input-wrapper input[type="password"],
+.ggr-input-wrapper .input {
+    padding-left: 44px;
+    padding-right: 44px;
+}
+
+.ggr-input-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+    font-size: 18px;
+    pointer-events: none;
+    display: inline-flex;
+    align-items: center;
+}
+
+.ggr-password-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: #6b7280;
+    font-size: 18px;
+    display: inline-flex;
+    align-items: center;
+    padding: 6px;
+}
+
+.ggr-password-toggle:focus-visible {
+    outline: 2px solid #f49c6b;
+    border-radius: 6px;
+    outline-offset: 2px;
+}
+
 /* Placeholder kleur */
 .ggr-login-card input::placeholder,
 .ggr-login-fields .ggr-field .input::placeholder,
@@ -656,4 +701,3 @@ footer,
 .ggr-info-icon:focus::before {
     opacity: 1;
 }
-
