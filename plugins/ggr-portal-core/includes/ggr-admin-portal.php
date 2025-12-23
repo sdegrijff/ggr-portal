@@ -13,11 +13,22 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Basiscontrole:
- * Voor nu geen shell-activering; admin ziet de standaard WordPress omgeving.
  */
 function ggr_admin_shell_is_allowed() {
-	return false;
+	$current_user = wp_get_current_user();
+
+	// Administrator blijft in de standaard WP admin.
+	if ( current_user_can( 'administrator' ) ) {
+		return false;
+	}
+
+	// Medewerkers (employee rol) krijgen de portal-shell.
+	if ( in_array( 'employee', (array) $current_user->roles, true ) ) {
+		return true;
+	}
+
 }
+
 
 /**
  * Extra body-class om gerichte styling toe te passen.
