@@ -73,97 +73,18 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 	);
 
 	wp_enqueue_style(
+		'ggr-admin-shell-admin',
+		$theme_uri . '/assets/css/admin-shell.css',
+		[ 'ggr-admin-shell-portal' ],
+		'1.0'
+	);
+
+	wp_enqueue_style(
 		'ggr-admin-shell-icons',
 		'https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css',
 		[],
 		'3.5.0'
 	);
-
-	// Verberg standaard WP chrome en reset layout voor shell.
-	$custom_css = '
-		body.ggr-admin-shell-enabled #adminmenumain,
-		body.ggr-admin-shell-enabled #wpadminbar,
-		body.ggr-admin-shell-enabled #screen-meta,
-		body.ggr-admin-shell-enabled #screen-meta-links,
-		body.ggr-admin-shell-enabled #contextual-help-link-wrap,
-		body.ggr-admin-shell-enabled .update-nag,
-		body.ggr-admin-shell-enabled .notice,
-		body.ggr-admin-shell-enabled .wrap > h1.wp-heading-inline {
-			display: none !important;
-		}
-
-		body.ggr-admin-shell-enabled #wpcontent,
-		body.ggr-admin-shell-enabled #wpbody-content {
-			margin-left: 0;
-			padding: 0;
-		}
-
-		body.ggr-admin-shell-enabled #wpwrap {
-			background: var(--ggr-main-bg, #f2f7f8);
-		}
-
-		body.ggr-admin-shell-enabled .ggr-admin-shell__content .wrap {
-			margin: 0;
-		}
-
-		body.ggr-admin-shell-enabled .ggr-admin-shell__content .wrap > .notice,
-		body.ggr-admin-shell-enabled .ggr-admin-shell__content .wrap > .update-nag {
-			display: block !important;
-			margin-bottom: 16px;
-		}
-
-		body.ggr-admin-shell-enabled .ggr-admin-shell__content table.widefat,
-		body.ggr-admin-shell-enabled .ggr-admin-shell__content .form-table {
-			background: #ffffff;
-			border: 1px solid #e5e7eb;
-			border-radius: 12px;
-			padding: 12px 12px 8px;
-			box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-		}
-
-		body.ggr-admin-shell-enabled .ggr-admin-shell__content .form-table th {
-			padding-left: 6px;
-		}
-
-		body.ggr-admin-shell-enabled .ggr-admin-shell__content .form-table td {
-			padding-right: 6px;
-		}
-
-		body.ggr-admin-shell-enabled .ggr-admin-shell__content .page-title-action {
-			display: inline-flex;
-			align-items: center;
-			gap: 6px;
-			background: #ffffff;
-			color: #111827;
-			border: 1px solid #e5e7eb;
-			border-radius: 8px;
-			padding: 8px 12px;
-			text-decoration: none;
-			box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-			transition: all .15s ease;
-		}
-
-		body.ggr-admin-shell-enabled .ggr-admin-shell__content .page-title-action:hover {
-			color: var(--ggr-accent, #f29e75);
-			border-color: var(--ggr-accent, #f29e75);
-		}
-
-		body.ggr-admin-shell-enabled .ggr-admin-shell__breadcrumb {
-			display: inline-flex;
-			align-items: center;
-			gap: 8px;
-			font-size: 13px;
-			color: #6b7280;
-		}
-
-		@media (max-width: 960px) {
-			body.ggr-admin-shell-enabled .ggr-admin-shell__header {
-				flex-direction: column;
-			}
-		}
-	';
-
-	wp_add_inline_style( 'ggr-admin-shell-portal', $custom_css );
 
 	// Data voor shell in JS.
 	$current_user = wp_get_current_user();
@@ -171,43 +92,27 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 	$nav_primary = [
 		[
 			'slug'  => 'ggr-admin-portal',
-			'label' => 'Admin Portal',
+			'label' => 'Dashboard',
 			'icon'  => 'ri-dashboard-line',
 			'url'   => admin_url( 'admin.php?page=ggr-admin-portal' ),
 		],
 		[
-			'slug'  => 'ggr-crm',
-			'label' => 'CRM',
-			'icon'  => 'ri-id-card-line',
-			'url'   => admin_url( 'admin.php?page=ggr-crm' ),
+			'slug'  => 'ggr-participant-overzicht',
+			'label' => 'Participanten',
+			'icon'  => 'ri-group-line',
+			'url'   => admin_url( 'users.php?page=ggr-participant-overzicht' ),
+		],
+		[
+			'slug'  => 'ggr-onboarding',
+			'label' => 'Onboarding',
+			'icon'  => 'ri-user-add-line',
+			'url'   => admin_url( 'users.php?page=ggr-onboarding' ),
 		],
 		[
 			'slug'  => 'ggr-meldingen',
-			'label' => 'Meldingen',
+			'label' => 'Meldingen/taken',
 			'icon'  => 'ri-notification-3-line',
 			'url'   => admin_url( 'admin.php?page=ggr-meldingen' ),
-		],
-		[
-			'slug'  => 'ggr_bericht',
-			'label' => 'Portal Berichten',
-			'icon'  => 'ri-chat-3-line',
-			'url'   => admin_url( 'edit.php?post_type=ggr_bericht' ),
-		],
-		[
-			'slug'  => 'ggr-stock-price',
-			'label' => 'Fund waardering',
-			'icon'  => 'ri-stock-line',
-			'url'   => admin_url( 'admin.php?page=ggr-stock-price' ),
-		],
-	];
-
-	// Aanvullende acties/tabbladen voor beheer & systeem
-	$nav_secondary = [
-		[
-			'slug'  => 'front-portal',
-			'label' => 'Participant portal',
-			'icon'  => 'ri-login-box-line',
-			'url'   => home_url( '/dashboard/' ),
 		],
 		[
 			'slug'  => 'ggr_email_template',
@@ -216,10 +121,20 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 			'url'   => admin_url( 'edit.php?post_type=ggr_email_template' ),
 		],
 		[
-			'slug'  => 'users.php',
-			'label' => 'Beheerders & rollen',
-			'icon'  => 'ri-user-settings-line',
-			'url'   => admin_url( 'users.php' ),
+			'slug'  => 'ggr-stock-price',
+			'label' => 'NAV Koers',
+			'icon'  => 'ri-stock-line',
+			'url'   => admin_url( 'admin.php?page=ggr-stock-price' ),
+		],
+	];
+
+	// Aanvullende acties/tabbladen voor beheer & systeem
+	$nav_secondary = [
+		[
+			'slug'  => 'ggr-audit-log',
+			'label' => 'Audit log',
+			'icon'  => 'ri-shield-check-line',
+			'url'   => admin_url( 'admin.php?page=ggr-audit-log' ),
 		],
 	];
 
@@ -285,13 +200,16 @@ document.addEventListener('DOMContentLoaded', function() {
 	const currentPostType = data.postTypeParam || '';
 
 	const isNavItemActive = (item) => {
-		if (item.slug === 'ggr_bericht' && currentPostType === 'ggr_bericht') {
-			return true;
-		}
 		if (item.slug === 'ggr_email_template' && currentPostType === 'ggr_email_template') {
 			return true;
 		}
-		if (item.slug === 'users.php' && window.location.href.includes('users.php')) {
+		if (item.slug === 'ggr-participant-overzicht' && currentPage === 'ggr-participant-overzicht') {
+			return true;
+		}
+		if (item.slug === 'ggr-onboarding' && currentPage === 'ggr-onboarding') {
+			return true;
+		}
+		if (item.slug === 'profile.php' && window.location.href.includes('profile.php')) {
 			return true;
 		}
 		return item.slug === currentPage;
@@ -387,17 +305,6 @@ document.addEventListener('DOMContentLoaded', function() {
 	const userBox = document.createElement('div');
 	userBox.className = 'ggr-admin-portal__user';
 	userBox.innerHTML = `
-		<div class="ggrp-fe-meta-label">Ingelogd als</div>
-		<h2>${data.user?.name || ''}</h2>
-		<p>${data.user?.email || ''}</p>
-		<div class="ggr-admin-portal__card-actions">
-			<a class="ggr-admin-portal__button" href="${data.profileUrl || '#'}">
-				<i class="ri-user-settings-line"></i> Profiel
-			</a>
-			<a class="ggr-admin-portal__button" href="${data.logoutUrl || '#'}">
-				<i class="ri-logout-circle-line"></i> Uitloggen
-			</a>
-		</div>
 	`;
 
 	header.appendChild(titleBox);
