@@ -45,6 +45,8 @@ function ggr_portal_investeren_shortcode() {
     $new_iban           = '';
     $new_iban_name      = '';
     $feedback_note      = '';
+    $back_link_url      = remove_query_arg( 'change' );
+    $back_link_url      = remove_query_arg( 'change' );    
 
     $payment_details = apply_filters(
         'ggr_portal_investeren_payment_details',
@@ -241,11 +243,6 @@ function ggr_portal_investeren_shortcode() {
                 <h1>Wijziging</h1>
                 <p class="ggrp-fe-subtitle">Kies wat je wil aanpassen en open daarna het formulier.</p>
             </div>
-            <?php if ( $selected_action ) : ?>
-                <div>
-                    <a class="ggrp-fe-button ggrp-fe-button--ghost" href="<?php echo esc_url( remove_query_arg( 'change' ) ); ?>">← Terug naar overzicht</a>
-                </div>
-            <?php endif; ?>
         </div>
 
         <?php if ( ! empty( $errors ) ) : ?>
@@ -334,18 +331,34 @@ function ggr_portal_investeren_shortcode() {
                 </a>
             </div>
         <?php else : ?>
+            <a class="ggrp-fe-back-link" href="<?php echo esc_url( $back_link_url ); ?>">← Terug naar overzicht</a>
             <div class="ggrp-fe-wijziging-grid">
                 <?php if ( 'deposit' === $selected_action ) : ?>
                     <div class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split <?php echo ( 'deposit' === $active_flow ) ? 'is-active' : ''; ?>">
+                        
                         <div class="ggrp-fe-wijziging-icon" aria-hidden="true">
                         <i class="ri-money-euro-circle-line"></i>
                         </div>
                         <div class="ggrp-fe-wijziging-content">
-                            <p class="ggrp-fe-kicker">Storten</p>
-                            <h2>Geld storten</h2>
+                        <?php
+                        $deposit_step_label = '';
+                        if ( 'details' === $deposit_stage ) {
+                            $deposit_step_label = 'Stap 2 van 3';
+                        } elseif ( 'done' !== $deposit_stage ) {
+                            $deposit_step_label = 'Stap 1 van 3';
+                        }
+                        ?>
 
+                        <div class="ggrp-fe-wijziging-topbar">
+                            <?php if ( $deposit_step_label ) : ?>
+                                <div class="ggrp-fe-step-badge"><?php echo esc_html( $deposit_step_label ); ?></div>
+                            <?php endif; ?>
+                        </div>
+
+                        <p class="ggrp-fe-kicker">Storten</p>
+                        <h2>Geld storten</h2>
+                        
                             <?php if ( 'details' === $deposit_stage ) : ?>
-                                <div class="ggrp-fe-step-badge">Stap 2 van 3</div>
                                 <p class="ggrp-fe-card-text">Controleer je bedrag en gebruik onderstaande betaalgegevens.</p>
                                 <ul class="ggrp-fe-summary-list">
                                     <li><strong>Bedrag:</strong> <?php echo wp_kses_post( ggrp_fe_format_money( $deposit_amount ) ); ?></li>
@@ -376,7 +389,6 @@ function ggr_portal_investeren_shortcode() {
                                     <p>Bedankt voor je bevestiging. We verwerken je storting.</p>
                                 </div>
                             <?php else : ?>
-                                <div class="ggrp-fe-step-badge">Stap 1 van 3</div>
                                 <p class="ggrp-fe-card-text">Geef door hoeveel je wilt storten. We leiden je daarna langs de betaalgegevens.</p>
                                 <form method="post" class="ggrp-fe-form ggrp-fe-form--stacked">
                                     <?php wp_nonce_field( 'ggr_wijziging', 'ggr_wijziging_nonce' ); ?>
@@ -404,12 +416,26 @@ function ggr_portal_investeren_shortcode() {
                             <i class="ri-token-swap-line"></i>
                         </div>
                         <div class="ggrp-fe-wijziging-content">
-                            <p class="ggrp-fe-kicker">Strategie</p>
-                            <h2>Uitkeren of herinvesteren</h2>
-                            <p class="ggrp-fe-card-text">Huidige keuze: <strong><?php echo esc_html( 'herbeleggen' === $current_strategy ? 'Herbeleggen' : 'Uitkeren' ); ?></strong></p>
+                        <?php
+                        $strategy_step_label = '';
+                        if ( 'confirm' === $strategy_stage ) {
+                            $strategy_step_label = 'Stap 2 van 2';
+                        } elseif ( 'done' !== $strategy_stage ) {
+                            $strategy_step_label = 'Stap 1 van 2';
+                        }
+                        ?>
+
+                        <div class="ggrp-fe-wijziging-topbar">
+                            <?php if ( $strategy_step_label ) : ?>
+                                <div class="ggrp-fe-step-badge"><?php echo esc_html( $strategy_step_label ); ?></div>
+                            <?php endif; ?>
+                        </div>
+
+                        <p class="ggrp-fe-kicker">Strategie</p>
+                        <h2>Uitkeren of herinvesteren</h2>
+                        <p class="ggrp-fe-card-text">Huidige keuze: <strong><?php echo esc_html( 'herbeleggen' === $current_strategy ? 'Herbeleggen' : 'Uitkeren' ); ?></strong></p>
 
                             <?php if ( 'confirm' === $strategy_stage ) : ?>
-                                <div class="ggrp-fe-step-badge">Stap 2 van 2</div>
                                 <p class="ggrp-fe-card-text">Je wijzigt je strategie naar <strong><?php echo esc_html( 'herbeleggen' === $strategy_choice ? 'Herbeleggen' : 'Uitkeren' ); ?></strong>. Bevestig hieronder.</p>
                                 <form method="post" class="ggrp-fe-form ggrp-fe-form--stacked ggrp-fe-form--inline-actions">
                                     <?php wp_nonce_field( 'ggr_wijziging', 'ggr_wijziging_nonce' ); ?>
@@ -423,7 +449,6 @@ function ggr_portal_investeren_shortcode() {
                                     <p>Je strategiekeuze is ontvangen. We passen dit zo snel mogelijk aan.</p>
                                 </div>
                             <?php else : ?>
-                                <div class="ggrp-fe-step-badge">Stap 1 van 2</div>
                                 <p class="ggrp-fe-card-text">Kies of je rendement wilt laten uitkeren of automatisch wilt herinvesteren.</p>
                                 <form method="post" class="ggrp-fe-form ggrp-fe-form--stacked">
                                     <?php wp_nonce_field( 'ggr_wijziging', 'ggr_wijziging_nonce' ); ?>
@@ -433,13 +458,21 @@ function ggr_portal_investeren_shortcode() {
                                     <div class="ggrp-fe-form-row ggrp-fe-form-row--inline">
                                         <label class="ggrp-fe-radio">
                                             <input type="radio" name="ggr_strategy_choice" value="herbeleggen" <?php checked( $strategy_choice, 'herbeleggen' ); ?> />
-                                            <span>Herbeleggen – extra groei op lange termijn.</span>
+                                            <span class="ggrp-fe-radio__box" aria-hidden="true">✓</span>
+                                            <span class="ggrp-fe-radio__label">
+                                                <span class="ggrp-fe-radio__title">Herbeleggen</span>
+                                                <span class="ggrp-fe-radio__hint">Extra groei op lange termijn.</span>
+                                            </span>
                                         </label>
                                     </div>
                                     <div class="ggrp-fe-form-row ggrp-fe-form-row--inline">
                                         <label class="ggrp-fe-radio">
                                             <input type="radio" name="ggr_strategy_choice" value="uitkeren" <?php checked( $strategy_choice, 'uitkeren' ); ?> />
-                                            <span>Uitkeren – ontvang uitbetaling op je rekening.</span>
+                                            <span class="ggrp-fe-radio__box" aria-hidden="true">✓</span>
+                                            <span class="ggrp-fe-radio__label">
+                                                <span class="ggrp-fe-radio__title">Uitkeren</span>
+                                                <span class="ggrp-fe-radio__hint">Ontvang uitbetaling op je rekening.</span>
+                                            </span>
                                         </label>
                                     </div>
 
@@ -454,11 +487,25 @@ function ggr_portal_investeren_shortcode() {
                             <i class="ri-bank-line"></i>
                         </div>
                         <div class="ggrp-fe-wijziging-content">
-                            <p class="ggrp-fe-kicker">Rekening</p>
-                            <h2>Rekeningnummer wijzigen</h2>
+                        <?php
+                        $bank_step_label = '';
+                        if ( 'verification' === $bank_stage ) {
+                            $bank_step_label = 'Stap 2 van 3';
+                        } elseif ( 'done' !== $bank_stage ) {
+                            $bank_step_label = 'Stap 1 van 3';
+                        }
+                        ?>
+
+                        <div class="ggrp-fe-wijziging-topbar">
+                            <?php if ( $bank_step_label ) : ?>
+                                <div class="ggrp-fe-step-badge"><?php echo esc_html( $bank_step_label ); ?></div>
+                            <?php endif; ?>
+                        </div>
+
+                        <p class="ggrp-fe-kicker">Rekening</p>
+                        <h2>Rekeningnummer wijzigen</h2>
 
                             <?php if ( 'verification' === $bank_stage ) : ?>
-                                <div class="ggrp-fe-step-badge">Stap 2 van 3</div>
                                 <p class="ggrp-fe-card-text">Controleer je nieuwe rekeninggegevens en maak €0,01 over ter verificatie.</p>
                                 <ul class="ggrp-fe-summary-list">
                                     <li><strong>IBAN:</strong> <?php echo esc_html( $new_iban ); ?></li>
@@ -478,7 +525,6 @@ function ggr_portal_investeren_shortcode() {
                                     <p>We hebben je verzoek ontvangen. Na de verificatiebetaling passen we het rekeningnummer aan.</p>
                                 </div>
                             <?php else : ?>
-                                <div class="ggrp-fe-step-badge">Stap 1 van 3</div>
                                 <p class="ggrp-fe-card-text">Vul je nieuwe rekeningnummer en tenaamstelling in. We verifiëren dit met een overboeking van €0,01.</p>
                                 <form method="post" class="ggrp-fe-form ggrp-fe-form--stacked">
                                     <?php wp_nonce_field( 'ggr_wijziging', 'ggr_wijziging_nonce' ); ?>
