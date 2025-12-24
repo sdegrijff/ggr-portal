@@ -71,7 +71,8 @@ add_action( 'admin_menu', function() {
  */
 function ggr_admin_render_dashboard() {
 	if ( ! ggr_admin_shell_user_can_access() ) {
-		wp_die( 'Je hebt geen toestemming om deze pagina te bekijken.' );
+		wp_safe_redirect( home_url( '/' ) );
+		exit;
 	}
 
 	echo '<div class="wrap">';
@@ -298,9 +299,6 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 			}
 			if ( $total_value !== '' ) {
 				$detail_fragments[] = 'totaal € ' . $total_value;
-			}
-			if ( $total_parts !== '' ) {
-				$detail_fragments[] = 'participaties ' . $total_parts;
 			}
 
 			$detail_text = $detail_fragments ? implode( ', ', $detail_fragments ) : '';
