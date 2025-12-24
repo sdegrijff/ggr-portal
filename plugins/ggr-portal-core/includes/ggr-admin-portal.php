@@ -259,6 +259,56 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 		];
 	}
 
+	$ibkr_status_payload = null;
+	if ( function_exists( 'ggr_ibkr_nav_get_status' ) ) {
+		$ibkr_status = ggr_ibkr_nav_get_status();
+
+		$next_run_label = '';
+		if ( ! empty( $ibkr_status['next_run'] ) ) {
+			$next_run_label = wp_date( 'd-m-Y H:i', (int) $ibkr_status['next_run'] );
+		}
+
+		$last_run_label = '';
+		if ( ! empty( $ibkr_status['last_run'] ) && is_array( $ibkr_status['last_run'] ) ) {
+			$last_run         = $ibkr_status['last_run'];
+			$run_timestamp    = ! empty( $last_run['timestamp'] ) ? wp_date( 'd-m-Y H:i', (int) $last_run['timestamp'] ) : '';
+			$report_date_raw  = ! empty( $last_run['date'] ) ? $last_run['date'] : '';
+			$report_date      = $report_date_raw ? wp_date( 'd-m-Y', strtotime( $report_date_raw ) ) : '';
+			$nav_value        = isset( $last_run['nav'] ) ? number_format( (float) $last_run['nav'], 6, ',', '.' ) : '';
+			$total_value      = isset( $last_run['fund_total'] ) ? number_format( (float) $last_run['fund_total'], 2, ',', '.' ) : '';
+			$total_parts      = isset( $last_run['total_participations'] ) ? number_format( (float) $last_run['total_participations'], 4, ',', '.' ) : '';
+			$detail_fragments = array();
+
+			if ( $nav_value !== '' ) {
+				$detail_fragments[] = 'NAV € ' . $nav_value;
+			}
+			if ( $total_value !== '' ) {
+				$detail_fragments[] = 'totaal € ' . $total_value;
+			}
+			if ( $total_parts !== '' ) {
+				$detail_fragments[] = 'participaties ' . $total_parts;
+			}
+
+			$detail_text = $detail_fragments ? implode( ', ', $detail_fragments ) : '';
+			$label_parts = array_filter( array(
+				$run_timestamp,
+				$report_date ? 'rapportdatum ' . $report_date : '',
+			) );
+
+			$last_run_label = $label_parts ? implode( ' · ', $label_parts ) : '';
+
+			if ( $detail_text ) {
+				$last_run_label = $last_run_label ? $last_run_label . ' · ' . $detail_text : $detail_text;
+			}
+		}
+
+		$ibkr_status_payload = array(
+			'hasCredentials' => ! empty( $ibkr_status['has_credentials'] ),
+			'nextRun'        => $next_run_label,
+			'lastRun'        => $last_run_label,
+		);
+	}
+
 	wp_register_script(
 		'ggr-admin-shell',
 		'',
@@ -286,6 +336,7 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 			'pageParam'     => isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '',
 			'postTypeParam' => isset( $_GET['post_type'] ) ? sanitize_key( wp_unslash( $_GET['post_type'] ) ) : '',
 			'title'         => wp_get_document_title(),
+			'ibkrStatus'    => $ibkr_status_payload,
 		] ) . ';',
 		'before'
 	);
@@ -423,7 +474,7 @@ document.addEventListener('DOMContentLoaded', function() {
 	`;
 
 	const userBox = document.createElement('div');
-	userBox.className = 'ggr-admin-portal__user';
+	userBox.className = 'ggr-admin-shell__status';
 	userBox.innerHTML = `
 	`;
 
@@ -444,6 +495,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
 	shell.appendChild(sidebar);
 	shell.appendChild(main);
+
+	const headerToggle = document.createElement('button');
+	headerToggle.type = 'button';
+	headerToggle.className = 'ggr-admin-shell__toggle';
+	headerToggle.setAttribute('aria-pressed', 'false');
+	headerToggle.setAttribute('aria-label', 'Menu inklappen');
+	headerToggle.innerHTML = '<i class="ri-menu-fold-line"></i>';
+
+	if (data.pageParam === 'ggr-stock-price' && data.ibkrStatus) {
+		const status = data.ibkrStatus;
+		const lastRun = status.lastRun || 'Nog niet uitgevoerd';
+		const nextRun = status.nextRun || (status.hasCredentials ? 'Nog niet ingepland' : 'Niet ingepland');
+
+		userBox.innerHTML = `
+			<div class="ggr-admin-shell__status-item">
+				<span class="ggr-admin-shell__status-label">Laatste cron</span>
+				<span class="ggr-admin-shell__status-value">${lastRun}</span>
+			</div>
+			<div class="ggr-admin-shell__status-item">
+				<span class="ggr-admin-shell__status-label">Volgende cron</span>
+				<span class="ggr-admin-shell__status-value">${nextRun}</span>
+			</div>
+		`;
+	}
 
 	const isCollapsed = () => shell.classList.contains('is-collapsed');
 	const setCollapsed = (collapsed) => {
