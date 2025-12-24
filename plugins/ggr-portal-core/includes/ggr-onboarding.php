@@ -112,10 +112,18 @@ function ggr_onboarding_register_admin_page() {
     add_users_page(
         'Onboarding',
         'Onboarding',
-        'list_users',
+        'read',
         'ggr-onboarding',
         'ggr_onboarding_render_admin_page'
     );
+}
+
+function ggr_onboarding_user_can_access() {
+    if ( function_exists( 'ggr_admin_shell_user_can_access' ) ) {
+        return ggr_admin_shell_user_can_access();
+    }
+
+    return current_user_can( 'list_users' );
 }
 
 /**
@@ -133,7 +141,7 @@ function ggr_onboarding_get_view() {
  * Onboarding admin pagina renderen
  */
 function ggr_onboarding_render_admin_page() {
-    if ( ! current_user_can( 'list_users' ) ) {
+    if ( ! ggr_onboarding_user_can_access() ) {
         wp_die( 'Geen toegang.' );
     }
 
