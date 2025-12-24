@@ -264,6 +264,40 @@ function portal_login_redirect_participant( $redirect_to, $request, $user ) {
 add_filter( 'login_redirect', 'portal_login_redirect_participant', 10, 3 );
 
 /**
+ * 3.1.1) Blokkeer wp-admin voor leads/participants (redirect naar home).
+ */
+function ggr_redirect_lead_participant_from_wp_admin() {
+    if ( wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
+        return;
+    }
+
+    $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
+    $is_wp_admin = is_admin() || ( $request_uri && strpos( $request_uri, '/wp-admin' ) !== false );
+
+    if ( ! $is_wp_admin ) {
+        return;
+    }
+
+    if ( ! is_user_logged_in() ) {
+        return;
+    }
+
+    if ( current_user_can( 'manage_options' ) ) {
+        return;
+    }
+
+    $user  = wp_get_current_user();
+    $roles = (array) $user->roles;
+
+    if ( in_array( 'lead', $roles, true ) || in_array( 'participant', $roles, true ) ) {
+        wp_safe_redirect( home_url( '/' ) );
+        exit;
+    }
+}
+add_action( 'init', 'ggr_redirect_lead_participant_from_wp_admin', 1 );
+
+
+/**
  * 3.2) Force login voor alle front-end pagina's
  */
 function portal_force_login_except_allowed_pages() {
