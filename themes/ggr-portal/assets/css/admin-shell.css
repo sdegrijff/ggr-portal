@@ -15,6 +15,10 @@ body.ggr-admin-shell-enabled #wpbody-content {
     padding: 0;
 }
 
+.ggr-admin-shell__toggle {
+    display:none!important;
+}
+
 .form-table input.tog, .form-table input[type=radio] {
     width: 0;
 }
