@@ -23,7 +23,7 @@ function ggr_admin_shell_is_allowed() {
 	}
 	
 	// Administrator krijgt standaard de portal-shell.
-	if ( current_user_can( 'administrator' ) ) {
+	if ( current_user_can( 'manage_options' ) ) {
 		return true;
 	}
 
