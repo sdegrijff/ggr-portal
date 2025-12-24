@@ -3667,46 +3667,46 @@ function ggr_portal_render_participant_overview_page() {
                 }
 
                 // Link naar participant-profiel
-$profile_url = add_query_arg(
-    [
-        'page'    => 'ggr-participant-profiel',
-        'user_id' => $uid,
-    ],
-    admin_url( 'users.php' )
-);
+                $profile_url = add_query_arg(
+                    [
+                        'page'    => 'ggr-participant-profiel',
+                        'user_id' => $uid,
+                    ],
+                    admin_url( 'users.php' )
+                );
 
-// Link naar participatie-historie
-$history_url = add_query_arg(
-    [
-        'page'    => 'ggr-participatie-historie',
-        'user_id' => $uid,
-    ],
-    admin_url( 'users.php' )
-);
-?>
-<tr>
-    <td><?php echo (int) $uid; ?></td>
-    <td><?php echo esc_html( $first ?: '–' ); ?></td>
-    <td><?php echo esc_html( $last ?: '–' ); ?></td>
-    <td>
-        <a href="mailto:<?php echo esc_attr( $user->user_email ); ?>">
-            <?php echo esc_html( $user->user_email ); ?>
-        </a>
-    </td>
-    <td><?php echo esc_html( $phone ?: '–' ); ?></td>
-    <td><?php echo esc_html( $last_login_label ); ?></td>    
-    <td><?php echo esc_html( $first_date_label ); ?></td>
-
-    <td><?php echo esc_html( $totaal_part_label ); ?></td>
-    <td><?php echo esc_html( $positiewaarde_label ); ?></td>
-    <td><?php echo esc_html( $dividend_label ); ?></td>
-    <td><?php echo esc_html( $inv_rend_label ); ?></td>
-
-    <td>
-        <a href="<?php echo esc_url( $profile_url ); ?>">Bekijk profiel</a> |
-        <a href="<?php echo esc_url( $history_url ); ?>">Bekijk historie</a>
-    </td>
-</tr>
+                // Link naar participatie-historie
+                $history_url = add_query_arg(
+                    [
+                        'page'    => 'ggr-participatie-historie',
+                        'user_id' => $uid,
+                    ],
+                    admin_url( 'users.php' )
+                );
+                ?>
+                <tr>
+                    <td><?php echo (int) $uid; ?></td>
+                    <td>
+                        <a href="<?php echo esc_url( $profile_url ); ?>">
+                            <?php echo esc_html( $name ?: '–' ); ?>
+                        </a>
+                    </td>
+                    <td>
+                        <a href="mailto:<?php echo esc_attr( $user->user_email ); ?>">
+                            <?php echo esc_html( $user->user_email ); ?>
+                        </a>
+                    </td>
+                    <td><?php echo esc_html( $last_login_label ); ?></td>
+                    <td><?php echo esc_html( $first_date_label ); ?></td>
+                    <td><?php echo esc_html( $totaal_part_label ); ?></td>
+                    <td><?php echo esc_html( $positiewaarde_label ); ?></td>
+                    <td><?php echo esc_html( $dividend_label ); ?></td>
+                    <td><?php echo esc_html( $inv_rend_label ); ?></td>
+                    <td>
+                        <a href="<?php echo esc_url( $profile_url ); ?>">Bekijk profiel</a> |
+                        <a href="<?php echo esc_url( $history_url ); ?>">Bekijk historie</a>
+                    </td>
+                </tr>
 
             <?php endforeach; ?>
             </tbody>
