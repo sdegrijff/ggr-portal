@@ -153,6 +153,20 @@ add_filter( 'admin_body_class', function( $classes ) {
 } );
 
 /**
+ * Voorkom layout verspringing door de admin-shell al te verbergen voordat styles laden.
+ */
+add_action( 'admin_head', function() {
+	if ( ! ggr_admin_shell_is_allowed() ) {
+		return;
+	}
+
+	echo '<style id="ggr-admin-shell-preload">
+body.ggr-admin-shell-enabled #wpwrap{opacity:0;visibility:hidden;}
+body.ggr-admin-shell-enabled.ggr-admin-shell-ready #wpwrap{opacity:1;visibility:visible;}
+</style>';
+} );
+
+/**
  * Laad front-end styles + shell script op alle admin-pagina's voor beheerders.
  */
 add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
@@ -497,7 +511,6 @@ document.addEventListener('DOMContentLoaded', function() {
 	shell.appendChild(main);
 
 	const headerToggle = document.createElement('button');
-	headerToggle.type = 'button';
 	headerToggle.className = 'ggr-admin-shell__toggle';
 	headerToggle.setAttribute('aria-pressed', 'false');
 	headerToggle.setAttribute('aria-label', 'Menu inklappen');
