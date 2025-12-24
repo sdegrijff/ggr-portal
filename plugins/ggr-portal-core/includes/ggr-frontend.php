@@ -711,10 +711,22 @@ $greeting_name = $first_name ? $first_name : $naam;
 
         $divMonthKeys[]        = $mk;
         $divMonthKeysDisplay[] = ggrp_fe_shift_month_key( $mk, -1 );
-        $divCumulValues[]    = round( $cumul, 2 );
-        $divPerMonthValues[] = round( $cumul - $prev_cumul_dividend, 2 );
+        $divCumulValues[]      = round( $cumul, 2 );
+        $divPerMonthValues[]   = round( $cumul - $prev_cumul_dividend, 2 );
 
         $prev_cumul_dividend = $cumul;
+    }
+
+    $divCumulValuesDisplay    = $divCumulValues;
+    $divPerMonthValuesDisplay = $divPerMonthValues;
+    $trim_leading_dividend    = count( $divMonthKeysDisplay ) > 1
+        && $divCumulValuesDisplay[0] === 0.0
+        && $divPerMonthValuesDisplay[0] === 0.0;
+
+    if ( $trim_leading_dividend ) {
+        array_shift( $divMonthKeysDisplay );
+        array_shift( $divCumulValuesDisplay );
+        array_shift( $divPerMonthValuesDisplay );
     }
 
     // Prognosegrafiek: laatste 6 maanden realisatie + prognose tot 12 maanden
@@ -817,6 +829,17 @@ $greeting_name = $first_name ? $first_name : $naam;
                     $forecast_projection_full[ $actual_count + $index ] = $value;
                 }
             }
+        }
+
+        $trim_leading_forecast = $trim_leading_dividend
+            && count( $forecast_display_labels ) > 1
+            && ( $forecast_actual_series[0] === null || (float) $forecast_actual_series[0] === 0.0 )
+            && $forecast_projection_full[0] === null;
+
+        if ( $trim_leading_forecast ) {
+            array_shift( $forecast_display_labels );
+            array_shift( $forecast_actual_series );
+            array_shift( $forecast_projection_full );
         }
     }
 
@@ -993,7 +1016,7 @@ $greeting_name = $first_name ? $first_name : $naam;
                     <h2>Dividend Totaal</h2>
                 </div>
                 <div class="ggrp-fe-panel-body ggrp-fe-panel-body--chart-small">
-                    <?php if ( ! empty( $divMonthKeys ) ) : ?>
+                <?php if ( ! empty( $divMonthKeysDisplay ) ) : ?>
                         <div class="ggr-positie-grafiek-wrapper">
                             <canvas id="<?php echo esc_attr( $canvas_div_cum_id ); ?>"></canvas>
                         </div>
@@ -1009,7 +1032,7 @@ $greeting_name = $first_name ? $first_name : $naam;
                     <h2>Dividend per maand </h2>
                 </div>
                 <div class="ggrp-fe-panel-body ggrp-fe-panel-body--chart-small">
-                    <?php if ( ! empty( $divMonthKeys ) ) : ?>
+                    <?php if ( ! empty( $divMonthKeysDisplay ) ) : ?>
                         <div class="ggr-positie-grafiek-wrapper">
                             <canvas id="<?php echo esc_attr( $canvas_div_month_id ); ?>"></canvas>
                         </div>
@@ -1061,8 +1084,8 @@ $greeting_name = $first_name ? $first_name : $naam;
             const posDates       = <?php echo wp_json_encode( $posDates ); ?>;      // Y-m-d
             const posValues      = <?php echo wp_json_encode( $posValues ); ?>;
             const divMonthKeys   = <?php echo wp_json_encode( $divMonthKeysDisplay ); ?>;  // Y-m (display)
-            const divCumulVals   = <?php echo wp_json_encode( $divCumulValues ); ?>;
-            const divMonthVals   = <?php echo wp_json_encode( $divPerMonthValues ); ?>;
+            const divCumulVals   = <?php echo wp_json_encode( $divCumulValuesDisplay ); ?>;
+            const divMonthVals   = <?php echo wp_json_encode( $divPerMonthValuesDisplay ); ?>;
 
             const monthsLong = [
                 'januari','februari','maart','april','mei','juni',
