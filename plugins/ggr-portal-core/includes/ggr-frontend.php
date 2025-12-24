@@ -174,6 +174,17 @@ function ggrp_fe_get_chip_class( $value ) {
     return 'ggrp-fe-chip'; // 0 precies: neutraal
 }
 
+function ggrp_fe_shift_month_key( $month_key, $delta_months = -1 ) {
+    $date = DateTime::createFromFormat( 'Y-m', $month_key );
+    if ( ! $date ) {
+        return $month_key;
+    }
+
+    $date->modify( $delta_months . ' month' );
+
+    return $date->format( 'Y-m' );
+}
+
 /**
  * Registreer de rendering van de forecast-grafiek in de footer (houd shortcodes schoon).
  */
@@ -688,7 +699,8 @@ $greeting_name = $first_name ? $first_name : $naam;
             // 6) Dividend per maand-arrays voor 2 onderste grafieken
     $month_keys          = array_keys( $monthly );
     sort( $month_keys );
-    $divMonthKeys        = []; // YYYY-MM
+    $divMonthKeys        = []; // YYYY-MM (raw, voor berekeningen)
+    $divMonthKeysDisplay = []; // YYYY-MM (weergave, 1 maand terug)
     $divCumulValues      = [];
     $divPerMonthValues   = [];
     $prev_cumul_dividend = 0.0;
@@ -697,7 +709,8 @@ $greeting_name = $first_name ? $first_name : $naam;
         $snap  = $monthly[ $mk ];
         $cumul = (float) $snap['dividend_cumul'];
 
-        $divMonthKeys[]      = $mk;
+        $divMonthKeys[]        = $mk;
+        $divMonthKeysDisplay[] = ggrp_fe_shift_month_key( $mk, -1 );
         $divCumulValues[]    = round( $cumul, 2 );
         $divPerMonthValues[] = round( $cumul - $prev_cumul_dividend, 2 );
 
@@ -706,14 +719,13 @@ $greeting_name = $first_name ? $first_name : $naam;
 
     // Prognosegrafiek: laatste 6 maanden realisatie + prognose tot 12 maanden
     $forecast_month_labels    = array();
+    $forecast_display_labels  = array();    
     $forecast_actual_series   = array();
     $forecast_projection_full = array();
 
     if ( ! empty( $month_keys ) ) {
         $forecast_actual_keys    = array_slice( $month_keys, -6 );
         $forecast_actual_values  = array();
-        $forecast_display_labels = array();
-
         $dividend_per_month_map = array();
         foreach ( $divMonthKeys as $index => $mk ) {
             $dividend_per_month_map[ $mk ] = $divPerMonthValues[ $index ];
@@ -722,15 +734,6 @@ $greeting_name = $first_name ? $first_name : $naam;
         foreach ( $forecast_actual_keys as $mk ) {
             $dividend_maand = isset( $dividend_per_month_map[ $mk ] ) ? (float) $dividend_per_month_map[ $mk ] : 0.0;
             $positie_maand  = isset( $monthly[ $mk ]['positiewaarde'] ) ? (float) $monthly[ $mk ]['positiewaarde'] : null;
-
-            $shifted_label = $mk;
-            $mk_date       = DateTime::createFromFormat( 'Y-m', $mk );
-            if ( $mk_date instanceof DateTime ) {
-                $mk_date->modify( '-1 month' );
-                $shifted_label = $mk_date->format( 'Y-m' );
-            }
-
-            $forecast_display_labels[] = $shifted_label;
 
             if ( $positie_maand && $positie_maand > 0 ) {
                 $rendement_pct           = ( $dividend_maand / $positie_maand ) * 100;
@@ -791,7 +794,13 @@ $greeting_name = $first_name ? $first_name : $naam;
         }
 
         $forecast_month_labels = array_merge( $forecast_actual_keys, $future_keys );
-
+        $forecast_display_labels = array_map(
+            function( $month_key ) {
+                return ggrp_fe_shift_month_key( $month_key, -1 );
+            },
+            $forecast_month_labels
+        );
+        
         if ( ! empty( $forecast_month_labels ) ) {
             $forecast_length        = count( $forecast_month_labels );
             $forecast_actual_series = array_merge(
@@ -1021,7 +1030,7 @@ $greeting_name = $first_name ? $first_name : $naam;
                         <canvas
                             id="<?php echo esc_attr( $canvas_forecast_id ); ?>"
                             class="ggr-fe-forecast-canvas"
-                            data-forecast-labels='<?php echo wp_json_encode( $forecast_month_labels ); ?>'
+                            data-forecast-labels='<?php echo wp_json_encode( $forecast_display_labels ); ?>'
                             data-forecast-actual='<?php echo wp_json_encode( $forecast_actual_series ); ?>'
                             data-forecast-projection='<?php echo wp_json_encode( $forecast_projection_full ); ?>'
                         ></canvas>
@@ -1051,7 +1060,7 @@ $greeting_name = $first_name ? $first_name : $naam;
 
             const posDates       = <?php echo wp_json_encode( $posDates ); ?>;      // Y-m-d
             const posValues      = <?php echo wp_json_encode( $posValues ); ?>;
-            const divMonthKeys   = <?php echo wp_json_encode( $divMonthKeys ); ?>;  // Y-m
+            const divMonthKeys   = <?php echo wp_json_encode( $divMonthKeysDisplay ); ?>;  // Y-m (display)
             const divCumulVals   = <?php echo wp_json_encode( $divCumulValues ); ?>;
             const divMonthVals   = <?php echo wp_json_encode( $divPerMonthValues ); ?>;
 
