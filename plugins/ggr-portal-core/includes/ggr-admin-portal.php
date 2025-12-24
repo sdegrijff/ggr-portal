@@ -445,55 +445,41 @@ document.addEventListener('DOMContentLoaded', function() {
 	shell.appendChild(sidebar);
 	shell.appendChild(main);
 
-	const setCollapsedState = (collapsed) => {
-		shell.classList.toggle('ggr-shell--collapsed', collapsed);
+	const headerToggle = document.createElement('button');
+	headerToggle.type = 'button';
+	headerToggle.className = 'ggr-admin-shell__toggle';
+	headerToggle.innerHTML = '<i class="ri-menu-fold-line"></i>';
+
+	const isCollapsed = () => shell.classList.contains('is-collapsed');
+	const setCollapsed = (collapsed) => {
+		shell.classList.toggle('is-collapsed', collapsed);
 		collapseToggle.innerHTML = collapsed
 			? `<span class="ggr-shell-nav-icon"><i class="ri-layout-right-line"></i></span><span>Menu uitklappen</span>`
 			: `<span class="ggr-shell-nav-icon"><i class="ri-layout-left-line"></i></span><span>Menu invouwen</span>`;
+		headerToggle.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
+		headerToggle.setAttribute('aria-label', collapsed ? 'Menu uitklappen' : 'Menu inklappen');
+		headerToggle.innerHTML = collapsed ? '<i class="ri-menu-unfold-line"></i>' : '<i class="ri-menu-fold-line"></i>';
+		if (window.localStorage) {
+			window.localStorage.setItem('ggrAdminShellCollapsed', collapsed ? '1' : '0');
+		}
 	};
 
-	const isCollapsed = window.localStorage && window.localStorage.getItem('ggrAdminShellCollapsed') === '1';
-	setCollapsedState(isCollapsed);
-
 	collapseToggle.addEventListener('click', () => {
-		const nextState = !shell.classList.contains('ggr-shell--collapsed');
-		setCollapsedState(nextState);
-		if (window.localStorage) {
-			window.localStorage.setItem('ggrAdminShellCollapsed', nextState ? '1' : '0');
-		}
+		setCollapsed(!isCollapsed());
 	});
 
 	// Vervang de wpwrap content door de shell.
 	wpwrap.innerHTML = '';
 	wpwrap.appendChild(shell);
 
-	const isCollapsed = () => shell.classList.contains('is-collapsed');
-	const setCollapsed = (collapsed) => {
-		shell.classList.toggle('is-collapsed', collapsed);
-		if (toggleButton) {
-			toggleButton.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
-			toggleButton.setAttribute('aria-label', collapsed ? 'Menu uitklappen' : 'Menu inklappen');
-			toggleButton.innerHTML = collapsed ? '<i class="ri-menu-unfold-line"></i>' : '<i class="ri-menu-fold-line"></i>';
-		}
-		window.localStorage.setItem('ggrAdminShellCollapsed', collapsed ? '1' : '0');
-	};
-
-	const headerToggle = document.createElement('button');
-	headerToggle.type = 'button';
-	headerToggle.className = 'ggr-admin-shell__toggle';
-	headerToggle.innerHTML = '<i class="ri-menu-fold-line"></i>';
-
-	const toggleButton = headerToggle;
 	headerToggle.addEventListener('click', function() {
 		setCollapsed(!isCollapsed());
 	});
 
 	titleBox.prepend(headerToggle);
 
-	const stored = window.localStorage.getItem('ggrAdminShellCollapsed');
-	if (stored === '1') {
-		setCollapsed(true);
-	}
+	const stored = window.localStorage ? window.localStorage.getItem('ggrAdminShellCollapsed') : null;
+	setCollapsed(stored === '1');
 
 	document.body.classList.remove('ggr-admin-shell-pending');
 	document.body.classList.add('ggr-admin-shell-ready');
