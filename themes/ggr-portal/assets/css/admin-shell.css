@@ -15,7 +15,6 @@ body.ggr-admin-shell-enabled #wpbody-content {
     padding: 0;
 }
 
-
 .form-table input.tog, .form-table input[type=radio] {
     width: 0;
 }
@@ -30,6 +29,64 @@ html.wp-toolbar {
 
 body.ggr-admin-shell-enabled #wpwrap {
     background: var(--ggr-main-bg, #f2f7f8);
+}
+
+
+body.ggr-admin-shell-enabled.ggr-admin-shell-pending #wpwrap {
+    opacity: 0;
+}
+
+body.ggr-admin-shell-enabled.ggr-admin-shell-ready #wpwrap {
+    opacity: 1;
+    transition: opacity 0.15s ease;
+}
+
+body.ggr-admin-shell-enabled .ggr-admin-shell__toggle {
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    color: #374151;
+    border-radius: 8px;
+    padding: 6px 8px;
+    margin-right: 12px;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+body.ggr-admin-shell-enabled .ggr-admin-shell__toggle:hover {
+    border-color: var(--ggr-accent, #f29e75);
+    color: var(--ggr-accent, #f29e75);
+}
+
+body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-shell-sidebar {
+    width: 76px;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
+body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-shell-logo {
+    margin-bottom: 18px;
+}
+
+body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-logo-img {
+    max-width: 46px;
+}
+
+body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-shell-nav-item {
+    justify-content: center;
+    padding: 10px;
+}
+
+body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-shell-nav-item span:not(.ggr-shell-nav-icon) {
+    display: none;
+}
+
+body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-shell-main {
+    margin-left: 120px;
 }
 
 body.ggr-admin-shell-enabled .ggr-admin-shell__content .wrap {
