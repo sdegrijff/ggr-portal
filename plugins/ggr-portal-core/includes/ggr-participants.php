@@ -3569,10 +3569,8 @@ function ggr_portal_render_participant_overview_page() {
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Voornaam</th>
-                    <th>Achternaam</th>
+                    <th>Naam</th>
                     <th>E-mailadres</th>
-                    <th>Telefoonnummer</th>
                     <th>Laatste login</th>                    
                     <th>Eerste transactiedatum</th>
                     <th>Totaal participaties</th>
@@ -3586,11 +3584,14 @@ function ggr_portal_render_participant_overview_page() {
             <tbody>
             <?php foreach ( $participants as $user ) : ?>
                 <?php
-                $uid   = $user->ID;
+                $uid = $user->ID;
+            
+                // Naam samenvoegen
                 $first = get_user_meta( $uid, 'first_name', true );
                 $last  = get_user_meta( $uid, 'last_name', true );
-                $phone = get_user_meta( $uid, 'phone', true );
-
+                $name  = trim( $first . ' ' . $last );
+            
+                // Laatste login
                 $last_login_raw   = get_user_meta( $uid, 'ggr_last_login_at', true );
                 $last_login_label = '–';
                 if ( $last_login_raw ) {
