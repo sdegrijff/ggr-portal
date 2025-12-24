@@ -3475,7 +3475,7 @@ function ggr_portal_register_participant_profile_page() {
     add_users_page(
         'Participant profiel',
         'Participant profiel',
-        'list_users',
+        'read',
         'ggr-participant-profiel',
         'ggr_portal_render_participant_profile_page'
     );
@@ -3488,7 +3488,13 @@ function ggr_portal_register_participant_profile_page() {
 add_action( 'load-user-edit.php', 'ggr_portal_redirect_user_edit_to_participant_page' );
 
 function ggr_portal_redirect_user_edit_to_participant_page() {
-    if ( ! current_user_can( 'list_users' ) ) {
+    if ( function_exists( 'ggr_admin_shell_user_can_access' ) ) {
+        $can_access = ggr_admin_shell_user_can_access();
+    } else {
+        $can_access = current_user_can( 'list_users' );
+    }
+
+    if ( ! $can_access ) {
         return;
     }
 
