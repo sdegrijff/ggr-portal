@@ -111,12 +111,20 @@ function ggr_register_stock_price_menu() {
     add_menu_page(
         'GGR Stock Price',              // Pagina titel
         'GGR Stock Price',              // Menu titel in sidebar
-        'manage_options',               // Capability
+        'read',                         // Capability
         'ggr-stock-price',              // Menu slug (?page=ggr-stock-price)
         'ggr_render_stock_price_page',  // Callback
         'dashicons-chart-line',         // Icoon
         26                              // Positie
     );
+}
+
+function ggr_stock_price_user_can_access() {
+    if ( function_exists( 'ggr_admin_shell_user_can_access' ) ) {
+        return ggr_admin_shell_user_can_access();
+    }
+
+    return current_user_can( 'manage_options' );
 }
 
 /* ============================================================================
@@ -135,7 +143,7 @@ function ggr_handle_stock_price_actions() {
         return;
     }
 
-    if ( ! current_user_can( 'manage_options' ) ) {
+    if ( ! ggr_stock_price_user_can_access() ) {
         return;
     }
 
@@ -564,7 +572,7 @@ function ggr_parse_ibkr_flex_equity_summary( $xml_raw ) {
  */
 
 function ggr_render_stock_price_page() {
-    if ( ! current_user_can( 'manage_options' ) ) {
+    if ( ! ggr_stock_price_user_can_access() ) {
         wp_die( 'Je hebt geen toegang tot deze pagina.' );
     }
 
@@ -579,7 +587,8 @@ function ggr_render_stock_price_page() {
     $ibkr_query_id = function_exists( 'ggr_ibkr_nav_get_query_id' ) ? ggr_ibkr_nav_get_query_id() : '';
     $ibkr_base_url = function_exists( 'ggr_ibkr_nav_get_base_url' ) ? ggr_ibkr_nav_get_base_url() : '';
     $ibkr_status   = function_exists( 'ggr_ibkr_nav_get_status' ) ? ggr_ibkr_nav_get_status() : array();
-
+    $show_ibkr_sections = ! ( function_exists( 'ggr_admin_shell_is_allowed' ) && ggr_admin_shell_is_allowed() );
+    
     $total_participations_today = function_exists( 'ggr_portal_get_total_participations_all_users' )
         ? ggr_portal_get_total_participations_all_users()
         : null;
@@ -628,7 +637,7 @@ function ggr_render_stock_price_page() {
     /* -----------------------------------------------------------
      * IBKR FLEX API – credentials opslaan
      * --------------------------------------------------------- */
-    if ( isset( $_POST['ggr_ibkr_credentials_submit'] ) ) {
+    if ( $show_ibkr_sections && isset( $_POST['ggr_ibkr_credentials_submit'] ) ) {
         check_admin_referer( 'ggr_ibkr_credentials' );
 
         $ibkr_token_input    = isset( $_POST['ggr_ibkr_flex_token'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_ibkr_flex_token'] ) ) : '';
@@ -658,7 +667,7 @@ function ggr_render_stock_price_page() {
     /* -----------------------------------------------------------
      * IBKR FLEX API – handmatig ophalen
      * --------------------------------------------------------- */
-    if ( isset( $_POST['ggr_ibkr_manual_fetch_submit'] ) ) {
+    if ( $show_ibkr_sections && isset( $_POST['ggr_ibkr_manual_fetch_submit'] ) ) {
         check_admin_referer( 'ggr_ibkr_manual_fetch' );
 
         if ( function_exists( 'ggr_ibkr_nav_fetch_and_store' ) ) {
@@ -687,7 +696,7 @@ function ggr_render_stock_price_page() {
     /* -----------------------------------------------------------
      * IBKR FLEX XML → automatische koers (total / participaties)
      * --------------------------------------------------------- */
-    if ( isset( $_POST['ggr_ibkr_import_submit'] ) ) {
+    if ( $show_ibkr_sections && isset( $_POST['ggr_ibkr_import_submit'] ) ) {
         check_admin_referer( 'ggr_ibkr_import' );
 
         $ibkr_xml_input = isset( $_POST['ggr_ibkr_xml'] ) ? wp_unslash( $_POST['ggr_ibkr_xml'] ) : '';
@@ -1000,124 +1009,126 @@ function ggr_render_stock_price_page() {
             </div>
         <?php endif; ?>
 
-        <h2>IBKR Flex API (automatisch)</h2>
-        <p>Vul je Flex Web Service token en Query ID in om dagelijks automatisch de NAV op te halen via de IBKR Flex API. Je kunt ook direct een handmatige import starten.</p>
+         <?php if ( $show_ibkr_sections ) : ?>
+            <h2>IBKR Flex API (automatisch)</h2>
+            <p>Vul je Flex Web Service token en Query ID in om dagelijks automatisch de NAV op te halen via de IBKR Flex API. Je kunt ook direct een handmatige import starten.</p>
 
-        <?php if ( ! empty( $ibkr_status ) ) : ?>
-            <div class="notice notice-info is-dismissible">
-                <p>
-                    <strong>Cron status:</strong>
-                    <?php if ( ! empty( $ibkr_status['has_credentials'] ) && ! empty( $ibkr_status['next_run'] ) ) : ?>
-                        Dagelijkse IBKR import staat ingepland.
-                        Volgende run: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', $ibkr_status['next_run'] ) ); ?></strong>.
-                    <?php else : ?>
-                        Automatische import staat nog niet ingepland. Vul token en Query ID in en sla op.
-                    <?php endif; ?>
-                </p>
-                <?php if ( ! empty( $ibkr_status['last_run'] ) && is_array( $ibkr_status['last_run'] ) ) : ?>
+            <?php if ( ! empty( $ibkr_status ) ) : ?>
+                <div class="notice notice-info is-dismissible">
                     <p>
-                        Laatste succesvolle import: <strong><?php echo esc_html( $ibkr_status['last_run']['date'] ); ?></strong>
-                        (NAV: € <?php echo esc_html( number_format( (float) $ibkr_status['last_run']['nav'], 6, ',', '.' ) ); ?>,
-                        bijgewerkt op <?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_status['last_run']['timestamp'] ) ); ?>).
+                        <strong>Cron status:</strong>
+                        <?php if ( ! empty( $ibkr_status['has_credentials'] ) && ! empty( $ibkr_status['next_run'] ) ) : ?>
+                            Dagelijkse IBKR import staat ingepland.
+                            Volgende run: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', $ibkr_status['next_run'] ) ); ?></strong>.
+                        <?php else : ?>
+                            Automatische import staat nog niet ingepland. Vul token en Query ID in en sla op.
+                        <?php endif; ?>
                     </p>
-                <?php endif; ?>
-            </div>
+                    <?php if ( ! empty( $ibkr_status['last_run'] ) && is_array( $ibkr_status['last_run'] ) ) : ?>
+                        <p>
+                            Laatste succesvolle import: <strong><?php echo esc_html( $ibkr_status['last_run']['date'] ); ?></strong>
+                            (NAV: € <?php echo esc_html( number_format( (float) $ibkr_status['last_run']['nav'], 6, ',', '.' ) ); ?>,
+                            bijgewerkt op <?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_status['last_run']['timestamp'] ) ); ?>).
+                        </p>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+            
+            <form method="post">
+                <?php wp_nonce_field( 'ggr_ibkr_credentials' ); ?>
+
+                <table class="form-table" role="presentation">
+                    <tbody>
+                        <tr>
+                            <th scope="row"><label for="ggr_ibkr_flex_token">Flex Web Service token</label></th>
+                            <td>
+                                <input
+                                    type="text"
+                                    id="ggr_ibkr_flex_token"
+                                    name="ggr_ibkr_flex_token"
+                                    value="<?php echo esc_attr( $ibkr_token ); ?>"
+                                    class="regular-text"
+                                />
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row"><label for="ggr_ibkr_flex_query_id">Flex Query ID</label></th>
+                            <td>
+                                <input
+                                    type="text"
+                                    id="ggr_ibkr_flex_query_id"
+                                    name="ggr_ibkr_flex_query_id"
+                                    value="<?php echo esc_attr( $ibkr_query_id ); ?>"
+                                    class="regular-text"
+                                />
+                                <p class="description">
+                                    De query moet een Flex-rapport opleveren met NAV per participatie (bijv. Equity Summary).
+                                </p>
+                            </td>
+                        </tr>
+
+                        <?php if ( $ibkr_base_url ) : ?>
+                            <tr>
+                                <th scope="row">Flex API endpoint</th>
+                                <td>
+                                    <code><?php echo esc_html( $ibkr_base_url ); ?></code>
+                                </td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+
+                <?php submit_button( 'IBKR instellingen opslaan', 'secondary', 'ggr_ibkr_credentials_submit' ); ?>
+            </form>
+            
+            <form method="post" style="margin-top: 1rem;">
+                <?php wp_nonce_field( 'ggr_ibkr_manual_fetch' ); ?>
+                <?php submit_button( 'Handmatig ophalen via IBKR API', 'secondary', 'ggr_ibkr_manual_fetch_submit' ); ?>
+            </form>
+
+            <hr />
+
+            <h2>IBKR Flex XML import</h2>
+            <p>Plak hier de Flex Query XML. We lezen <code>total</code> en <code>reportDate</code> uit de <code>EquitySummaryByReportDateInBase</code>-node en berekenen de NAV als <code>total / totaal participaties</code>.</p>
+            
+            <form method="post">
+                <?php wp_nonce_field( 'ggr_ibkr_import' ); ?>
+
+                <table class="form-table" role="presentation">
+                    <tbody>
+                        <tr>
+                            <th scope="row"><label for="ggr_ibkr_xml">IBKR Flex XML</label></th>
+                            <td>
+                                <textarea
+                                    id="ggr_ibkr_xml"
+                                    name="ggr_ibkr_xml"
+                                    rows="8"
+                                    class="large-text code"
+                                ><?php echo esc_textarea( $ibkr_xml_input ); ?></textarea>
+                                <p class="description">
+                                    Voorbeeld-node: <code>&lt;EquitySummaryByReportDateInBase total="12345" reportDate="20251218" ... /&gt;</code>.
+                                </p>
+                            </td>
+                        </tr>
+                        
+                        <?php if ( $total_participations_today !== null ) : ?>
+                            <tr>
+                                <th scope="row">Totaal participaties</th>
+                                <td>
+                                    <strong><?php echo esc_html( number_format( $total_participations_today, 4, ',', '.' ) ); ?></strong><br />
+                                    <span class="description">Bij het verwerken gebruiken we de waarde t/m de rapportdatum uit IBKR.</span>
+                                </td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+
+                <?php submit_button( 'IBKR XML verwerken', 'secondary', 'ggr_ibkr_import_submit' ); ?>
+            </form>
+
+            <hr />
         <?php endif; ?>
-
-        <form method="post">
-            <?php wp_nonce_field( 'ggr_ibkr_credentials' ); ?>
-
-            <table class="form-table" role="presentation">
-                <tbody>
-                    <tr>
-                        <th scope="row"><label for="ggr_ibkr_flex_token">Flex Web Service token</label></th>
-                        <td>
-                            <input
-                                type="text"
-                                id="ggr_ibkr_flex_token"
-                                name="ggr_ibkr_flex_token"
-                                value="<?php echo esc_attr( $ibkr_token ); ?>"
-                                class="regular-text"
-                            />
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <th scope="row"><label for="ggr_ibkr_flex_query_id">Flex Query ID</label></th>
-                        <td>
-                            <input
-                                type="text"
-                                id="ggr_ibkr_flex_query_id"
-                                name="ggr_ibkr_flex_query_id"
-                                value="<?php echo esc_attr( $ibkr_query_id ); ?>"
-                                class="regular-text"
-                            />
-                            <p class="description">
-                                De query moet een Flex-rapport opleveren met NAV per participatie (bijv. Equity Summary).
-                            </p>
-                        </td>
-                    </tr>
-
-                    <?php if ( $ibkr_base_url ) : ?>
-                        <tr>
-                            <th scope="row">Flex API endpoint</th>
-                            <td>
-                                <code><?php echo esc_html( $ibkr_base_url ); ?></code>
-                            </td>
-                        </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-
-            <?php submit_button( 'IBKR instellingen opslaan', 'secondary', 'ggr_ibkr_credentials_submit' ); ?>
-        </form>
-
-        <form method="post" style="margin-top: 1rem;">
-            <?php wp_nonce_field( 'ggr_ibkr_manual_fetch' ); ?>
-            <?php submit_button( 'Handmatig ophalen via IBKR API', 'secondary', 'ggr_ibkr_manual_fetch_submit' ); ?>
-        </form>
-
-        <hr />
-
-        <h2>IBKR Flex XML import</h2>
-        <p>Plak hier de Flex Query XML. We lezen <code>total</code> en <code>reportDate</code> uit de <code>EquitySummaryByReportDateInBase</code>-node en berekenen de NAV als <code>total / totaal participaties</code>.</p>
-
-        <form method="post">
-            <?php wp_nonce_field( 'ggr_ibkr_import' ); ?>
-
-            <table class="form-table" role="presentation">
-                <tbody>
-                    <tr>
-                        <th scope="row"><label for="ggr_ibkr_xml">IBKR Flex XML</label></th>
-                        <td>
-                            <textarea
-                                id="ggr_ibkr_xml"
-                                name="ggr_ibkr_xml"
-                                rows="8"
-                                class="large-text code"
-                            ><?php echo esc_textarea( $ibkr_xml_input ); ?></textarea>
-                            <p class="description">
-                                Voorbeeld-node: <code>&lt;EquitySummaryByReportDateInBase total="12345" reportDate="20251218" ... /&gt;</code>.
-                            </p>
-                        </td>
-                    </tr>
-
-                    <?php if ( $total_participations_today !== null ) : ?>
-                        <tr>
-                            <th scope="row">Totaal participaties</th>
-                            <td>
-                                <strong><?php echo esc_html( number_format( $total_participations_today, 4, ',', '.' ) ); ?></strong><br />
-                                <span class="description">Bij het verwerken gebruiken we de waarde t/m de rapportdatum uit IBKR.</span>
-                            </td>
-                        </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-
-            <?php submit_button( 'IBKR XML verwerken', 'secondary', 'ggr_ibkr_import_submit' ); ?>
-        </form>
-
-        <hr />
 
         <h2><?php echo $is_edit ? 'Waarde bewerken' : 'Nieuwe / bestaande waarde invoeren'; ?></h2>
 
