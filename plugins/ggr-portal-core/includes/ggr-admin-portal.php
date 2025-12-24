@@ -59,7 +59,7 @@ add_action( 'admin_menu', function() {
 		'GGR Admin Dashboard',
 		'GGR Admin Dashboard',
 		'read',
-		'ggr-admin-portal',
+		'ggr-portal-dashboard',
 		'ggr_admin_render_dashboard',
 		'dashicons-dashboard',
 		2
@@ -101,7 +101,7 @@ add_action( 'admin_init', function() {
 	$post_type = isset( $_GET['post_type'] ) ? sanitize_key( wp_unslash( $_GET['post_type'] ) ) : '';
 
 	$allowed_admin_pages = array(
-		'ggr-admin-portal',
+		'ggr-portal-dashboard',
 		'ggr-meldingen',
 		'ggr-stock-price',
 	);
@@ -135,7 +135,7 @@ add_action( 'admin_init', function() {
 	}
 
 	if ( ! $allowed ) {
-		wp_safe_redirect( admin_url( 'admin.php?page=ggr-admin-portal' ) );
+		wp_safe_redirect( admin_url( 'admin.php?page=ggr-portal-dashboard' ) );
 		exit;
 	}
 } );
@@ -202,10 +202,10 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 
 	$nav_primary = [
 		[
-			'slug'  => 'ggr-admin-portal',
+			'slug'  => 'ggr-portal-dashboard',
 			'label' => 'Dashboard',
 			'icon'  => 'ri-dashboard-line',
-			'url'   => admin_url( 'admin.php?page=ggr-admin-portal' ),
+			'url'   => admin_url( 'admin.php?page=ggr-portal-dashboard' ),
 		],
 		[
 			'slug'  => 'ggr-participant-overzicht',
@@ -444,11 +444,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 	shell.appendChild(sidebar);
 	shell.appendChild(main);
-
-	const headerToggle = document.createElement('button');
-	headerToggle.type = 'button';
-	headerToggle.className = 'ggr-admin-shell__toggle';
-	headerToggle.innerHTML = '<i class="ri-menu-fold-line"></i>';
 
 	const isCollapsed = () => shell.classList.contains('is-collapsed');
 	const setCollapsed = (collapsed) => {
