@@ -135,12 +135,20 @@ function ggr_meldingen_register_admin_page() {
     add_menu_page(
         'Meldingen',
         'Meldingen',
-        'list_users',
+        'read',
         'ggr-meldingen',
         'ggr_meldingen_render_admin_page',
         'dashicons-bell',
         58
     );
+}
+
+function ggr_meldingen_user_can_access() {
+    if ( function_exists( 'ggr_admin_shell_user_can_access' ) ) {
+        return ggr_admin_shell_user_can_access();
+    }
+
+    return current_user_can( 'list_users' );
 }
 
 /**
@@ -151,7 +159,7 @@ function ggr_meldingen_handle_status_update() {
         return;
     }
 
-    if ( ! current_user_can( 'list_users' ) ) {
+    if ( ! ggr_meldingen_user_can_access() ) {
         return;
     }
 
@@ -242,7 +250,7 @@ function ggr_meldingen_add_onboarding_status_change( $user_id, $status, $title, 
  * Meldingen-overzicht renderen.
  */
 function ggr_meldingen_render_admin_page() {
-    if ( ! current_user_can( 'list_users' ) ) {
+    if ( ! ggr_meldingen_user_can_access() ) {
         wp_die( 'Geen toegang.' );
     }
 
