@@ -16,18 +16,129 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 function ggr_admin_shell_is_allowed() {
 	$current_user = wp_get_current_user();
-
-	// Administrator blijft in de standaard WP admin.
-	if ( current_user_can( 'administrator' ) ) {
-		return false;
+	$shell_param  = isset( $_GET['ggr_admin_shell'] ) ? sanitize_text_field( wp_unslash( $_GET['ggr_admin_shell'] ) ) : '';
+	
+	if ( '0' === $shell_param ) {
+		return false;	 
 	}
+	
+	// Administrator krijgt standaard de portal-shell.
+	if ( current_user_can( 'administrator' ) ) {
+		return true;
+	}
+
 
 	// Medewerkers (employee rol) krijgen de portal-shell.
 	if ( in_array( 'employee', (array) $current_user->roles, true ) ) {
 		return true;
 	}
 
+	return false;
 }
+
+/**
+ * Helper: check of huidige user een employee is.
+ */
+function ggr_admin_shell_user_is_employee() {
+	$current_user = wp_get_current_user();
+	return in_array( 'employee', (array) $current_user->roles, true );
+}
+
+/**
+ * Helper: toegang tot admin-shell pagina's.
+ */
+function ggr_admin_shell_user_can_access() {
+	return current_user_can( 'manage_options' ) || ggr_admin_shell_user_is_employee();
+}
+
+/**
+ * Admin menu: dashboard entry voor de shell.
+ */
+add_action( 'admin_menu', function() {
+	add_menu_page(
+		'GGR Admin Dashboard',
+		'GGR Admin Dashboard',
+		'read',
+		'ggr-admin-portal',
+		'ggr_admin_render_dashboard',
+		'dashicons-dashboard',
+		2
+	);
+} );
+
+/**
+ * Render dashboard pagina (basis).
+ */
+function ggr_admin_render_dashboard() {
+	if ( ! ggr_admin_shell_user_can_access() ) {
+		wp_die( 'Je hebt geen toestemming om deze pagina te bekijken.' );
+	}
+
+	echo '<div class="wrap">';
+	echo '<h1>Dashboard</h1>';
+	echo '<p>Welkom in het GGR admin dashboard.</p>';
+	echo '</div>';
+}
+
+/**
+ * Blokkeer employee toegang tot niet-toegestane wp-admin pagina’s.
+ */
+add_action( 'admin_init', function() {
+	if ( wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
+		return;
+	}
+
+	if ( current_user_can( 'manage_options' ) ) {
+		return;
+	}
+
+	if ( ! ggr_admin_shell_user_is_employee() ) {
+		return;
+	}
+
+	global $pagenow;
+	$page      = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+	$post_type = isset( $_GET['post_type'] ) ? sanitize_key( wp_unslash( $_GET['post_type'] ) ) : '';
+
+	$allowed_admin_pages = array(
+		'ggr-admin-portal',
+		'ggr-meldingen',
+		'ggr-stock-price',
+	);
+
+	$allowed_users_pages = array(
+		'ggr-participant-overzicht',
+		'ggr-onboarding',
+		'ggr-audit-log',
+	);
+
+	$allowed = false;
+
+	if ( 'admin.php' === $pagenow && in_array( $page, $allowed_admin_pages, true ) ) {
+		$allowed = true;
+	}
+
+	if ( 'users.php' === $pagenow && in_array( $page, $allowed_users_pages, true ) ) {
+		$allowed = true;
+	}
+
+	if ( in_array( $pagenow, array( 'edit.php', 'post.php', 'post-new.php' ), true ) && 'ggr_email_template' === $post_type ) {
+		$allowed = true;
+	}
+
+	if ( 'post.php' === $pagenow && ! $post_type && isset( $_GET['post'] ) ) {
+		$post_id = (int) $_GET['post'];
+		$post    = get_post( $post_id );
+		if ( $post && 'ggr_email_template' === $post->post_type ) {
+			$allowed = true;
+		}
+	}
+
+	if ( ! $allowed ) {
+		wp_safe_redirect( admin_url( 'admin.php?page=ggr-admin-portal' ) );
+		exit;
+	}
+} );
 
 
 /**
@@ -35,7 +146,7 @@ function ggr_admin_shell_is_allowed() {
  */
 add_filter( 'admin_body_class', function( $classes ) {
 	if ( ggr_admin_shell_is_allowed() ) {
-		$classes .= ' ggr-admin-shell-enabled';
+		$classes .= ' ggr-admin-shell-enabled ggr-admin-shell-pending';
 	}
 
 	return $classes;
@@ -268,6 +379,15 @@ document.addEventListener('DOMContentLoaded', function() {
 	const navSecondary = buildNav(data.navSecondary || []);
 	navSecondary.classList.add('ggr-shell-nav--secondary');
 
+	const collapseToggle = document.createElement('button');
+	collapseToggle.type = 'button';
+	collapseToggle.className = 'ggr-shell-nav-item ggr-shell-nav-item--collapse';
+	collapseToggle.innerHTML = `
+		<span class="ggr-shell-nav-icon"><i class="ri-layout-left-line"></i></span>
+		<span>Menu invouwen</span>
+	`;
+	navSecondary.appendChild(collapseToggle);
+
 	const logout = document.createElement('a');
 	logout.href = data.logoutUrl || '#';
 	logout.className = 'ggr-shell-nav-item ggr-shell-nav-item--logout';
@@ -325,10 +445,79 @@ document.addEventListener('DOMContentLoaded', function() {
 	shell.appendChild(sidebar);
 	shell.appendChild(main);
 
+	const setCollapsedState = (collapsed) => {
+		shell.classList.toggle('ggr-shell--collapsed', collapsed);
+		collapseToggle.innerHTML = collapsed
+			? `<span class="ggr-shell-nav-icon"><i class="ri-layout-right-line"></i></span><span>Menu uitklappen</span>`
+			: `<span class="ggr-shell-nav-icon"><i class="ri-layout-left-line"></i></span><span>Menu invouwen</span>`;
+	};
+
+	const isCollapsed = window.localStorage && window.localStorage.getItem('ggrAdminShellCollapsed') === '1';
+	setCollapsedState(isCollapsed);
+
+	collapseToggle.addEventListener('click', () => {
+		const nextState = !shell.classList.contains('ggr-shell--collapsed');
+		setCollapsedState(nextState);
+		if (window.localStorage) {
+			window.localStorage.setItem('ggrAdminShellCollapsed', nextState ? '1' : '0');
+		}
+	});
+
 	// Vervang de wpwrap content door de shell.
 	wpwrap.innerHTML = '';
 	wpwrap.appendChild(shell);
+
+	const isCollapsed = () => shell.classList.contains('is-collapsed');
+	const setCollapsed = (collapsed) => {
+		shell.classList.toggle('is-collapsed', collapsed);
+		if (toggleButton) {
+			toggleButton.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
+			toggleButton.setAttribute('aria-label', collapsed ? 'Menu uitklappen' : 'Menu inklappen');
+			toggleButton.innerHTML = collapsed ? '<i class="ri-menu-unfold-line"></i>' : '<i class="ri-menu-fold-line"></i>';
+		}
+		window.localStorage.setItem('ggrAdminShellCollapsed', collapsed ? '1' : '0');
+	};
+
+	const headerToggle = document.createElement('button');
+	headerToggle.type = 'button';
+	headerToggle.className = 'ggr-admin-shell__toggle';
+	headerToggle.innerHTML = '<i class="ri-menu-fold-line"></i>';
+
+	const toggleButton = headerToggle;
+	headerToggle.addEventListener('click', function() {
+		setCollapsed(!isCollapsed());
+	});
+
+	titleBox.prepend(headerToggle);
+
+	const stored = window.localStorage.getItem('ggrAdminShellCollapsed');
+	if (stored === '1') {
+		setCollapsed(true);
+	}
+
+	document.body.classList.remove('ggr-admin-shell-pending');
+	document.body.classList.add('ggr-admin-shell-ready');
 });
 JS
 	);
 } );
+
+
+/**
+ * Admins: voeg schakeloptie toe om naar de admin-portal shell te gaan.
+ */
+add_action( 'admin_bar_menu', function( $wp_admin_bar ) {
+	if ( ! current_user_can( 'administrator' ) ) {
+		return;
+	}
+
+	if ( ggr_admin_shell_is_allowed() ) {
+		return;
+	}
+
+	$wp_admin_bar->add_node( [
+		'id'    => 'ggr-admin-shell-switch',
+		'title' => __( 'Open admin-portal', 'ggr-portal-core' ),
+		'href'  => add_query_arg( 'ggr_admin_shell', '1', admin_url( 'index.php' ) ),
+	] );
+}, 100 );
