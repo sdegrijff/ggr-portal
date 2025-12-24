@@ -187,6 +187,10 @@ function ggr_handle_stock_price_actions() {
         isset( $_GET['_wpnonce'] ) &&
         wp_verify_nonce( $_GET['_wpnonce'], 'ggr_delete_all_prices' )
     ) {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( 'Je hebt geen toestemming om alle waardes te verwijderen.' );
+        }
+
         $wpdb->query( "DELETE FROM {$table_name}" );
 
         $target_url = add_query_arg(
@@ -981,11 +985,13 @@ function ggr_render_stock_price_page() {
 
         <p>
             <a href="<?php echo esc_url( $export_url ); ?>" class="button">Exporteren (CSV)</a>
-            <a href="<?php echo esc_url( $delete_all_url ); ?>"
-               class="button button-secondary"
-               onclick="return confirm('Weet je zeker dat je álle GGR-waardes wilt verwijderen? Dit kan niet ongedaan worden gemaakt.');">
-                Alle waardes verwijderen
-            </a>
+            <?php if ( current_user_can( 'manage_options' ) ) : ?>
+                <a href="<?php echo esc_url( $delete_all_url ); ?>"
+                   class="button button-secondary"
+                   onclick="return confirm('Weet je zeker dat je álle GGR-waardes wilt verwijderen? Dit kan niet ongedaan worden gemaakt.');">
+                    Alle waardes verwijderen
+                </a>
+            <?php endif; ?>
         </p>
 
         <?php if ( $notice ) : ?>
