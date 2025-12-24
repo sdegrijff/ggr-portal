@@ -280,7 +280,7 @@ function ggr_portal_register_audit_log_page() {
     add_users_page(
         'Audit log',
         'Audit log',
-        'list_users',
+        'read',
         'ggr-audit-log',
         'ggr_portal_render_audit_log_page'
     );
@@ -301,7 +301,13 @@ function ggr_portal_get_audit_action_labels() {
  * Toon audit log overzicht.
  */
 function ggr_portal_render_audit_log_page() {
-    if ( ! current_user_can( 'list_users' ) ) {
+    if ( function_exists( 'ggr_admin_shell_user_can_access' ) ) {
+        $can_access = ggr_admin_shell_user_can_access();
+    } else {
+        $can_access = current_user_can( 'list_users' );
+    }
+
+    if ( ! $can_access ) {
         wp_die( 'Geen toegang.' );
     }
 
