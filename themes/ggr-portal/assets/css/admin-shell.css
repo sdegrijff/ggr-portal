@@ -34,11 +34,13 @@ body.ggr-admin-shell-enabled #wpwrap {
 
 body.ggr-admin-shell-enabled.ggr-admin-shell-pending #wpwrap {
     opacity: 0;
+    visibility: hidden;    
 }
 
 body.ggr-admin-shell-enabled.ggr-admin-shell-ready #wpwrap {
     opacity: 1;
     transition: opacity 0.15s ease;
+    visibility: visible;    
 }
 
 body.ggr-admin-shell-enabled .ggr-admin-shell__toggle {
@@ -60,6 +62,35 @@ body.ggr-admin-shell-enabled .ggr-admin-shell__toggle {
 body.ggr-admin-shell-enabled .ggr-admin-shell__toggle:hover {
     border-color: var(--ggr-accent, #f29e75);
     color: var(--ggr-accent, #f29e75);
+}
+
+body.ggr-admin-shell-enabled .ggr-admin-shell__status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    text-align: right;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+body.ggr-admin-shell-enabled .ggr-admin-shell__status-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+body.ggr-admin-shell-enabled .ggr-admin-shell__status-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #9ca3af;
+}
+
+body.ggr-admin-shell-enabled .ggr-admin-shell__status-value {
+    font-size: 12px;
+    color: #111827;
+    font-weight: 600;
 }
 
 body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-shell-sidebar {
