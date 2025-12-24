@@ -250,7 +250,9 @@ function ggrp_fe_render_forecast_script() {
                 display: false,
                 drawBorder: false
             },
+            grace: '200%',
             ticks: {
+                stepSize: 0.1,
                 callback: (value) => formatPercent(value)
             }
         };
@@ -280,7 +282,7 @@ function ggrp_fe_render_forecast_script() {
                             label: 'Realisatie',
                             data: rawActual,
                             fill: true,
-                            tension: 0.3,
+                            tension: 0.5,
                             borderWidth: 2,
                             pointRadius: 3,
                             pointHoverRadius: 4,
@@ -1276,6 +1278,14 @@ $greeting_name = $first_name ? $first_name : $naam;
             });
 
             const yAxisEuroBase = makeYAxisEuro();
+            const yAxisEuroDividend = makeYAxisEuro({
+                base: {
+                    grace: '25%'
+                },
+                ticks: {
+                    stepSize: 50
+                }
+            });
             const yAxisEuroPos = makeYAxisEuro({
                 base: {
                     grace: '20%',
@@ -1416,7 +1426,7 @@ $greeting_name = $first_name ? $first_name : $naam;
                                 drawBorder: false
                             }
                         },
-                       y: yAxisEuroBase
+                       y: yAxisEuroDividend
                     }
                 }
             });
