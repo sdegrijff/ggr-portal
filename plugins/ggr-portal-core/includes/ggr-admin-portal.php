@@ -286,25 +286,24 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 		$last_run_label = '';
 		if ( ! empty( $ibkr_status['last_run'] ) && is_array( $ibkr_status['last_run'] ) ) {
 			$last_run         = $ibkr_status['last_run'];
-			$run_timestamp    = ! empty( $last_run['timestamp'] ) ? wp_date( 'd-m-Y H:i', (int) $last_run['timestamp'] ) : '';
 			$report_date_raw  = ! empty( $last_run['date'] ) ? $last_run['date'] : '';
 			$report_date      = $report_date_raw ? wp_date( 'd-m-Y', strtotime( $report_date_raw ) ) : '';
-			$nav_value        = isset( $last_run['nav'] ) ? number_format( (float) $last_run['nav'], 6, ',', '.' ) : '';
+			$nav_value        = isset( $last_run['nav'] ) ? number_format( (float) $last_run['nav'], 4, ',', '.' ) : '';
 			$total_value      = isset( $last_run['fund_total'] ) ? number_format( (float) $last_run['fund_total'], 2, ',', '.' ) : '';
 			$total_parts      = isset( $last_run['total_participations'] ) ? number_format( (float) $last_run['total_participations'], 4, ',', '.' ) : '';
 			$detail_fragments = array();
 
 			if ( $nav_value !== '' ) {
-				$detail_fragments[] = 'NAV € ' . $nav_value;
+				$detail_fragments[] = 'NAV: € ' . $nav_value;
 			}
 			if ( $total_value !== '' ) {
-				$detail_fragments[] = 'totaal € ' . $total_value;
+				$detail_fragments[] = 'Totaal: € ' . $total_value;
 			}
 
 			$detail_text = $detail_fragments ? implode( ', ', $detail_fragments ) : '';
 			$label_parts = array_filter( array(
 				$run_timestamp,
-				$report_date ? 'rapportdatum ' . $report_date : '',
+				$report_date ? '' . $report_date : '',
 			) );
 
 			$last_run_label = $label_parts ? implode( ' · ', $label_parts ) : '';
@@ -485,13 +484,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		</div>
 	`;
 
-	const userBox = document.createElement('div');
-	userBox.className = 'ggr-admin-shell__status';
-	userBox.innerHTML = `
-	`;
-
 	header.appendChild(titleBox);
-	header.appendChild(userBox);
 
 	// Plaats WP content in portal wrapper.
 	const pageWrapper = document.createElement('section');
@@ -518,17 +511,13 @@ document.addEventListener('DOMContentLoaded', function() {
 		const status = data.ibkrStatus;
 		const lastRun = status.lastRun || 'Nog niet uitgevoerd';
 		const nextRun = status.nextRun || (status.hasCredentials ? 'Nog niet ingepland' : 'Niet ingepland');
-
-		userBox.innerHTML = `
-			<div class="ggr-admin-shell__status-item">
-				<span class="ggr-admin-shell__status-label">Laatste cron</span>
-				<span class="ggr-admin-shell__status-value">${lastRun}</span>
-			</div>
-			<div class="ggr-admin-shell__status-item">
-				<span class="ggr-admin-shell__status-label">Volgende cron</span>
-				<span class="ggr-admin-shell__status-value">${nextRun}</span>
-			</div>
+		const notice = document.createElement('div');
+		notice.className = 'notice notice-info';
+		notice.innerHTML = `
+			<p><strong>Laatste IBKR Waarde:</strong> ${lastRun}</p>
+			<p><strong>Volgende IBKR Waarde:</strong> ${nextRun}</p>
 		`;
+		pageWrapper.prepend(notice);
 	}
 
 	const isCollapsed = () => shell.classList.contains('is-collapsed');
