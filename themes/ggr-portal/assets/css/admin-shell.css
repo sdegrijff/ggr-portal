@@ -97,8 +97,12 @@ body.ggr-admin-shell-enabled .ggr-admin-shell__status-value {
     font-weight: 600;
 }
 
+.ggrp-fe-header {
+    display: none!important;
+}
+
 body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-shell-sidebar {
-    width: 76px;
+    width: 40px;
     padding-left: 12px;
     padding-right: 12px;
 }
@@ -121,7 +125,11 @@ body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-shell-nav-item span:no
 }
 
 body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-shell-main {
-    margin-left: 120px;
+    margin-left: 65px;
+}
+
+.ggr-shell-main {
+    padding: 30px!important;
 }
 
 body.ggr-admin-shell-enabled .ggr-admin-shell__content .wrap {
