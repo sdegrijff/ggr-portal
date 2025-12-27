@@ -106,6 +106,19 @@ if ( function_exists( 'ggr_portal_is_onboarding_page' ) && ggr_portal_is_onboard
                     </span>
                     <span>Berichten</span>
                 </a>
+
+                <?php
+                $referral_url    = home_url( '/verwijs-een-vriend/' );
+                $referral_active = ggr_is_page_slug( 'verwijs-een-vriend' );
+                ?>
+                <a href="<?php echo esc_url( $referral_url ); ?>"
+                   class="ggr-shell-nav-item <?php echo $referral_active ? 'is-active' : ''; ?>"
+                   <?php if ( $referral_active ) : ?>aria-current="page"<?php endif; ?>>
+                    <span class="ggr-shell-nav-icon">
+                        <i class="ri-user-add-line"></i>
+                    </span>
+                    <span>Verwijs een vriend</span>
+                </a>                
             </nav>
 
             <div class="ggr-shell-divider"></div>
@@ -166,6 +179,8 @@ if ( function_exists( 'ggr_portal_is_onboarding_page' ) && ggr_portal_is_onboard
                         echo 'Berichten';
                     } elseif ( is_page( 'mijn-account' ) ) {
                         echo 'Mijn account';
+                    } elseif ( is_page( 'verwijs-een-vriend' ) ) {
+                        echo 'Verwijs een vriend';                        
                     } else {
                         the_title();
                     }
