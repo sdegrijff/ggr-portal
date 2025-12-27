@@ -1619,6 +1619,7 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
     $nationality        = get_user_meta( $user->ID, 'ggr_nationality', true );
     $investment         = get_user_meta( $user->ID, 'ggr_investment', true );
     $investment_amount  = get_user_meta( $user->ID, 'ggr_investment_amount', true );
+    $distribution_strategy = get_user_meta( $user->ID, 'ggr_distribution_strategy', true );    
     $marketing_optin    = (int) get_user_meta( $user->ID, 'ggr_marketing_optin', true );
     $onboarding_status  = function_exists( 'ggr_onboarding_get_status' ) ? ggr_onboarding_get_status( $user->ID ) : get_user_meta( $user->ID, 'ggr_onboarding_status', true );
     $onboarding_updated = get_user_meta( $user->ID, 'ggr_onboarding_updated_at', true );
@@ -1787,7 +1788,15 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
                                 <option value="business" <?php selected( $account_type, 'business' ); ?>>Zakelijk</option>
                             </select>
                         </div>
-
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_distribution_strategy">Dividendstrategie</label>
+                            <select name="ggr_distribution_strategy" id="ggr_distribution_strategy">
+                                <option value=""><?php esc_html_e( 'Maak een keuze', 'ggr-portal' ); ?></option>
+                                <option value="herbeleggen" <?php selected( $distribution_strategy, 'herbeleggen' ); ?>>Herbeleggen</option>
+                                <option value="uitkeren" <?php selected( $distribution_strategy, 'uitkeren' ); ?>>Uitkeren</option>
+                            </select>
+                            <p class="description">Voorkeur voor dividend: herbeleggen of uitkeren.</p>
+                        </div>
                         <div class="ggr-admin-inline-field">
                             <label for="ggr_nationality">Nationaliteit</label>
                             <input type="text" name="ggr_nationality" id="ggr_nationality"
@@ -2114,6 +2123,16 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
         $account_type = ( 'zakelijk' === $participation_profile ) ? 'business' : 'private';
         update_user_meta( $user_id, 'ggr_account_type', $account_type );
     }
+
+    if ( isset( $_POST['ggr_distribution_strategy'] ) ) {
+        $distribution_strategy = sanitize_key( wp_unslash( $_POST['ggr_distribution_strategy'] ) );
+        if ( in_array( $distribution_strategy, array( 'herbeleggen', 'uitkeren' ), true ) ) {
+            update_user_meta( $user_id, 'ggr_distribution_strategy', $distribution_strategy );
+        } else {
+            delete_user_meta( $user_id, 'ggr_distribution_strategy' );
+        }
+    }
+
 
     $intake_done = ! empty( $_POST['ggr_collecting_intake_done'] ) ? 1 : 0;
     update_user_meta( $user_id, 'ggr_collecting_intake_done', $intake_done );
@@ -2602,6 +2621,7 @@ function ggr_portal_render_participant_profile_page() {
     $nationality        = isset( $meta['ggr_nationality'][0] )  ? $meta['ggr_nationality'][0]  : '';
     $investment         = isset( $meta['ggr_investment'][0] )   ? $meta['ggr_investment'][0]   : '';
     $investment_amount  = isset( $meta['ggr_investment_amount'][0] ) ? $meta['ggr_investment_amount'][0] : '';
+    $distribution_strategy = isset( $meta['ggr_distribution_strategy'][0] ) ? $meta['ggr_distribution_strategy'][0] : '';    
     $marketing_optin    = isset( $meta['ggr_marketing_optin'][0] ) ? (int) $meta['ggr_marketing_optin'][0] : 0;
     $onboarding_status  = function_exists( 'ggr_onboarding_get_status' ) ? ggr_onboarding_get_status( $user_id ) : ( isset( $meta['ggr_onboarding_status'][0] ) ? $meta['ggr_onboarding_status'][0] : '' );
     $onboarding_updated = isset( $meta['ggr_onboarding_updated_at'][0] ) ? $meta['ggr_onboarding_updated_at'][0] : '';
@@ -2921,6 +2941,15 @@ function ggr_portal_render_participant_profile_page() {
                                         <option value="if" <?php selected( $participation_type, 'if' ); ?>>IF (≥ € 100.000)</option>
                                     </select>
                                     <p class="description">Standaardkeuze: onder € 100.000 = MIF, vanaf € 100.000 = IF. Handmatig aanpassen kan hier.</p>
+                                </div>            
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_distribution_strategy">Dividendstrategie</label>
+                                    <select name="ggr_distribution_strategy" id="ggr_distribution_strategy">
+                                        <option value=""><?php esc_html_e( 'Maak een keuze', 'ggr-portal' ); ?></option>
+                                        <option value="herbeleggen" <?php selected( $distribution_strategy, 'herbeleggen' ); ?>>Herbeleggen</option>
+                                        <option value="uitkeren" <?php selected( $distribution_strategy, 'uitkeren' ); ?>>Uitkeren</option>
+                                    </select>
+                                    <p class="description">Voorkeur voor dividend: herbeleggen of uitkeren.</p>
                                 </div>                                
                                 <div class="ggr-admin-inline-field">
                                     <label>
