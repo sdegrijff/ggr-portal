@@ -987,7 +987,7 @@ function ggr_render_stock_price_page() {
             <a href="<?php echo esc_url( $export_url ); ?>" class="button">Exporteren (CSV)</a>
             <?php if ( current_user_can( 'manage_options' ) ) : ?>
                 <a href="<?php echo esc_url( $delete_all_url ); ?>"
-                   class="button button-secondary"
+                   class="button button-secondary" style="display: none;"
                    onclick="return confirm('Weet je zeker dat je álle GGR-waardes wilt verwijderen? Dit kan niet ongedaan worden gemaakt.');">
                     Alle waardes verwijderen
                 </a>
