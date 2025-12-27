@@ -52,6 +52,19 @@ function ggr_mutaties_parse_decimal( $raw ) {
     return (float) $raw;
 }
 
+function ggr_mutaties_format_nl_date( $date ) {
+    if ( ! $date ) {
+        return '—';
+    }
+
+    $timestamp = strtotime( $date );
+    if ( ! $timestamp ) {
+        return $date;
+    }
+
+    return wp_date( 'd-m-Y', $timestamp );
+}
+
 function ggr_mutaties_get_nav_date_for_planned_date( $planned_date ) {
     $dt = DateTime::createFromFormat( 'Y-m-d', $planned_date );
     if ( ! $dt ) {
@@ -183,8 +196,8 @@ function ggr_mutaties_render_metabox( $post ) {
             <th scope="row"><label for="ggr_mutatie_participaties">Participaties</label></th>
             <td>
                 <input type="text" name="ggr_mutatie_participaties" id="ggr_mutatie_participaties" value="<?php echo esc_attr( $units ); ?>" />
-                <p class="description">Voor opname/inleg: aantal participaties (wordt omgerekend tegen de laatste maandwaarde uit de transactienota).</p>
-            </td>
+                <p class="description">Voor opname/inleg: aantal participaties (wordt omgerekend tegen de GGR stock price op de ingeplande datum).</p>
+                </td>
         </tr>
         <tr>
             <th scope="row"><label for="ggr_mutatie_scope">Doelgroep</label></th>
@@ -195,7 +208,7 @@ function ggr_mutaties_render_metabox( $post ) {
                 </select>
             </td>
         </tr>
-        <tr>
+        <tr id="ggr_mutatie_user_row">
             <th scope="row"><label for="ggr_mutatie_user_id">Participant (optioneel)</label></th>
             <td>
                 <?php
@@ -227,6 +240,24 @@ function ggr_mutaties_render_metabox( $post ) {
             </td>
         </tr>
     </table>
+    <script>
+    (function() {
+        var scopeField = document.getElementById('ggr_mutatie_scope');
+        var userRow = document.getElementById('ggr_mutatie_user_row');
+        if (!scopeField || !userRow) return;
+
+        function toggleUserRow() {
+            if (scopeField.value === 'user') {
+                userRow.style.display = '';
+            } else {
+                userRow.style.display = 'none';
+            }
+        }
+
+        scopeField.addEventListener('change', toggleUserRow);
+        toggleUserRow();
+    })();
+    </script>
     <?php
 }
 
@@ -272,7 +303,7 @@ function ggr_mutaties_save_meta( $post_id ) {
     update_post_meta( $post_id, 'ggr_mutatie_amount', $amount );
     update_post_meta( $post_id, 'ggr_mutatie_participaties', $units );    
     update_post_meta( $post_id, 'ggr_mutatie_scope', $scope );
-    update_post_meta( $post_id, 'ggr_mutatie_user_id', $user_id );
+    update_post_meta( $post_id, 'ggr_mutatie_user_id', 'all' === $scope ? 0 : $user_id );
     update_post_meta( $post_id, 'ggr_mutatie_status', $status );
     update_post_meta( $post_id, 'ggr_mutatie_planned_date', $planned );
 }
@@ -325,21 +356,24 @@ function ggr_mutaties_apply_to_history( $mutatie_id, $planned_date, array &$erro
     $amount       = ggr_mutaties_parse_decimal( $amount_raw );
     $participates = ggr_mutaties_parse_decimal( $units_raw );
 
-    if ( in_array( $type, array( 'inleg', 'opname' ), true ) && $participates > 0 ) {
+    if ( in_array( $type, array( 'inleg', 'opname' ), true ) ) {
         if ( ! function_exists( 'ggr_get_stock_price_for_date' ) ) {
             $errors[] = 'Stock price functies ontbreken om participaties om te rekenen.';
             return false;
         }
 
-        $nav_date  = ggr_mutaties_get_nav_date_for_planned_date( $planned_date );
-        $nav_price = ggr_get_stock_price_for_date( $nav_date );
+        $nav_price = ggr_get_stock_price_for_date( $planned_date );
 
         if ( $nav_price === null ) {
-            $errors[] = sprintf( 'Geen maandkoers gevonden voor %s.', $nav_date );
+            $errors[] = sprintf( 'Geen koers gevonden voor %s.', $planned_date );
             return false;
         }
 
-        $amount = round( $participates * $nav_price, 2 );
+        if ( $participates > 0 ) {
+            $amount = round( $participates * $nav_price, 2 );
+        } elseif ( $amount > 0 ) {
+            $participates = round( $amount / $nav_price, 4 );
+        }
     }
 
     $inleg      = 0.0;
@@ -415,14 +449,30 @@ function ggr_mutaties_render_admin_page() {
     $message = '';
     $errors  = array();
 
-    if ( isset( $_POST['ggr_mutaties_approve_nonce'] ) && wp_verify_nonce( $_POST['ggr_mutaties_approve_nonce'], 'ggr_mutaties_approve' ) ) {
-        $ids = isset( $_POST['ggr_mutatie_ids'] ) ? array_map( 'intval', (array) $_POST['ggr_mutatie_ids'] ) : array();
+    $action_ids = array();
+    $action     = '';
 
-        if ( $ids ) {
+    if ( isset( $_GET['ggr_mutatie_action'], $_GET['mutatie_id'] ) ) {
+        $action = sanitize_key( wp_unslash( $_GET['ggr_mutatie_action'] ) );
+        $action_ids = array( (int) $_GET['mutatie_id'] );
+
+        $nonce_action = 'ggr_mutatie_row_action_' . $action_ids[0];
+        if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), $nonce_action ) ) {
+            $action = '';
+            $action_ids = array();
+            $errors[] = 'Ongeldige actie (nonce).';
+        }
+    } elseif ( isset( $_POST['ggr_mutaties_action_nonce'] ) && wp_verify_nonce( $_POST['ggr_mutaties_action_nonce'], 'ggr_mutaties_action' ) ) {
+        $action = isset( $_POST['ggr_mutaties_action'] ) ? sanitize_key( wp_unslash( $_POST['ggr_mutaties_action'] ) ) : '';
+        $action_ids = isset( $_POST['ggr_mutatie_ids'] ) ? array_map( 'intval', (array) $_POST['ggr_mutatie_ids'] ) : array();
+    }
+
+    if ( $action && $action_ids ) {
+        if ( 'approve' === $action ) {
             $today     = current_time( 'Y-m-d' );
             $applied   = 0;
             $scheduled = 0;
-            foreach ( $ids as $mutatie_id ) {
+            foreach ( $action_ids as $mutatie_id ) {
                 $planned_meta = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
                 if ( function_exists( 'ggr_portal_parse_date_to_mysql' ) ) {
                     $planned_date = ggr_portal_parse_date_to_mysql( $planned_meta );
@@ -455,6 +505,19 @@ function ggr_mutaties_render_admin_page() {
                 $scheduled,
                 $applied
             );
+        } elseif ( 'reject' === $action ) {
+            foreach ( $action_ids as $mutatie_id ) {
+                update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'geannuleerd' );
+            }
+            $message = sprintf( '%d mutaties afgewezen.', count( $action_ids ) );
+        } elseif ( 'delete' === $action ) {
+            $deleted = 0;
+            foreach ( $action_ids as $mutatie_id ) {
+                if ( current_user_can( 'delete_post', $mutatie_id ) && wp_trash_post( $mutatie_id ) ) {
+                    $deleted++;
+                }
+            }
+            $message = sprintf( '%d mutaties verwijderd.', $deleted );
         }
     }
 
@@ -491,8 +554,8 @@ function ggr_mutaties_render_admin_page() {
         <?php if ( empty( $mutaties ) ) : ?>
             <p>Er zijn nog geen mutaties aangemaakt.</p>
         <?php else : ?>
-            <form method="post">
-                <?php wp_nonce_field( 'ggr_mutaties_approve', 'ggr_mutaties_approve_nonce' ); ?>
+            <form method="post" id="ggr_mutaties_form">
+                <?php wp_nonce_field( 'ggr_mutaties_action', 'ggr_mutaties_action_nonce' ); ?>
                 <table class="widefat striped">
                     <thead>
                         <tr>
@@ -505,6 +568,7 @@ function ggr_mutaties_render_admin_page() {
                             <th scope="col">Status</th>
                             <th scope="col">Gepland</th>
                             <th scope="col">Aangemaakt</th>
+                            <th scope="col">Acties</th>                            
                         </tr>
                     </thead>
                     <tbody>
@@ -519,6 +583,18 @@ function ggr_mutaties_render_admin_page() {
                             $planned    = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
                             $user_id    = (int) get_post_meta( $mutatie_id, 'ggr_mutatie_user_id', true );
                             $user_name  = $user_id ? ( get_user_by( 'ID', $user_id )->display_name ?? '' ) : '';
+                            $price_used = null;
+
+                            $display_units = $units;
+                            if ( $planned && in_array( $type, array( 'inleg', 'opname' ), true ) && $amount !== '' ) {
+                                if ( function_exists( 'ggr_get_stock_price_for_date' ) ) {
+                                    $price_used = ggr_get_stock_price_for_date( $planned );
+                                }
+                                if ( $price_used ) {
+                                    $amount_value  = ggr_mutaties_parse_decimal( $amount );
+                                    $display_units = round( $amount_value / $price_used, 4 );
+                                }
+                            }                            
 
                             if ( ! $status ) {
                                 $status = 'nieuw';
@@ -528,12 +604,27 @@ function ggr_mutaties_render_admin_page() {
                             }
 
                             $can_schedule = in_array( $status, array( 'nieuw', 'goedgekeurd' ), true );
+                            $can_reject   = in_array( $status, array( 'nieuw', 'goedgekeurd', 'ingepland' ), true );
+
+                            $row_action_url = admin_url( 'admin.php?page=ggr-mutaties' );
+                            $approve_url = add_query_arg(
+                                array(
+                                    'ggr_mutatie_action' => 'approve',
+                                    'mutatie_id'         => $mutatie_id,
+                                ),
+                                $row_action_url
+                            );
+                            $reject_url = add_query_arg(
+                                array(
+                                    'ggr_mutatie_action' => 'reject',
+                                    'mutatie_id'         => $mutatie_id,
+                                ),
+                                $row_action_url
+                            );                            
                             ?>
                             <tr>
                                 <th scope="row">
-                                    <?php if ( $can_schedule ) : ?>
-                                        <input type="checkbox" name="ggr_mutatie_ids[]" value="<?php echo (int) $mutatie_id; ?>" />
-                                    <?php endif; ?>
+                                    <input type="checkbox" name="ggr_mutatie_ids[]" value="<?php echo (int) $mutatie_id; ?>" />
                                 </th>
                                 <td>
                                     <strong>
@@ -553,17 +644,27 @@ function ggr_mutaties_render_admin_page() {
                                     ?>
                                 </td>
                                 <td><?php echo $amount !== '' ? esc_html( '€ ' . $amount ) : '—'; ?></td>
-                                <td><?php echo $units !== '' ? esc_html( number_format( (float) $units, 4, ',', '.' ) ) : '—'; ?></td>                                
+                                <td><?php echo $display_units !== '' ? esc_html( number_format( (float) $display_units, 4, ',', '.' ) ) : '—'; ?></td>
                                 <td><?php echo esc_html( $statuses[ $status ] ?? $status ); ?></td>
-                                <td><?php echo $planned ? esc_html( $planned ) : '—'; ?></td>
-                                <td><?php echo esc_html( wp_date( 'd-m-Y', strtotime( $mutatie->post_date ) ) ); ?></td>
+                                <td><?php echo esc_html( ggr_mutaties_format_nl_date( $planned ) ); ?></td>
+                                <td><?php echo esc_html( ggr_mutaties_format_nl_date( $mutatie->post_date ) ); ?></td>
+                                <td>
+                                    <?php if ( $can_schedule ) : ?>
+                                        <a class="button button-small" href="<?php echo esc_url( wp_nonce_url( $approve_url, 'ggr_mutatie_row_action_' . $mutatie_id ) ); ?>">Goedkeuren</a>
+                                    <?php endif; ?>
+                                    <?php if ( $can_reject ) : ?>
+                                        <a class="button button-small" href="<?php echo esc_url( wp_nonce_url( $reject_url, 'ggr_mutatie_row_action_' . $mutatie_id ) ); ?>">Afwijzen</a>
+                                    <?php endif; ?>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
 
                 <p style="margin-top: 16px;">
-                    <button type="submit" class="button button-primary">Goedkeuren &amp; inplannen voor eerstvolgende maandnota</button>
+                    <button type="submit" class="button button-primary" name="ggr_mutaties_action" value="approve">Goedkeuren &amp; inplannen voor eerstvolgende maandnota</button>
+                    <button type="submit" class="button" name="ggr_mutaties_action" value="reject">Afwijzen</button>
+                    <button type="submit" class="button" name="ggr_mutaties_action" value="delete" onclick="return confirm('Weet je zeker dat je de geselecteerde mutaties wilt verwijderen?');">Verwijderen</button>
                 </p>
             </form>
         <?php endif; ?>
