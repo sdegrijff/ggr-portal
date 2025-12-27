@@ -41,6 +41,28 @@ function ggr_mutaties_get_next_run_date() {
     return wp_date( 'Y-m-01', strtotime( 'first day of next month' ) );
 }
 
+function ggr_mutaties_parse_decimal( $raw ) {
+    $raw = trim( (string) $raw );
+    if ( $raw === '' ) {
+        return 0.0;
+    }
+
+    $raw = str_replace( ',', '.', $raw );
+
+    return (float) $raw;
+}
+
+function ggr_mutaties_get_nav_date_for_planned_date( $planned_date ) {
+    $dt = DateTime::createFromFormat( 'Y-m-d', $planned_date );
+    if ( ! $dt ) {
+        return $planned_date;
+    }
+
+    $dt->modify( 'last day of previous month' );
+
+    return $dt->format( 'Y-m-d' );
+}
+
 function ggr_register_mutaties_cpt() {
     $labels = array(
         'name'               => 'Mutaties',
@@ -64,7 +86,7 @@ function ggr_register_mutaties_cpt() {
         'show_ui'            => true,
         'show_in_menu'       => false,
         'capability_type'    => 'post',
-        'supports'           => array( 'title', 'editor' ),
+        'supports'           => array(),
         'menu_icon'          => 'dashicons-randomize',
         'has_archive'        => false,
         'rewrite'            => false,
@@ -120,6 +142,7 @@ function ggr_mutaties_render_metabox( $post ) {
     $status  = get_post_meta( $post->ID, 'ggr_mutatie_status', true );
     $type    = get_post_meta( $post->ID, 'ggr_mutatie_type', true );
     $amount  = get_post_meta( $post->ID, 'ggr_mutatie_amount', true );
+    $units   = get_post_meta( $post->ID, 'ggr_mutatie_participaties', true );    
     $planned = get_post_meta( $post->ID, 'ggr_mutatie_planned_date', true );
     $scope   = get_post_meta( $post->ID, 'ggr_mutatie_scope', true );
     $user_id = get_post_meta( $post->ID, 'ggr_mutatie_user_id', true );
@@ -153,7 +176,14 @@ function ggr_mutaties_render_metabox( $post ) {
             <th scope="row"><label for="ggr_mutatie_amount">Bedrag</label></th>
             <td>
                 <input type="text" name="ggr_mutatie_amount" id="ggr_mutatie_amount" value="<?php echo esc_attr( $amount ); ?>" />
-                <p class="description">Voer het bedrag in euro in (optioneel bij dividend).</p>
+                <p class="description">Voer het bedrag in euro in (optioneel bij dividend of als participaties worden opgegeven).</p>
+            </td>
+        </tr>
+        <tr>
+            <th scope="row"><label for="ggr_mutatie_participaties">Participaties</label></th>
+            <td>
+                <input type="text" name="ggr_mutatie_participaties" id="ggr_mutatie_participaties" value="<?php echo esc_attr( $units ); ?>" />
+                <p class="description">Voor opname/inleg: aantal participaties (wordt omgerekend tegen de laatste maandwaarde uit de transactienota).</p>
             </td>
         </tr>
         <tr>
@@ -217,6 +247,7 @@ function ggr_mutaties_save_meta( $post_id ) {
 
     $type    = isset( $_POST['ggr_mutatie_type'] ) ? sanitize_key( wp_unslash( $_POST['ggr_mutatie_type'] ) ) : 'dividend';
     $amount  = isset( $_POST['ggr_mutatie_amount'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_mutatie_amount'] ) ) : '';
+    $units   = isset( $_POST['ggr_mutatie_participaties'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_mutatie_participaties'] ) ) : '';    
     $scope   = isset( $_POST['ggr_mutatie_scope'] ) ? sanitize_key( wp_unslash( $_POST['ggr_mutatie_scope'] ) ) : 'all';
     $user_id = isset( $_POST['ggr_mutatie_user_id'] ) ? (int) $_POST['ggr_mutatie_user_id'] : 0;
     $status  = isset( $_POST['ggr_mutatie_status'] ) ? sanitize_key( wp_unslash( $_POST['ggr_mutatie_status'] ) ) : 'nieuw';
@@ -239,10 +270,138 @@ function ggr_mutaties_save_meta( $post_id ) {
 
     update_post_meta( $post_id, 'ggr_mutatie_type', $type );
     update_post_meta( $post_id, 'ggr_mutatie_amount', $amount );
+    update_post_meta( $post_id, 'ggr_mutatie_participaties', $units );    
     update_post_meta( $post_id, 'ggr_mutatie_scope', $scope );
     update_post_meta( $post_id, 'ggr_mutatie_user_id', $user_id );
     update_post_meta( $post_id, 'ggr_mutatie_status', $status );
     update_post_meta( $post_id, 'ggr_mutatie_planned_date', $planned );
+}
+
+function ggr_mutaties_get_target_user_ids( $scope, $user_id ) {
+    if ( 'user' === $scope && $user_id ) {
+        return array( (int) $user_id );
+    }
+
+    $users = get_users( array(
+        'role__in' => array( 'participant' ),
+        'fields'   => array( 'ID' ),
+    ) );
+
+    return array_map( 'intval', wp_list_pluck( $users, 'ID' ) );
+}
+
+function ggr_mutaties_find_history_entry_by_date( $user_id, $planned_date ) {
+    if ( ! function_exists( 'ggr_portal_get_history_for_user' ) ) {
+        return null;
+    }
+
+    $history = ggr_portal_get_history_for_user( $user_id );
+    if ( ! $history ) {
+        return null;
+    }
+
+    $match = null;
+    foreach ( $history as $row ) {
+        if ( isset( $row->datum ) && $row->datum === $planned_date ) {
+            $match = $row;
+        }
+    }
+
+    return $match;
+}
+
+function ggr_mutaties_apply_to_history( $mutatie_id, $planned_date, array &$errors ) {
+    if ( ! function_exists( 'ggr_portal_add_history_entry' ) || ! function_exists( 'ggr_portal_update_history_entry' ) ) {
+        $errors[] = 'Historie-functies ontbreken om mutaties toe te passen.';
+        return false;
+    }
+
+    $type         = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
+    $amount_raw   = get_post_meta( $mutatie_id, 'ggr_mutatie_amount', true );
+    $units_raw    = get_post_meta( $mutatie_id, 'ggr_mutatie_participaties', true );
+    $scope        = get_post_meta( $mutatie_id, 'ggr_mutatie_scope', true );
+    $user_id      = (int) get_post_meta( $mutatie_id, 'ggr_mutatie_user_id', true );
+
+    $amount       = ggr_mutaties_parse_decimal( $amount_raw );
+    $participates = ggr_mutaties_parse_decimal( $units_raw );
+
+    if ( in_array( $type, array( 'inleg', 'opname' ), true ) && $participates > 0 ) {
+        if ( ! function_exists( 'ggr_get_stock_price_for_date' ) ) {
+            $errors[] = 'Stock price functies ontbreken om participaties om te rekenen.';
+            return false;
+        }
+
+        $nav_date  = ggr_mutaties_get_nav_date_for_planned_date( $planned_date );
+        $nav_price = ggr_get_stock_price_for_date( $nav_date );
+
+        if ( $nav_price === null ) {
+            $errors[] = sprintf( 'Geen maandkoers gevonden voor %s.', $nav_date );
+            return false;
+        }
+
+        $amount = round( $participates * $nav_price, 2 );
+    }
+
+    $inleg      = 0.0;
+    $opname     = 0.0;
+    $nieuwe     = 0.0;
+    $verkochte  = 0.0;
+    $dividend   = 0.0;
+
+    if ( 'inleg' === $type ) {
+        $inleg  = $amount;
+        $nieuwe = $participates;
+    } elseif ( 'opname' === $type ) {
+        $opname    = $amount;
+        $verkochte = $participates;
+    } else {
+        $dividend = $amount;
+    }
+
+    $target_user_ids = ggr_mutaties_get_target_user_ids( $scope, $user_id );
+    if ( empty( $target_user_ids ) ) {
+        $errors[] = 'Geen participanten gevonden om de mutatie op toe te passen.';
+        return false;
+    }
+
+    $updated = 0;
+    foreach ( $target_user_ids as $target_user_id ) {
+        $entry = ggr_mutaties_find_history_entry_by_date( $target_user_id, $planned_date );
+
+        if ( $entry ) {
+            $new_inleg     = (float) $entry->inlegbedrag + $inleg;
+            $new_opname    = (float) $entry->opnamebedrag + $opname;
+            $new_nieuwe    = (float) $entry->nieuwe_participaties + $nieuwe;
+            $new_verkochte = (float) $entry->verkochte_participaties + $verkochte;
+            $new_dividend  = (float) $entry->distributievergoeding + $dividend;
+
+            $ok = ggr_portal_update_history_entry(
+                $entry->id,
+                $planned_date,
+                $new_inleg,
+                $new_opname,
+                $new_nieuwe,
+                $new_verkochte,
+                $new_dividend
+            );
+        } else {
+            $ok = ggr_portal_add_history_entry(
+                $target_user_id,
+                $planned_date,
+                $inleg,
+                $opname,
+                $nieuwe,
+                $verkochte,
+                $dividend
+            );
+        }
+
+        if ( $ok ) {
+            $updated++;
+        }
+    }
+
+    return $updated;
 }
 
 /**
@@ -254,18 +413,48 @@ function ggr_mutaties_render_admin_page() {
     }
 
     $message = '';
+    $errors  = array();
 
     if ( isset( $_POST['ggr_mutaties_approve_nonce'] ) && wp_verify_nonce( $_POST['ggr_mutaties_approve_nonce'], 'ggr_mutaties_approve' ) ) {
         $ids = isset( $_POST['ggr_mutatie_ids'] ) ? array_map( 'intval', (array) $_POST['ggr_mutatie_ids'] ) : array();
 
         if ( $ids ) {
-            $planned_date = ggr_mutaties_get_next_run_date();
+            $today     = current_time( 'Y-m-d' );
+            $applied   = 0;
+            $scheduled = 0;
             foreach ( $ids as $mutatie_id ) {
-                update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'ingepland' );
-                update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', $planned_date );
-            }
+                $planned_meta = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
+                if ( function_exists( 'ggr_portal_parse_date_to_mysql' ) ) {
+                    $planned_date = ggr_portal_parse_date_to_mysql( $planned_meta );
+                } else {
+                    $planned_date = sanitize_text_field( $planned_meta );
+                }
 
-            $message = sprintf( '%d mutaties ingepland voor %s.', count( $ids ), $planned_date );
+                if ( ! $planned_date ) {
+                    $planned_date = ggr_mutaties_get_next_run_date();
+                }
+                
+                update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', $planned_date );
+
+                if ( strtotime( $planned_date ) <= strtotime( $today ) ) {
+                    $updated = ggr_mutaties_apply_to_history( $mutatie_id, $planned_date, $errors );
+                    if ( $updated !== false ) {
+                        update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'uitgevoerd' );
+                        $applied++;
+                    } else {
+                        update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'goedgekeurd' );
+                    }
+                } else {
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'ingepland' );
+                    $scheduled++;
+                }
+            }                
+
+            $message = sprintf(
+                '%d mutaties ingepland, %d mutaties verwerkt.',
+                $scheduled,
+                $applied
+            );
         }
     }
 
@@ -293,6 +482,12 @@ function ggr_mutaties_render_admin_page() {
             <div class="notice notice-success"><p><?php echo esc_html( $message ); ?></p></div>
         <?php endif; ?>
 
+        <?php if ( $errors ) : ?>
+            <div class="notice notice-error">
+                <p><?php echo esc_html( implode( ' ', array_unique( $errors ) ) ); ?></p>
+            </div>
+        <?php endif; ?>
+
         <?php if ( empty( $mutaties ) ) : ?>
             <p>Er zijn nog geen mutaties aangemaakt.</p>
         <?php else : ?>
@@ -302,10 +497,11 @@ function ggr_mutaties_render_admin_page() {
                     <thead>
                         <tr>
                             <th scope="col" class="manage-column column-cb"><input type="checkbox" id="ggr_mutaties_select_all" /></th>
-                            <th scope="col">Titel</th>
+                            <th scope="col">Mutatie</th>
                             <th scope="col">Type</th>
                             <th scope="col">Doelgroep</th>
                             <th scope="col">Bedrag</th>
+                            <th scope="col">Participaties</th>                            
                             <th scope="col">Status</th>
                             <th scope="col">Gepland</th>
                             <th scope="col">Aangemaakt</th>
@@ -318,6 +514,7 @@ function ggr_mutaties_render_admin_page() {
                             $status     = get_post_meta( $mutatie_id, 'ggr_mutatie_status', true );
                             $type       = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
                             $amount     = get_post_meta( $mutatie_id, 'ggr_mutatie_amount', true );
+                            $units      = get_post_meta( $mutatie_id, 'ggr_mutatie_participaties', true );                            
                             $scope      = get_post_meta( $mutatie_id, 'ggr_mutatie_scope', true );
                             $planned    = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
                             $user_id    = (int) get_post_meta( $mutatie_id, 'ggr_mutatie_user_id', true );
@@ -341,7 +538,7 @@ function ggr_mutaties_render_admin_page() {
                                 <td>
                                     <strong>
                                         <a href="<?php echo esc_url( get_edit_post_link( $mutatie_id ) ); ?>">
-                                            <?php echo esc_html( $mutatie->post_title ); ?>
+                                            <?php echo esc_html( 'Mutatie #' . $mutatie_id ); ?>
                                         </a>
                                     </strong>
                                 </td>
@@ -356,6 +553,7 @@ function ggr_mutaties_render_admin_page() {
                                     ?>
                                 </td>
                                 <td><?php echo $amount !== '' ? esc_html( '€ ' . $amount ) : '—'; ?></td>
+                                <td><?php echo $units !== '' ? esc_html( number_format( (float) $units, 4, ',', '.' ) ) : '—'; ?></td>                                
                                 <td><?php echo esc_html( $statuses[ $status ] ?? $status ); ?></td>
                                 <td><?php echo $planned ? esc_html( $planned ) : '—'; ?></td>
                                 <td><?php echo esc_html( wp_date( 'd-m-Y', strtotime( $mutatie->post_date ) ) ); ?></td>
