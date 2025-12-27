@@ -335,19 +335,6 @@ function ggrp_fe_account_shortcode( $atts ) {
         <header class="ggrp-fe-header">
             <div>
                 <h1>Mijn Account</h1>
-                <p class="ggrp-fe-subtitle">
-                     <?php if ( $data['onboarding_updated'] ) : ?>
-                        Laatst bijgewerkt: <?php echo esc_html( $data['onboarding_updated'] ); ?>
-                    <?php endif; ?>
-                    <?php if ( $data['last_login'] ) : ?>
-                        <br />Laatste login: <?php echo esc_html( $data['last_login'] ); ?>
-                    <?php endif; ?>              
-                </p>
-                <?php if ( ! $can_edit_profile ) : ?>
-                    <p class="ggrp-fe-subtitle ggrp-fe-subtitle--muted">
-                        De gegevens op deze pagina zijn ter inzage en kunnen niet worden aangepast.
-                    </p>
-                <?php endif; ?>
             </div>
         </header>
 
