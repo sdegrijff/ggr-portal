@@ -104,6 +104,7 @@ add_action( 'admin_init', function() {
 	$allowed_admin_pages = array(
 		'ggr-portal-dashboard',
 		'ggr-meldingen',
+		'ggr-mutaties',		
 		'ggr-stock-price',
 	);
 
@@ -123,14 +124,14 @@ add_action( 'admin_init', function() {
 		$allowed = true;
 	}
 
-	if ( in_array( $pagenow, array( 'edit.php', 'post.php', 'post-new.php' ), true ) && 'ggr_email_template' === $post_type ) {
+	if ( in_array( $pagenow, array( 'edit.php', 'post.php', 'post-new.php' ), true ) && in_array( $post_type, array( 'ggr_email_template', 'ggr_mutatie' ), true ) ) {
 		$allowed = true;
 	}
 
 	if ( 'post.php' === $pagenow && ! $post_type && isset( $_GET['post'] ) ) {
 		$post_id = (int) $_GET['post'];
 		$post    = get_post( $post_id );
-		if ( $post && 'ggr_email_template' === $post->post_type ) {
+		if ( $post && in_array( $post->post_type, array( 'ggr_email_template', 'ggr_mutatie' ), true ) ) {
 			$allowed = true;
 		}
 	}
@@ -241,6 +242,12 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 			'url'   => admin_url( 'admin.php?page=ggr-meldingen' ),
 		],
 		[
+			'slug'  => 'ggr-mutaties',
+			'label' => 'Mutaties',
+			'icon'  => 'ri-swap-box-line',
+			'url'   => admin_url( 'admin.php?page=ggr-mutaties' ),
+		],		
+		[
 			'slug'  => 'ggr_email_template',
 			'label' => 'E-mail templates',
 			'icon'  => 'ri-mail-settings-line',
@@ -339,7 +346,7 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 			],
 			'navPrimary'    => $nav_primary,
 			'navSecondary'  => $nav_secondary,
-			'logoUrl'       => 'https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20full%20logo%20-%20Blue%20-%20Black.png',
+			'logoUrl'       => 'https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GGR%20Icon%20-%20Blue%20-%20Black.png',
 			'homeUrl'       => home_url( '/' ),
 			'profileUrl'    => admin_url( 'profile.php' ),
 			'logoutUrl'     => wp_logout_url(),
@@ -376,6 +383,9 @@ document.addEventListener('DOMContentLoaded', function() {
 		if (item.slug === 'ggr_email_template' && currentPostType === 'ggr_email_template') {
 			return true;
 		}
+		if (item.slug === 'ggr-mutaties' && currentPostType === 'ggr_mutatie') {
+			return true;
+		}		
 		if (item.slug === 'ggr-participant-overzicht' && currentPage === 'ggr-participant-overzicht') {
 			return true;
 		}
