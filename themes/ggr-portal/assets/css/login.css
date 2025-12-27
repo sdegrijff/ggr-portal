@@ -580,6 +580,11 @@ footer,
     .ggr-onboard-row {
         flex-direction: column;
     }
+    
+.ggr-login-header-right { 
+    display: none!important;
+}   
+    
 }
 
 /* Zorg dat select en number exact als inputs ogen */
@@ -613,10 +618,6 @@ footer,
 .ggr-login-card input[type="number"]::placeholder {
     color: #b8b8b8;
     opacity: 1;
-}
-
-.ggr-login-header-right { 
-    display: none!important;
 }
 
 /* Checkboxes netjes uitlijnen */
