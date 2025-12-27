@@ -101,6 +101,11 @@ body.ggr-admin-shell-enabled .ggr-admin-shell__status-value {
     display: none!important;
 }
 
+.ggr-shell-sidebar {
+    width: 170px;
+    padding: 28px 12px 20px;
+}
+
 body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-shell-sidebar {
     width: 40px;
     padding-left: 12px;
@@ -112,6 +117,10 @@ body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-shell-logo {
 }
 
 body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-logo-img {
+    max-width: 46px;
+}
+
+.ggr-logo-img {
     max-width: 46px;
 }
 
@@ -130,6 +139,7 @@ body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-shell-main {
 
 .ggr-shell-main {
     padding: 30px!important;
+    margin-left: 195px;
 }
 
 body.ggr-admin-shell-enabled .ggr-admin-shell__content .wrap {
