@@ -9,6 +9,22 @@ body.ggr-admin-shell-enabled .wrap > h1.wp-heading-inline {
     display: none !important;
 }
 
+.wp-core-ui .button-primary { 
+    background: #f29f75!important;
+    border-color: #f29f75!important;
+    color: #fff!important;
+}
+
+.wp-core-ui .button { 
+    background: rgba(112, 154, 167, 0.1)important;
+    border-color: #709aa7;
+    color: #709aa7;
+}
+
+.notice-info { 
+    border-left-color: #f29f75!important;
+}
+
 body.ggr-admin-shell-enabled #wpcontent,
 body.ggr-admin-shell-enabled #wpbody-content {
     margin-left: 0;
