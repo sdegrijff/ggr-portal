@@ -245,7 +245,7 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 		[
 			'slug'  => 'ggr-mutaties',
 			'label' => 'Mutaties',
-			'icon'  => 'ri-swap-box-line',
+			'icon'  => 'ri-increase-decrease-line',
 			'url'   => admin_url( 'admin.php?page=ggr-mutaties' ),
 		],		
 
@@ -254,6 +254,12 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 			'label' => 'NAV Koers',
 			'icon'  => 'ri-stock-line',
 			'url'   => admin_url( 'admin.php?page=ggr-stock-price' ),
+		],
+		[
+			'slug'  => 'ggr-dividend-accruals',
+			'label' => 'Dividend Accruals',
+			'icon'  => 'ri-exchange-funds-line',
+			'url'   => admin_url( 'admin.php?page=ggr-dividend-accruals' ),
 		],
 	];
 
