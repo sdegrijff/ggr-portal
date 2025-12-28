@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'GGR_DIVIDEND_ACCRUAL_DB_VERSION' ) ) {
-    define( 'GGR_DIVIDEND_ACCRUAL_DB_VERSION', '1.0' );
+    define( 'GGR_DIVIDEND_ACCRUAL_DB_VERSION', '1.1' );
 }
 
 add_action( 'plugins_loaded', 'ggr_maybe_create_dividend_accrual_table' );
@@ -31,6 +31,8 @@ function ggr_create_dividend_accrual_table() {
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             accrual_date DATE NOT NULL,
             accrual_total DECIMAL(20,4) NOT NULL,
+            accrual_gross DECIMAL(20,4) DEFAULT NULL,
+            distribution_fee DECIMAL(20,4) DEFAULT NULL,
             total_participations DECIMAL(20,4) DEFAULT NULL,
             per_participation DECIMAL(15,6) DEFAULT NULL,
             created_at DATETIME NOT NULL,
@@ -115,7 +117,7 @@ function ggr_dividend_accruals_get_per_participation( $date ) {
     return round( $total_value / $total_parts, 6 );
 }
 
-function ggr_dividend_accruals_upsert( $date, $total, $total_participations = null ) {
+function ggr_dividend_accruals_upsert( $date, $gross_total, $total_participations = null ) {
     global $wpdb;
 
     $table_name = $wpdb->prefix . 'ggr_dividend_accruals';
@@ -125,9 +127,9 @@ function ggr_dividend_accruals_upsert( $date, $total, $total_participations = nu
         return new WP_Error( 'invalid_date', 'Ongeldige datum.' );
     }
 
-    $total_value = (float) $total;
-    if ( $total_value <= 0 ) {
-        return new WP_Error( 'invalid_total', 'Dividend totaal moet groter zijn dan 0.' );
+    $gross_value = (float) $gross_total;
+    if ( $gross_value <= 0 ) {
+        return new WP_Error( 'invalid_total', 'Bruto dividend moet groter zijn dan 0.' );
     }
 
     if ( null === $total_participations ) {
@@ -141,7 +143,9 @@ function ggr_dividend_accruals_upsert( $date, $total, $total_participations = nu
         return new WP_Error( 'missing_participations', 'Geen participaties gevonden voor deze datum.' );
     }
 
-    $per_participation = round( $total_value / $total_participations, 6 );
+    $distribution_fee  = round( $gross_value * 0.1, 4 );
+    $net_value         = round( $gross_value - $distribution_fee, 4 );
+    $per_participation = round( $net_value / $total_participations, 6 );
     $now               = current_time( 'mysql' );
 
     $existing_id = $wpdb->get_var(
@@ -155,13 +159,15 @@ function ggr_dividend_accruals_upsert( $date, $total, $total_participations = nu
         $updated = $wpdb->update(
             $table_name,
             array(
-                'accrual_total'       => $total_value,
+                'accrual_total'        => $net_value,
+                'accrual_gross'        => $gross_value,
+                'distribution_fee'     => $distribution_fee,
                 'total_participations' => $total_participations,
                 'per_participation'   => $per_participation,
                 'updated_at'          => $now,
             ),
             array( 'id' => (int) $existing_id ),
-            array( '%f', '%f', '%f', '%s' ),
+            array( '%f', '%f', '%f', '%f', '%f', '%s' ),
             array( '%d' )
         );
 
@@ -172,13 +178,15 @@ function ggr_dividend_accruals_upsert( $date, $total, $total_participations = nu
         $table_name,
         array(
             'accrual_date'         => $date_mysql,
-            'accrual_total'        => $total_value,
+            'accrual_total'        => $net_value,
+            'accrual_gross'        => $gross_value,
+            'distribution_fee'     => $distribution_fee,
             'total_participations' => $total_participations,
             'per_participation'    => $per_participation,
             'created_at'           => $now,
             'updated_at'           => $now,
         ),
-        array( '%s', '%f', '%f', '%f', '%s', '%s' )
+        array( '%s', '%f', '%f', '%f', '%f', '%f', '%s', '%s' )
     );
 
     return $inserted ? (int) $wpdb->insert_id : new WP_Error( 'insert_failed', 'Opslaan is mislukt.' );
@@ -277,7 +285,7 @@ function ggr_render_dividend_accrual_page() {
 
     $today      = current_time( 'Y-m-d' );
     $form_date  = $today;
-    $form_total = '';
+    $form_gross = '';
     $is_edit    = false;
     $edit_id    = 0;
 
@@ -293,8 +301,12 @@ function ggr_render_dividend_accrual_page() {
         );
 
         if ( $row ) {
-            $form_date  = $row['accrual_date'];
-            $form_total = number_format( (float) $row['accrual_total'], 2, ',', '' );
+            $form_date = $row['accrual_date'];
+            if ( isset( $row['accrual_gross'] ) && $row['accrual_gross'] !== null ) {
+                $form_gross = number_format( (float) $row['accrual_gross'], 2, ',', '' );
+            } else {
+                $form_gross = number_format( (float) $row['accrual_total'] / 0.9, 2, ',', '' );
+            }
             $is_edit    = true;
         }
     }
@@ -307,17 +319,17 @@ function ggr_render_dividend_accrual_page() {
         $edit_id   = isset( $_POST['accrual_id'] ) ? (int) $_POST['accrual_id'] : 0;
 
         $form_date  = $date_raw;
-        $form_total = $total_raw;
+        $form_gross = $gross_raw;
 
         $date_mysql = ggr_dividend_accruals_parse_date( $date_raw );
-        $total_value = $total_raw !== ''
-            ? (float) str_replace( array( '.', ' ', ',' ), array( '', '', '.' ), $total_raw )
+        $gross_value = $gross_raw !== ''
+            ? (float) str_replace( array( '.', ' ', ',' ), array( '', '', '.' ), $gross_raw )
             : 0.0;
 
-        if ( ! $date_mysql || $total_raw === '' ) {
-            $error = 'Datum en dividend totaal zijn verplicht.';
-        } elseif ( $total_value <= 0 ) {
-            $error = 'Dividend totaal moet groter zijn dan 0.';
+        if ( ! $date_mysql || $gross_raw === '' ) {
+            $error = 'Datum en bruto dividend zijn verplicht.';
+        } elseif ( $gross_value <= 0 ) {
+            $error = 'Bruto dividend moet groter zijn dan 0.';
         } else {
             $total_parts = function_exists( 'ggr_portal_get_total_participations_all_users' )
                 ? ggr_portal_get_total_participations_all_users( $date_mysql )
@@ -326,7 +338,9 @@ function ggr_render_dividend_accrual_page() {
             if ( $total_parts <= 0 ) {
                 $error = 'Geen participaties gevonden om de dividendwaarde te berekenen.';
             } else {
-                $per_participation = round( $total_value / $total_parts, 6 );
+                $distribution_fee  = round( $gross_value * 0.1, 4 );
+                $net_value         = round( $gross_value - $distribution_fee, 4 );
+                $per_participation = round( $net_value / $total_parts, 6 );
                 $now               = current_time( 'mysql' );
 
                 if ( $edit_id ) {
@@ -345,13 +359,15 @@ function ggr_render_dividend_accrual_page() {
                             $table_name,
                             array(
                                 'accrual_date'         => $date_mysql,
-                                'accrual_total'        => $total_value,
+                                'accrual_total'        => $net_value,
+                                'accrual_gross'        => $gross_value,
+                                'distribution_fee'     => $distribution_fee,
                                 'total_participations' => $total_parts,
                                 'per_participation'    => $per_participation,
                                 'updated_at'           => $now,
                             ),
                             array( 'id' => $edit_id ),
-                            array( '%s', '%f', '%f', '%f', '%s' ),
+                            array( '%s', '%f', '%f', '%f', '%f', '%f', '%s' ),
                             array( '%d' )
                         );
 
@@ -360,20 +376,20 @@ function ggr_render_dividend_accrual_page() {
                             $is_edit  = false;
                             $edit_id  = 0;
                             $form_date  = $date_mysql;
-                            $form_total = '';
+                            $form_gross = '';
                         } else {
                             $error = 'Bijwerken is mislukt.';
                         }
                     }
                 } else {
-                    $saved = ggr_dividend_accruals_upsert( $date_mysql, $total_value, $total_parts );
+                    $saved = ggr_dividend_accruals_upsert( $date_mysql, $gross_value, $total_parts );
 
                     if ( is_wp_error( $saved ) ) {
                         $error = $saved->get_error_message();
                     } else {
                         $notice   = 'Dividend accrual opgeslagen.';
                         $form_date  = $date_mysql;
-                        $form_total = '';
+                        $form_gross = '';
                     }
                 }
             }
@@ -385,10 +401,30 @@ function ggr_render_dividend_accrual_page() {
         ARRAY_A
     );
 
+    $totals = array(
+        'gross' => 0.0,
+        'fee'   => 0.0,
+        'net'   => 0.0,
+    );
+
+    foreach ( $rows as $row ) {
+        $gross = isset( $row['accrual_gross'] ) && $row['accrual_gross'] !== null
+            ? (float) $row['accrual_gross']
+            : ( isset( $row['accrual_total'] ) ? (float) $row['accrual_total'] / 0.9 : 0.0 );
+        $fee = isset( $row['distribution_fee'] ) && $row['distribution_fee'] !== null
+            ? (float) $row['distribution_fee']
+            : round( $gross * 0.1, 4 );
+        $net = isset( $row['accrual_total'] ) ? (float) $row['accrual_total'] : 0.0;
+
+        $totals['gross'] += $gross;
+        $totals['fee']   += $fee;
+        $totals['net']   += $net;
+    }
+
     ?>
     <div class="wrap">
         <h1>Dividend accruals</h1>
-        <p>Leg de totale dividendpot vast per maand (datum = eerste dag van de maand).</p>
+        <p>Leg de bruto dividendpot vast per maand (datum = eerste dag van de maand).</p>
 
         <?php if ( $notice ) : ?>
             <div class="notice notice-success"><p><?php echo esc_html( $notice ); ?></p></div>
@@ -399,25 +435,33 @@ function ggr_render_dividend_accrual_page() {
         <?php endif; ?>
 
         <h2><?php echo $is_edit ? 'Dividend accrual bewerken' : 'Nieuwe dividend accrual'; ?></h2>
-        <form method="post" style="max-width: 520px;">
-            <?php wp_nonce_field( 'ggr_save_dividend_accrual' ); ?>
-            <input type="hidden" name="accrual_id" value="<?php echo esc_attr( $edit_id ); ?>" />
-            <table class="form-table">
-                <tr>
-                    <th scope="row"><label for="accrual_date">Datum</label></th>
-                    <td><input type="date" id="accrual_date" name="accrual_date" value="<?php echo esc_attr( $form_date ); ?>" required /></td>
-                </tr>
-                <tr>
-                    <th scope="row"><label for="accrual_total">Dividend totaal (€)</label></th>
-                    <td><input type="text" id="accrual_total" name="accrual_total" value="<?php echo esc_attr( $form_total ); ?>" placeholder="Bijv. 15000,00" required /></td>
-                </tr>
-            </table>
-            <p>
-                <button type="submit" class="button button-primary" name="ggr_dividend_accrual_submit">
-                    <?php echo $is_edit ? 'Bijwerken' : 'Opslaan'; ?>
-                </button>
-            </p>
-        </form>
+        <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;">
+            <div style="min-width:240px;max-width:320px;">
+                <h3 style="margin-top:0;">Financieel overzicht</h3>
+                <p style="margin:0 0 6px;"><strong>Totaal bruto:</strong> € <?php echo esc_html( number_format( $totals['gross'], 2, ',', '.' ) ); ?></p>
+                <p style="margin:0 0 6px;"><strong>Distributievergoeding (10%):</strong> € <?php echo esc_html( number_format( $totals['fee'], 2, ',', '.' ) ); ?></p>
+                <p style="margin:0;"><strong>Totaal netto:</strong> € <?php echo esc_html( number_format( $totals['net'], 2, ',', '.' ) ); ?></p>
+            </div>
+            <form method="post" style="max-width: 520px;flex:1;">
+                <?php wp_nonce_field( 'ggr_save_dividend_accrual' ); ?>
+                <input type="hidden" name="accrual_id" value="<?php echo esc_attr( $edit_id ); ?>" />
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><label for="accrual_date">Datum</label></th>
+                        <td><input type="date" id="accrual_date" name="accrual_date" value="<?php echo esc_attr( $form_date ); ?>" required /></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="accrual_gross">Bruto dividend (€)</label></th>
+                        <td><input type="text" id="accrual_gross" name="accrual_gross" value="<?php echo esc_attr( $form_gross ); ?>" placeholder="Bijv. 15000,00" required /></td>
+                    </tr>
+                </table>
+                <p>
+                    <button type="submit" class="button button-primary" name="ggr_dividend_accrual_submit">
+                        <?php echo $is_edit ? 'Bijwerken' : 'Opslaan'; ?>
+                    </button>
+                </p>
+            </form>
+        </div>
 
         <h2>Overzicht</h2>
         <?php if ( empty( $rows ) ) : ?>
@@ -427,7 +471,9 @@ function ggr_render_dividend_accrual_page() {
                 <thead>
                     <tr>
                         <th>Datum</th>
-                        <th>Dividend totaal</th>
+                        <th>Bruto dividend</th>
+                        <th>Distributievergoeding</th>
+                        <th>Netto dividend</th>
                         <th>Participaties</th>
                         <th>Per participatie</th>
                         <th>Aangemaakt</th>
@@ -459,7 +505,16 @@ function ggr_render_dividend_accrual_page() {
                         );
 
                         $date_disp  = $row['accrual_date'] ? date_i18n( 'd-m-Y', strtotime( $row['accrual_date'] ) ) : '';
-                        $total_disp = '€ ' . number_format( (float) $row['accrual_total'], 2, ',', '.' );
+                        $gross_value = isset( $row['accrual_gross'] ) && $row['accrual_gross'] !== null
+                            ? (float) $row['accrual_gross']
+                            : (float) $row['accrual_total'] / 0.9;
+                        $fee_value = isset( $row['distribution_fee'] ) && $row['distribution_fee'] !== null
+                            ? (float) $row['distribution_fee']
+                            : round( $gross_value * 0.1, 4 );
+                        $net_value = (float) $row['accrual_total'];
+                        $gross_disp = '€ ' . number_format( $gross_value, 2, ',', '.' );
+                        $fee_disp   = '€ ' . number_format( $fee_value, 2, ',', '.' );
+                        $net_disp   = '€ ' . number_format( $net_value, 2, ',', '.' );
                         $parts_disp = isset( $row['total_participations'] )
                             ? number_format( (float) $row['total_participations'], 4, ',', '.' )
                             : '–';
@@ -471,7 +526,9 @@ function ggr_render_dividend_accrual_page() {
                         ?>
                         <tr>
                             <td><?php echo esc_html( $date_disp ); ?></td>
-                            <td><?php echo esc_html( $total_disp ); ?></td>
+                            <td><?php echo esc_html( $gross_disp ); ?></td>
+                            <td><?php echo esc_html( $fee_disp ); ?></td>
+                            <td><?php echo esc_html( $net_disp ); ?></td>
                             <td><?php echo esc_html( $parts_disp ); ?></td>
                             <td><?php echo esc_html( $per_disp ); ?></td>
                             <td><?php echo esc_html( $created_disp ); ?></td>
@@ -523,7 +580,7 @@ function ggr_api_update_dividend_accrual( WP_REST_Request $request ) {
     }
 
     $date_mysql = ggr_dividend_accruals_parse_date( $date_raw );
-    $total_value = (float) $total_raw;
+    $gross_value = (float) $total_raw;
 
     if ( ! $date_mysql ) {
         return new WP_Error(
@@ -533,10 +590,10 @@ function ggr_api_update_dividend_accrual( WP_REST_Request $request ) {
         );
     }
 
-    if ( $total_value <= 0 ) {
+    if ( $gross_value <= 0 ) {
         return new WP_Error(
             'invalid_total',
-            'Dividend totaal moet groter zijn dan 0.',
+            'Bruto dividend moet groter zijn dan 0.',
             array( 'status' => 400 )
         );
     }
@@ -553,16 +610,21 @@ function ggr_api_update_dividend_accrual( WP_REST_Request $request ) {
         );
     }
 
-    $saved = ggr_dividend_accruals_upsert( $date_mysql, $total_value, $total_parts );
+    $saved = ggr_dividend_accruals_upsert( $date_mysql, $gross_value, $total_parts );
 
     if ( is_wp_error( $saved ) ) {
         return $saved;
     }
 
+    $distribution_fee = round( $gross_value * 0.1, 4 );
+    $net_value         = round( $gross_value - $distribution_fee, 4 );
+
     return array(
         'date'                 => $date_mysql,
-        'total'                => $total_value,
+        'gross'                => $gross_value,
+        'distribution_fee'     => $distribution_fee,
+        'net'                  => $net_value,
         'total_participations' => $total_parts,
-        'per_participation'    => round( $total_value / $total_parts, 6 ),
+        'per_participation'    => round( $net_value / $total_parts, 6 ),
     );
 }
