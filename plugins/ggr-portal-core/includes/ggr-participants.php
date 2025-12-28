@@ -3553,6 +3553,88 @@ function ggr_portal_redirect_user_edit_to_participant_page() {
 }
 
 /**
+ * Extra velden bij het aanmaken van een gebruiker (voor fondsgegevens).
+ */
+add_action( 'user_new_form', 'ggr_portal_render_user_creation_fields' );
+function ggr_portal_render_user_creation_fields( $operation ) {
+    if ( 'add-new-user' !== $operation ) {
+        return;
+    }
+    ?>
+    <h2>Fondsgegevens (participant)</h2>
+    <table class="form-table" role="presentation">
+        <tr>
+            <th><label for="ggr_kyc_first_name">Voornaam</label></th>
+            <td><input type="text" name="ggr_kyc_first_name" id="ggr_kyc_first_name" class="regular-text" /></td>
+        </tr>
+        <tr>
+            <th><label for="ggr_kyc_last_name">Achternaam</label></th>
+            <td><input type="text" name="ggr_kyc_last_name" id="ggr_kyc_last_name" class="regular-text" /></td>
+        </tr>
+        <tr>
+            <th><label for="ggr_kyc_phone">Telefoonnummer</label></th>
+            <td><input type="text" name="ggr_kyc_phone" id="ggr_kyc_phone" class="regular-text" /></td>
+        </tr>
+        <tr>
+            <th><label for="ggr_kyc_birth_date">Geboortedatum</label></th>
+            <td><input type="date" name="ggr_kyc_birth_date" id="ggr_kyc_birth_date" class="regular-text" /></td>
+        </tr>
+        <tr>
+            <th><label for="ggr_kyc_address">Adres</label></th>
+            <td><input type="text" name="ggr_kyc_address" id="ggr_kyc_address" class="regular-text" /></td>
+        </tr>
+        <tr>
+            <th><label for="ggr_kyc_postcode">Postcode</label></th>
+            <td><input type="text" name="ggr_kyc_postcode" id="ggr_kyc_postcode" class="regular-text" /></td>
+        </tr>
+        <tr>
+            <th><label for="ggr_kyc_city_country">Plaats</label></th>
+            <td><input type="text" name="ggr_kyc_city_country" id="ggr_kyc_city_country" class="regular-text" /></td>
+        </tr>
+        <tr>
+            <th><label for="ggr_kyc_country">Land</label></th>
+            <td><input type="text" name="ggr_kyc_country" id="ggr_kyc_country" class="regular-text" /></td>
+        </tr>
+        <tr>
+            <th><label for="ggr_kyc_iban_name">Tenaamstelling IBAN</label></th>
+            <td><input type="text" name="ggr_kyc_iban_name" id="ggr_kyc_iban_name" class="regular-text" /></td>
+        </tr>
+        <tr>
+            <th><label for="ggr_kyc_iban">IBAN</label></th>
+            <td><input type="text" name="ggr_kyc_iban" id="ggr_kyc_iban" class="regular-text" /></td>
+        </tr>
+    </table>
+    <?php
+}
+
+add_action( 'user_register', 'ggr_portal_save_user_creation_fields', 10, 1 );
+function ggr_portal_save_user_creation_fields( $user_id ) {
+    if ( ! current_user_can( 'create_users' ) ) {
+        return;
+    }
+
+    $fields = array(
+        'ggr_kyc_first_name',
+        'ggr_kyc_last_name',
+        'ggr_kyc_phone',
+        'ggr_kyc_birth_date',
+        'ggr_kyc_address',
+        'ggr_kyc_postcode',
+        'ggr_kyc_city_country',
+        'ggr_kyc_country',
+        'ggr_kyc_iban_name',
+        'ggr_kyc_iban',
+    );
+
+    foreach ( $fields as $field ) {
+        if ( isset( $_POST[ $field ] ) ) {
+            $value = sanitize_text_field( wp_unslash( $_POST[ $field ] ) );
+            update_user_meta( $user_id, $field, $value );
+        }
+    }
+}
+
+/**
  * 11. Participant overzicht (snelle data)
  *
  * Onder Gebruikers > Participant overzicht:
