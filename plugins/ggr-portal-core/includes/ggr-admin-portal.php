@@ -247,12 +247,7 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 			'icon'  => 'ri-swap-box-line',
 			'url'   => admin_url( 'admin.php?page=ggr-mutaties' ),
 		],		
-		[
-			'slug'  => 'ggr_email_template',
-			'label' => 'E-mail templates',
-			'icon'  => 'ri-mail-settings-line',
-			'url'   => admin_url( 'edit.php?post_type=ggr_email_template' ),
-		],
+
 		[
 			'slug'  => 'ggr-stock-price',
 			'label' => 'NAV Koers',
@@ -263,6 +258,12 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 
 	// Aanvullende acties/tabbladen voor beheer & systeem
 	$nav_secondary = [
+	    [
+			'slug'  => 'ggr_email_template',
+			'label' => 'E-mail templates',
+			'icon'  => 'ri-mail-settings-line',
+			'url'   => admin_url( 'edit.php?post_type=ggr_email_template' ),
+		],
 		[
 			'slug'  => 'ggr-audit-log',
 			'label' => 'Audit log',
