@@ -146,6 +146,7 @@ function ggr_portal_render_email_template_metabox( $post ) {
     <p><strong>Beschikbare placeholders (basis, uit te breiden):</strong></p>
     <ul style="list-style: disc; margin-left: 20px;">
         <li><code>{{user_display_name}}</code></li>
+        <li><code>{{account_email}}</code></li>
         <li><code>{{portal_link}}</code></li>
         <li><code>{{login_link}}</code></li>
 
@@ -156,6 +157,10 @@ function ggr_portal_render_email_template_metabox( $post ) {
         <li><code>{{message_title}}</code></li>
         <li><code>{{message_date}}</code></li>
         <li><code>{{message_url}}</code></li>
+
+        <li><code>{{referrer_name}}</code></li>
+        <li><code>{{referrer_email}}</code></li>
+        <li><code>{{referral_link}}</code></li>
     </ul>
     <p>Gebruik deze in de editor hierboven in de tekst van de e-mail.</p>
 
@@ -236,6 +241,7 @@ function ggr_portal_save_email_template_meta( $post_id ) {
                 // Dummy placeholders voor test
                 $placeholders = [
                     'user_display_name'        => 'Test gebruiker',
+                    'account_email'            => 'test@example.com',
                     'portal_link'              => home_url( '/' ),
                     'two_factor_code'          => '123456',
                     'two_factor_valid_minutes' => '10',
@@ -243,6 +249,9 @@ function ggr_portal_save_email_template_meta( $post_id ) {
                     'message_title'            => 'Voorbeeldbericht',
                     'message_date'             => date_i18n( 'd-m-Y' ),
                     'login_link'               => home_url( '/login/' ),
+                    'referrer_name'            => 'Test verwijzer',
+                    'referrer_email'           => 'verwijzer@example.com',
+                    'referral_link'            => home_url( '/investeerder-worden/' ),                    
                 ];
 
                 $replacements = [];
@@ -342,7 +351,9 @@ function ggr_portal_send_templated_email( $template_key, $user_id, $extra_placeh
 
         $default_placeholders = [
             'user_display_name' => ggr_portal_get_nice_user_name( $user ),
+            'account_email'     => $user->user_email,
             'portal_link'       => home_url( '/' ),
+            'login_link'        => wp_login_url(),
         ];
 
 
@@ -372,15 +383,43 @@ function ggr_portal_send_participant_activation_email( $user_id, $role, $old_rol
     }
 
     $dashboard_url = home_url( '/dashboard/' );
-
-    ggr_portal_send_templated_email(
-        'account_activated',
-        $user_id,
-        array(
-            'portal_link' => $dashboard_url,
-            'login_link'  => wp_login_url( $dashboard_url ),
-        )
+    $payload       = array(
+        'portal_link' => $dashboard_url,
+        'login_link'  => wp_login_url( $dashboard_url ),
     );
+
+    $sent = ggr_portal_send_templated_email( 'account_welcome', $user_id, $payload );
+
+    if ( ! $sent ) {
+        ggr_portal_send_templated_email( 'account_activated', $user_id, $payload );
+    }
+}
+
+/**
+ * Welkomstmail bij het handmatig aanmaken van accounts (admin).
+ */
+add_action( 'user_register', 'ggr_portal_send_account_created_email', 10, 1 );
+function ggr_portal_send_account_created_email( $user_id ) {
+    $user = get_user_by( 'id', $user_id );
+    if ( ! $user ) {
+        return;
+    }
+
+    if ( in_array( 'lead', (array) $user->roles, true ) ) {
+        return;
+    }
+
+    $dashboard_url = home_url( '/dashboard/' );
+    $payload       = array(
+        'portal_link' => $dashboard_url,
+        'login_link'  => wp_login_url( $dashboard_url ),
+    );
+
+    $sent = ggr_portal_send_templated_email( 'account_welcome', $user_id, $payload );
+
+    if ( ! $sent ) {
+        ggr_portal_send_templated_email( 'account_activated', $user_id, $payload );
+    }
 }
 
 /**
@@ -696,3 +735,6 @@ function ggr_portal_send_new_message_notification( $user_id, WP_Post $post ) {
         $extra_placeholders
     );
 }
+
+
+
