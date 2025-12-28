@@ -104,10 +104,9 @@ add_action( 'admin_init', function() {
 	$allowed_admin_pages = array(
 		'ggr-portal-dashboard',
 		'ggr-meldingen',
-		'ggr-mutaties',		
+		'ggr-mutaties',
 		'ggr-stock-price',
 		'ggr-dividend-accruals',
-	    'ggr_bericht',
 	);
 
 	$allowed_users_pages = array(
@@ -126,14 +125,14 @@ add_action( 'admin_init', function() {
 		$allowed = true;
 	}
 
-	if ( in_array( $pagenow, array( 'edit.php', 'post.php', 'post-new.php' ), true ) && in_array( $post_type, array( 'ggr_email_template', 'ggr_mutatie' ), true ) ) {
+	if ( in_array( $pagenow, array( 'edit.php', 'post.php', 'post-new.php' ), true ) && in_array( $post_type, array( 'ggr_email_template', 'ggr_mutatie', 'ggr_bericht' ), true ) ) {
 		$allowed = true;
 	}
 
 	if ( 'post.php' === $pagenow && ! $post_type && isset( $_GET['post'] ) ) {
 		$post_id = (int) $_GET['post'];
 		$post    = get_post( $post_id );
-		if ( $post && in_array( $post->post_type, array( 'ggr_email_template', 'ggr_mutatie' ), true ) ) {
+		if ( $post && in_array( $post->post_type, array( 'ggr_email_template', 'ggr_mutatie', 'ggr_bericht' ), true ) ) {
 			$allowed = true;
 		}
 	}
@@ -247,7 +246,7 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 			'slug'  => 'ggr_bericht',
 			'label' => 'Berichten',
 			'icon'  => 'ri-increase-decrease-line',
-			'url'   => admin_url( 'admin.php?page=ggr_bericht' ),
+			'url'   => admin_url( 'edit.php?post_type=ggr_bericht' ),
 		],			
 		[
 			'slug'  => 'ggr-mutaties',
@@ -395,6 +394,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 	const isNavItemActive = (item) => {
 		if (item.slug === 'ggr_email_template' && currentPostType === 'ggr_email_template') {
+			return true;
+		}
+		if (item.slug === 'ggr_bericht' && currentPostType === 'ggr_bericht') {
 			return true;
 		}
 		if (item.slug === 'ggr-mutaties' && currentPostType === 'ggr_mutatie') {
