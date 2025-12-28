@@ -36,15 +36,38 @@ function ggr_portal_verwijs_vriend_shortcode() {
                     ? ggr_portal_get_nice_user_name( $user )
                     : $user->display_name;
 
-                $subject = 'U bent verwezen door ' . $referrer_name;
-                $message = sprintf( 'U bent verwezen door %s.', $referrer_name );
+                $sent = false;
 
-                $sent = wp_mail(
-                    $friend_email,
-                    $subject,
-                    $message,
-                    array( 'Content-Type: text/plain; charset=UTF-8' )
-                );
+                if ( function_exists( 'ggr_portal_render_email' ) ) {
+                    $placeholders = array(
+                        'referrer_name'  => $referrer_name,
+                        'referrer_email' => $user->user_email,
+                        'referral_link'  => home_url( '/investeerder-worden/' ),
+                    );
+
+                    $rendered = ggr_portal_render_email( 'referral_invite', $placeholders );
+
+                    if ( $rendered ) {
+                        $sent = wp_mail(
+                            $friend_email,
+                            $rendered['subject'],
+                            $rendered['body'],
+                            array( 'Content-Type: text/html; charset=UTF-8' )
+                        );
+                    }
+                }
+
+                if ( ! $sent ) {
+                    $subject = 'U bent verwezen door ' . $referrer_name;
+                    $message = sprintf( 'U bent verwezen door %s.', $referrer_name );
+
+                    $sent = wp_mail(
+                        $friend_email,
+                        $subject,
+                        $message,
+                        array( 'Content-Type: text/plain; charset=UTF-8' )
+                    );
+                }
 
                 if ( $sent ) {
                     $success_notice = 'Je uitnodiging is verstuurd.';
