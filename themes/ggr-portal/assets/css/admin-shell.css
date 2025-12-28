@@ -25,6 +25,10 @@ body.ggr-admin-shell-enabled .wrap > h1.wp-heading-inline {
     border-left-color: #f29f75!important;
 }
 
+.ggr-shell-nav--secondary { 
+        margin-top: auto;
+}
+
 body.ggr-admin-shell-enabled #wpcontent,
 body.ggr-admin-shell-enabled #wpbody-content {
     margin-left: 0;
