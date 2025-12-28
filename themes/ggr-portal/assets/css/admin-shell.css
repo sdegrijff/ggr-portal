@@ -31,6 +31,10 @@ body.ggr-admin-shell-enabled #wpbody-content {
     padding: 0;
 }
 
+ggr-shell-nav--secondary {
+    margin-top: auto;
+}
+
 .ggr-admin-shell__toggle {
     display:none!important;
 }
@@ -166,6 +170,11 @@ body.ggr-admin-shell-enabled .ggr-admin-shell__content .wrap > .notice,
 body.ggr-admin-shell-enabled .ggr-admin-shell__content .wrap > .update-nag {
     display: block !important;
     margin-bottom: 16px;
+}
+
+body.ggr-admin-shell-enabled #lost-connection-notice,
+body.ggr-admin-shell-enabled #local-storage-notice {
+    display: none !important;
 }
 
 body.ggr-admin-shell-enabled .ggr-admin-shell__content table.widefat,
