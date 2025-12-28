@@ -113,6 +113,42 @@ function ggr_mutaties_get_nav_date_for_planned_date( $planned_date ) {
     return $dt->format( 'Y-m-d' );
 }
 
+function ggr_mutaties_get_dividend_per_participation( $planned_date ) {
+    if ( ! function_exists( 'ggr_dividend_accruals_get_per_participation' ) ) {
+        return null;
+    }
+
+    return ggr_dividend_accruals_get_per_participation( $planned_date );
+}
+
+function ggr_mutaties_get_user_participations_at_date( $user_id, $planned_date ) {
+    if ( ! function_exists( 'ggr_portal_get_history_for_user' ) ) {
+        return 0.0;
+    }
+
+    $history = ggr_portal_get_history_for_user( $user_id );
+    if ( ! $history ) {
+        return 0.0;
+    }
+
+    $planned_ts = strtotime( $planned_date );
+    if ( ! $planned_ts ) {
+        return 0.0;
+    }
+
+    $total = 0.0;
+    foreach ( $history as $row ) {
+        $row_ts = strtotime( $row->datum );
+        if ( ! $row_ts || $row_ts > $planned_ts ) {
+            break;
+        }
+
+        $total += (float) $row->nieuwe_participaties - (float) $row->verkochte_participaties;
+    }
+
+    return $total;
+}
+
 function ggr_mutaties_create_mutatie( $type, $user_id = 0, $amount = '', $participaties = '' ) {
     $types = ggr_mutaties_get_types();
     if ( ! isset( $types[ $type ] ) ) {
@@ -122,6 +158,22 @@ function ggr_mutaties_create_mutatie( $type, $user_id = 0, $amount = '', $partic
     $user_id = (int) $user_id;
     $scope   = $user_id > 0 ? 'user' : 'all';
     $planned = ggr_mutaties_get_next_run_date();
+
+    if ( in_array( $type, array( 'dividend_herinvestering', 'dividend_uitkering' ), true ) && ( '' === $amount || (float) $amount <= 0 ) ) {
+        $dividend_rate = ggr_mutaties_get_dividend_per_participation( $planned );
+
+        if ( null !== $dividend_rate ) {
+            if ( $user_id > 0 ) {
+                $participations = ggr_mutaties_get_user_participations_at_date( $user_id, $planned );
+            } else {
+                $participations = function_exists( 'ggr_portal_get_total_participations_all_users' )
+                    ? ggr_portal_get_total_participations_all_users( $planned )
+                    : 0.0;
+            }
+
+            $amount = $participations > 0 ? round( $dividend_rate * $participations, 2 ) : $amount;
+        }
+    }
 
     $post_id = wp_insert_post(
         array(
@@ -555,7 +607,8 @@ function ggr_mutaties_apply_to_history( $mutatie_id, $planned_date, array &$erro
 
     $needs_nav = in_array( $type, array( 'inleg', 'opname', 'dividend_herinvestering' ), true );
     $nav_price = null;
-
+    $dividend_rate = null;
+    
     if ( $needs_nav ) {
         if ( ! function_exists( 'ggr_get_stock_price_for_date' ) ) {
             $errors[] = 'Stock price functies ontbreken om participaties om te rekenen.';
@@ -569,35 +622,10 @@ function ggr_mutaties_apply_to_history( $mutatie_id, $planned_date, array &$erro
             return false;
         }
 
-        if ( $participates > 0 && $amount <= 0 ) {
-            $amount = round( $participates * $nav_price, 2 );
-        } elseif ( $amount > 0 && $participates <= 0 ) {
-            $participates = round( $amount / $nav_price, 4 );
-        }
     }
 
-    $inleg      = 0.0;
-    $opname     = 0.0;
-    $nieuwe     = 0.0;
-    $verkochte  = 0.0;
-    $dividend   = 0.0;
-
-    if ( 'inleg' === $type ) {
-        $inleg  = $amount;
-        $nieuwe = $participates;
-    } elseif ( 'opname' === $type ) {
-        $opname    = $amount;
-        $verkochte = $participates;
-    } elseif ( 'dividend_herinvestering' === $type ) {
-        $dividend = $amount;
-        $nieuwe   = $participates;
-    } elseif ( 'dividend_uitkering' === $type ) {
-        $participates = 0.0;
-        $dividend     = $amount;
-        $opname       = $amount;
-    } else {
-        $participates = 0.0;
-        $dividend     = $amount;
+    if ( in_array( $type, array( 'dividend_herinvestering', 'dividend_uitkering' ), true ) ) {
+        $dividend_rate = ggr_mutaties_get_dividend_per_participation( $planned_date );
     }
 
     $target_user_ids = ggr_mutaties_get_target_user_ids( $scope, $user_id );
@@ -608,6 +636,46 @@ function ggr_mutaties_apply_to_history( $mutatie_id, $planned_date, array &$erro
 
     $updated = 0;
     foreach ( $target_user_ids as $target_user_id ) {
+        $amount_for_user       = $amount;
+        $participates_for_user = $participates;
+
+        if ( $dividend_rate !== null && $amount_for_user <= 0 ) {
+            $user_parts      = ggr_mutaties_get_user_participations_at_date( $target_user_id, $planned_date );
+            $amount_for_user = $user_parts > 0 ? round( $dividend_rate * $user_parts, 2 ) : 0.0;
+        }
+
+        if ( $needs_nav ) {
+            if ( $participates_for_user > 0 && $amount_for_user <= 0 ) {
+                $amount_for_user = round( $participates_for_user * $nav_price, 2 );
+            } elseif ( $amount_for_user > 0 && $participates_for_user <= 0 ) {
+                $participates_for_user = round( $amount_for_user / $nav_price, 4 );
+            }
+        }
+
+        $inleg      = 0.0;
+        $opname     = 0.0;
+        $nieuwe     = 0.0;
+        $verkochte  = 0.0;
+        $dividend   = 0.0;
+
+        if ( 'inleg' === $type ) {
+            $inleg  = $amount_for_user;
+            $nieuwe = $participates_for_user;
+        } elseif ( 'opname' === $type ) {
+            $opname    = $amount_for_user;
+            $verkochte = $participates_for_user;
+        } elseif ( 'dividend_herinvestering' === $type ) {
+            $dividend = $amount_for_user;
+            $nieuwe   = $participates_for_user;
+        } elseif ( 'dividend_uitkering' === $type ) {
+            $participates_for_user = 0.0;
+            $dividend              = $amount_for_user;
+            $opname                = $amount_for_user;
+        } else {
+            $participates_for_user = 0.0;
+            $dividend              = $amount_for_user;
+        }
+
         $entry = ggr_mutaties_find_history_entry_by_date( $target_user_id, $planned_date );
 
         if ( $entry ) {
@@ -678,6 +746,13 @@ function ggr_mutaties_render_admin_page() {
     }
 
     if ( 'dividend_run' === $action ) {
+        $planned_date  = ggr_mutaties_get_next_run_date();
+        $dividend_rate = ggr_mutaties_get_dividend_per_participation( $planned_date );
+
+        if ( null === $dividend_rate ) {
+            $errors[] = 'Geen dividend accrual gevonden voor deze run.';
+        }
+
         $participants = get_users(
             array(
                 'role__in' => array( 'participant' ),
@@ -687,7 +762,7 @@ function ggr_mutaties_render_admin_page() {
 
         if ( empty( $participants ) ) {
             $errors[] = 'Geen participanten gevonden voor een dividend run.';
-        } else {
+        } elseif ( empty( $errors ) ) {
             $created = 0;
             foreach ( $participants as $participant ) {
                 $user_id  = (int) $participant->ID;
@@ -698,8 +773,15 @@ function ggr_mutaties_render_admin_page() {
                     $strategy = 'herbeleggen';
                 }
 
-                $type   = 'herbeleggen' === $strategy ? 'dividend_herinvestering' : 'dividend_uitkering';
-                $result = ggr_mutaties_create_mutatie( $type, $user_id );
+                $type = 'herbeleggen' === $strategy ? 'dividend_herinvestering' : 'dividend_uitkering';
+
+                $user_parts = ggr_mutaties_get_user_participations_at_date( $user_id, $planned_date );
+                if ( $user_parts <= 0 ) {
+                    continue;
+                }
+
+                $amount = round( $dividend_rate * $user_parts, 2 );
+                $result = ggr_mutaties_create_mutatie( $type, $user_id, $amount );
 
                 if ( is_wp_error( $result ) ) {
                     $errors[] = $result->get_error_message();
@@ -840,6 +922,15 @@ function ggr_mutaties_render_admin_page() {
                             $display_units  = $units_value;
 
                             $needs_nav = in_array( $type, array( 'inleg', 'opname', 'dividend_herinvestering' ), true );
+
+                            if ( in_array( $type, array( 'dividend_herinvestering', 'dividend_uitkering' ), true ) && $planned ) {
+                                $dividend_rate = ggr_mutaties_get_dividend_per_participation( $planned );
+
+                                if ( null !== $dividend_rate && $user_id > 0 && ( $display_amount === null || $display_amount <= 0 ) ) {
+                                    $user_parts    = ggr_mutaties_get_user_participations_at_date( $user_id, $planned );
+                                    $display_amount = $user_parts > 0 ? round( $dividend_rate * $user_parts, 2 ) : $display_amount;
+                                }
+                            }
 
                             if ( $needs_nav && $price_used ) {
                                 if ( $display_units !== null && ( $display_amount === null || $display_amount <= 0 ) ) {
