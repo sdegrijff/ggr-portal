@@ -107,6 +107,7 @@ add_action( 'admin_init', function() {
 		'ggr-mutaties',		
 		'ggr-stock-price',
 		'ggr-dividend-accruals',
+	    'ggr_bericht',
 	);
 
 	$allowed_users_pages = array(
@@ -243,12 +244,17 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 			'url'   => admin_url( 'admin.php?page=ggr-meldingen' ),
 		],
 		[
+			'slug'  => 'ggr_bericht',
+			'label' => 'Berichten',
+			'icon'  => 'ri-increase-decrease-line',
+			'url'   => admin_url( 'admin.php?page=ggr_bericht' ),
+		],			
+		[
 			'slug'  => 'ggr-mutaties',
 			'label' => 'Mutaties',
 			'icon'  => 'ri-increase-decrease-line',
 			'url'   => admin_url( 'admin.php?page=ggr-mutaties' ),
 		],		
-
 		[
 			'slug'  => 'ggr-stock-price',
 			'label' => 'NAV Koers',
