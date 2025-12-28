@@ -106,6 +106,7 @@ add_action( 'admin_init', function() {
 		'ggr-meldingen',
 		'ggr-mutaties',		
 		'ggr-stock-price',
+		'ggr-dividend-accruals',
 	);
 
 	$allowed_users_pages = array(
