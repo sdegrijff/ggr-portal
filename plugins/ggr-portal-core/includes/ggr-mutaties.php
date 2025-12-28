@@ -27,18 +27,48 @@ function ggr_mutaties_get_statuses() {
  */
 function ggr_mutaties_get_types() {
     return array(
-        'dividend' => 'Dividend',
-        'uitkering' => 'Uitkering',
-        'opname' => 'Opname',
-        'inleg' => 'Inleg',
+        'dividend_herinvestering' => 'Dividend herinvestering',
+        'dividend_uitkering'      => 'Dividend uitkering',
+        'inleg'                   => 'Inleg',
+        'opname'                  => 'Opname',
     );
 }
 
 /**
  * Bepaal volgende mutatiedatum: eerste dag van volgende maand.
  */
-function ggr_mutaties_get_next_run_date() {
-    return wp_date( 'Y-m-01', strtotime( 'first day of next month' ) );
+function ggr_mutaties_get_next_run_date( $base_date = null ) {
+    $timestamp = $base_date ? strtotime( $base_date ) : current_time( 'timestamp' );
+
+    return wp_date( 'Y-m-01', strtotime( 'first day of next month', $timestamp ) );
+}
+
+function ggr_mutaties_normalize_planned_date( $raw_date ) {
+    $raw_date = trim( (string) $raw_date );
+    if ( $raw_date === '' ) {
+        return ggr_mutaties_get_next_run_date();
+    }
+
+    if ( function_exists( 'ggr_portal_parse_date_to_mysql' ) ) {
+        $planned_date = ggr_portal_parse_date_to_mysql( $raw_date );
+    } else {
+        $planned_date = date( 'Y-m-d', strtotime( $raw_date ) );
+    }
+
+    if ( ! $planned_date ) {
+        return ggr_mutaties_get_next_run_date();
+    }
+
+    $dt = DateTime::createFromFormat( 'Y-m-d', $planned_date, wp_timezone() );
+    if ( ! $dt ) {
+        return ggr_mutaties_get_next_run_date();
+    }
+
+    if ( '01' !== $dt->format( 'd' ) ) {
+        $dt->modify( 'first day of next month' );
+    }
+
+    return $dt->format( 'Y-m-d' );
 }
 
 function ggr_mutaties_parse_decimal( $raw ) {
@@ -165,14 +195,17 @@ function ggr_mutaties_render_metabox( $post ) {
     }
 
     if ( ! $type ) {
-        $type = 'dividend';
+        $type = 'dividend_herinvestering';
     }
 
     if ( ! $scope ) {
         $scope = 'all';
     }
 
-    wp_nonce_field( 'ggr_mutatie_meta_save', 'ggr_mutatie_meta_nonce' );
+    if ( ! $planned ) {
+        $planned = ggr_mutaties_get_next_run_date();
+    }
+
     ?>
     <table class="form-table" role="presentation">
         <tr>
@@ -189,14 +222,14 @@ function ggr_mutaties_render_metabox( $post ) {
             <th scope="row"><label for="ggr_mutatie_amount">Bedrag</label></th>
             <td>
                 <input type="text" name="ggr_mutatie_amount" id="ggr_mutatie_amount" value="<?php echo esc_attr( $amount ); ?>" />
-                <p class="description">Voer het bedrag in euro in (optioneel bij dividend of als participaties worden opgegeven).</p>
+                <p class="description">Voer het bedrag in euro in (optioneel als participaties worden opgegeven). Dividend herinvestering wordt omgerekend naar participaties.</p>
             </td>
         </tr>
         <tr>
             <th scope="row"><label for="ggr_mutatie_participaties">Participaties</label></th>
             <td>
                 <input type="text" name="ggr_mutatie_participaties" id="ggr_mutatie_participaties" value="<?php echo esc_attr( $units ); ?>" />
-                <p class="description">Voor opname/inleg: aantal participaties (wordt omgerekend tegen de GGR stock price op de ingeplande datum).</p>
+                <p class="description">Voor inleg/opname of dividend herinvestering: aantal participaties (wordt omgerekend tegen de GGR stock price op de transactiedatum).</p>
                 </td>
         </tr>
         <tr>
@@ -236,7 +269,7 @@ function ggr_mutaties_render_metabox( $post ) {
             <th scope="row"><label for="ggr_mutatie_planned_date">Geplande datum</label></th>
             <td>
                 <input type="date" name="ggr_mutatie_planned_date" id="ggr_mutatie_planned_date" value="<?php echo esc_attr( $planned ); ?>" />
-                <p class="description">Bij goedkeuring vullen we automatisch de eerstvolgende maandnota (1e).</p>
+                <p class="description">De transactiedatum is altijd de 1e van een maand. Bij opslaan plannen we dit automatisch in.</p>
             </td>
         </tr>
     </table>
@@ -276,7 +309,7 @@ function ggr_mutaties_save_meta( $post_id ) {
         return;
     }
 
-    $type    = isset( $_POST['ggr_mutatie_type'] ) ? sanitize_key( wp_unslash( $_POST['ggr_mutatie_type'] ) ) : 'dividend';
+    $type    = isset( $_POST['ggr_mutatie_type'] ) ? sanitize_key( wp_unslash( $_POST['ggr_mutatie_type'] ) ) : 'dividend_herinvestering';
     $amount  = isset( $_POST['ggr_mutatie_amount'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_mutatie_amount'] ) ) : '';
     $units   = isset( $_POST['ggr_mutatie_participaties'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_mutatie_participaties'] ) ) : '';    
     $scope   = isset( $_POST['ggr_mutatie_scope'] ) ? sanitize_key( wp_unslash( $_POST['ggr_mutatie_scope'] ) ) : 'all';
@@ -288,7 +321,7 @@ function ggr_mutaties_save_meta( $post_id ) {
     $statuses = ggr_mutaties_get_statuses();
 
     if ( ! isset( $types[ $type ] ) ) {
-        $type = 'dividend';
+        $type = 'dividend_herinvestering';
     }
 
     if ( ! isset( $statuses[ $status ] ) ) {
@@ -305,6 +338,8 @@ function ggr_mutaties_save_meta( $post_id ) {
     update_post_meta( $post_id, 'ggr_mutatie_scope', $scope );
     update_post_meta( $post_id, 'ggr_mutatie_user_id', 'all' === $scope ? 0 : $user_id );
     update_post_meta( $post_id, 'ggr_mutatie_status', $status );
+    $planned = ggr_mutaties_normalize_planned_date( $planned );
+    
     update_post_meta( $post_id, 'ggr_mutatie_planned_date', $planned );
 }
 
@@ -356,7 +391,10 @@ function ggr_mutaties_apply_to_history( $mutatie_id, $planned_date, array &$erro
     $amount       = ggr_mutaties_parse_decimal( $amount_raw );
     $participates = ggr_mutaties_parse_decimal( $units_raw );
 
-    if ( in_array( $type, array( 'inleg', 'opname' ), true ) ) {
+    $needs_nav = in_array( $type, array( 'inleg', 'opname', 'dividend_herinvestering' ), true );
+    $nav_price = null;
+
+    if ( $needs_nav ) {
         if ( ! function_exists( 'ggr_get_stock_price_for_date' ) ) {
             $errors[] = 'Stock price functies ontbreken om participaties om te rekenen.';
             return false;
@@ -369,9 +407,9 @@ function ggr_mutaties_apply_to_history( $mutatie_id, $planned_date, array &$erro
             return false;
         }
 
-        if ( $participates > 0 ) {
+        if ( $participates > 0 && $amount <= 0 ) {
             $amount = round( $participates * $nav_price, 2 );
-        } elseif ( $amount > 0 ) {
+        } elseif ( $amount > 0 && $participates <= 0 ) {
             $participates = round( $amount / $nav_price, 4 );
         }
     }
@@ -388,7 +426,11 @@ function ggr_mutaties_apply_to_history( $mutatie_id, $planned_date, array &$erro
     } elseif ( 'opname' === $type ) {
         $opname    = $amount;
         $verkochte = $participates;
+    } elseif ( 'dividend_herinvestering' === $type ) {
+        $dividend = $amount;
+        $nieuwe   = $participates;
     } else {
+        $participates = 0.0;
         $dividend = $amount;
     }
 
@@ -474,16 +516,8 @@ function ggr_mutaties_render_admin_page() {
             $scheduled = 0;
             foreach ( $action_ids as $mutatie_id ) {
                 $planned_meta = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
-                if ( function_exists( 'ggr_portal_parse_date_to_mysql' ) ) {
-                    $planned_date = ggr_portal_parse_date_to_mysql( $planned_meta );
-                } else {
-                    $planned_date = sanitize_text_field( $planned_meta );
-                }
+                $planned_date = ggr_mutaties_normalize_planned_date( $planned_meta );
 
-                if ( ! $planned_date ) {
-                    $planned_date = ggr_mutaties_get_next_run_date();
-                }
-                
                 update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', $planned_date );
 
                 if ( strtotime( $planned_date ) <= strtotime( $today ) ) {
@@ -537,7 +571,7 @@ function ggr_mutaties_render_admin_page() {
     <div class="wrap">
         <h1>Mutaties</h1>
 
-        <p>Beheer maandelijkse mutaties (dividend, uitkeringen, opnames en inleg) en plan deze in voor de eerstvolgende maandnota.</p>
+        <p>Beheer financiële mutaties (dividend herinvestering/uitkering, opnames en inleg) en plan deze in voor de eerstvolgende maandnota.</p>
 
         <p><a class="button button-primary" href="<?php echo esc_url( $new_url ); ?>">Nieuwe mutatie</a></p>
 
@@ -564,7 +598,7 @@ function ggr_mutaties_render_admin_page() {
                             <th scope="col">Type</th>
                             <th scope="col">Doelgroep</th>
                             <th scope="col">Bedrag</th>
-                            <th scope="col">Participaties</th>                            
+                            <th scope="col">Participaties</th>                          
                             <th scope="col">Status</th>
                             <th scope="col">Gepland</th>
                             <th scope="col">Aangemaakt</th>
@@ -584,23 +618,35 @@ function ggr_mutaties_render_admin_page() {
                             $user_id    = (int) get_post_meta( $mutatie_id, 'ggr_mutatie_user_id', true );
                             $user_name  = $user_id ? ( get_user_by( 'ID', $user_id )->display_name ?? '' ) : '';
                             $price_used = null;
+                            $amount_value = $amount !== '' ? ggr_mutaties_parse_decimal( $amount ) : null;
+                            $units_value  = $units !== '' ? ggr_mutaties_parse_decimal( $units ) : null;
+                            
+                            if ( $planned && function_exists( 'ggr_get_stock_price_for_date' ) ) {
+                                $price_used = ggr_get_stock_price_for_date( $planned );
+                            }
 
-                            $display_units = $units;
-                            if ( $planned && in_array( $type, array( 'inleg', 'opname' ), true ) && $amount !== '' ) {
-                                if ( function_exists( 'ggr_get_stock_price_for_date' ) ) {
-                                    $price_used = ggr_get_stock_price_for_date( $planned );
+                            $display_amount = $amount_value;
+                            $display_units  = $units_value;
+
+                            $needs_nav = in_array( $type, array( 'inleg', 'opname', 'dividend_herinvestering' ), true );
+
+                            if ( $needs_nav && $price_used ) {
+                                if ( $display_units !== null && ( $display_amount === null || $display_amount <= 0 ) ) {
+                                    $display_amount = round( $display_units * $price_used, 2 );
+                                } elseif ( $display_amount !== null && ( $display_units === null || $display_units <= 0 ) ) {
+                                    $display_units = round( $display_amount / $price_used, 4 );
                                 }
-                                if ( $price_used ) {
-                                    $amount_value  = ggr_mutaties_parse_decimal( $amount );
-                                    $display_units = round( $amount_value / $price_used, 4 );
-                                }
-                            }                            
+                            }
+
+                            if ( 'dividend_uitkering' === $type ) {
+                                $display_units = null;
+                            }                          
 
                             if ( ! $status ) {
                                 $status = 'nieuw';
                             }
                             if ( ! $type ) {
-                                $type = 'dividend';
+                                $type = 'dividend_herinvestering';
                             }
 
                             $can_schedule = in_array( $status, array( 'nieuw', 'goedgekeurd' ), true );
@@ -643,8 +689,9 @@ function ggr_mutaties_render_admin_page() {
                                     }
                                     ?>
                                 </td>
-                                <td><?php echo $amount !== '' ? esc_html( '€ ' . $amount ) : '—'; ?></td>
-                                <td><?php echo $display_units !== '' ? esc_html( number_format( (float) $display_units, 4, ',', '.' ) ) : '—'; ?></td>
+                                <td><?php echo $display_amount !== null ? esc_html( '€ ' . number_format( (float) $display_amount, 2, ',', '.' ) ) : '—'; ?></td>
+                                <td><?php echo $display_units !== null ? esc_html( number_format( (float) $display_units, 4, ',', '.' ) ) : '—'; ?></td>
+                                <td><?php echo $price_used ? esc_html( '€ ' . number_format( (float) $price_used, 4, ',', '.' ) ) : '—'; ?></td>
                                 <td><?php echo esc_html( $statuses[ $status ] ?? $status ); ?></td>
                                 <td><?php echo esc_html( ggr_mutaties_format_nl_date( $planned ) ); ?></td>
                                 <td><?php echo esc_html( ggr_mutaties_format_nl_date( $mutatie->post_date ) ); ?></td>
@@ -662,7 +709,7 @@ function ggr_mutaties_render_admin_page() {
                 </table>
 
                 <p style="margin-top: 16px;">
-                    <button type="submit" class="button button-primary" name="ggr_mutaties_action" value="approve">Goedkeuren &amp; inplannen voor eerstvolgende maandnota</button>
+                    <button type="submit" class="button button-primary" name="ggr_mutaties_action" value="approve">Goedkeuren & inplannen </button>
                     <button type="submit" class="button" name="ggr_mutaties_action" value="reject">Afwijzen</button>
                     <button type="submit" class="button" name="ggr_mutaties_action" value="delete" onclick="return confirm('Weet je zeker dat je de geselecteerde mutaties wilt verwijderen?');">Verwijderen</button>
                 </p>
