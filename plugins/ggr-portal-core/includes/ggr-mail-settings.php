@@ -13,7 +13,12 @@ function ggr_portal_mail_from( $from_email ) {
         return $from_email;
     }
 
-    $domain = preg_replace( '/^www\./', '', $host );
+    $host   = strtolower( preg_replace( '/^www\./', '', $host ) );
+    $parts  = array_values( array_filter( explode( '.', $host ) ) );
+    $domain = $host;
+    if ( count( $parts ) > 2 ) {
+        $domain = implode( '.', array_slice( $parts, -2 ) );
+    }
     if ( ! $domain ) {
         return $from_email;
     }
