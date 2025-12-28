@@ -558,9 +558,13 @@ function ggr_mutaties_apply_to_history( $mutatie_id, $planned_date, array &$erro
     } elseif ( 'dividend_herinvestering' === $type ) {
         $dividend = $amount;
         $nieuwe   = $participates;
+    } elseif ( 'dividend_uitkering' === $type ) {
+        $participates = 0.0;
+        $dividend     = $amount;
+        $opname       = $amount;
     } else {
         $participates = 0.0;
-        $dividend = $amount;
+        $dividend     = $amount;
     }
 
     $target_user_ids = ggr_mutaties_get_target_user_ids( $scope, $user_id );
@@ -727,7 +731,8 @@ function ggr_mutaties_render_admin_page() {
                             <th scope="col">Type</th>
                             <th scope="col">Doelgroep</th>
                             <th scope="col">Bedrag</th>
-                            <th scope="col">Participaties</th>                          
+                            <th scope="col">Participaties</th>     
+                            <th scope="col">Koers</th>
                             <th scope="col">Status</th>
                             <th scope="col">Gepland</th>
                             <th scope="col">Aangemaakt</th>
@@ -778,6 +783,7 @@ function ggr_mutaties_render_admin_page() {
                                 $type = 'dividend_herinvestering';
                             }
 
+                            $is_executed = ( 'uitgevoerd' === $status );
                             $can_schedule = in_array( $status, array( 'nieuw', 'goedgekeurd' ), true );
                             $can_reject   = in_array( $status, array( 'nieuw', 'goedgekeurd', 'ingepland' ), true );
 
@@ -799,7 +805,7 @@ function ggr_mutaties_render_admin_page() {
                             ?>
                             <tr>
                                 <th scope="row">
-                                    <input type="checkbox" name="ggr_mutatie_ids[]" value="<?php echo (int) $mutatie_id; ?>" />
+                                    <input type="checkbox" name="ggr_mutatie_ids[]" value="<?php echo (int) $mutatie_id; ?>" <?php disabled( $is_executed ); ?> />
                                 </th>
                                 <td>
                                     <strong>
@@ -850,7 +856,7 @@ function ggr_mutaties_render_admin_page() {
         var selectAll = document.getElementById('ggr_mutaties_select_all');
         if (!selectAll) return;
         selectAll.addEventListener('change', function() {
-            var checkboxes = document.querySelectorAll('input[name="ggr_mutatie_ids[]"]');
+            var checkboxes = document.querySelectorAll('input[name="ggr_mutatie_ids[]"]:not(:disabled)');
             checkboxes.forEach(function(box) {
                 box.checked = selectAll.checked;
             });
