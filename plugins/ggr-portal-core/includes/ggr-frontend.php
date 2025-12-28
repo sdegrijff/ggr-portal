@@ -415,6 +415,21 @@ $greeting_name = $first_name ? $first_name : $naam;
         return '<section class="ggrp-fe"><h1>Dashboard</h1><p>Nog geen historie beschikbaar.</p></section>';
     }
 
+    $today_date = current_time( 'Y-m-d' );
+    $history_raw = array_values(
+        array_filter(
+            $history_raw,
+            function( $row ) use ( $today_date ) {
+                return ! empty( $row->datum ) && $row->datum <= $today_date;
+            }
+        )
+    );
+
+    if ( empty( $history_raw ) ) {
+        return '<section class="ggrp-fe"><h1>Dashboard</h1><p>Nog geen historie beschikbaar.</p></section>';
+    }
+
+
     // History oplopend op datum
     $history = array_values( $history_raw );
     usort(
@@ -448,8 +463,10 @@ $greeting_name = $first_name ? $first_name : $naam;
                 "SELECT price_date, price_value
                  FROM {$stock_table}
                  WHERE price_date >= %s
+                   AND price_date <= %s
                  ORDER BY price_date ASC",
-                $first_date
+                $first_date,
+                $today_date
             )
         );
     }
@@ -997,6 +1014,8 @@ $greeting_name = $first_name ? $first_name : $naam;
                 <h2>Positiewaarde</h2>
                 <div class="ggrp-fe-range-buttons" aria-label="Filter grafiekperiode">
                     <button type="button" class="ggrp-fe-range-button is-active" data-range="all">Alles</button>
+                    <button type="button" class="ggrp-fe-range-button" data-range="30">30 dagen</button>
+                    <button type="button" class="ggrp-fe-range-button" data-range="7">7 dagen</button>                    
                 </div>
             </div>
             <div class="ggrp-fe-panel-body ggrp-fe-panel-body--chart">
@@ -1107,6 +1126,16 @@ $greeting_name = $first_name ? $first_name : $naam;
                 const label = monthsShort[m-1] || '';
                 return label + "'" + String(y).slice(2);
             }
+            function formatDayMonthShortFromYMD(ymd) {
+                const parts = (ymd || '').split('-');
+                if (parts.length < 3) return ymd || '';
+                const y = Number(parts[0]);
+                const m = Number(parts[1]);
+                const d = Number(parts[2]);
+                if (!y || !m || !d) return ymd;
+                const label = monthsShort[m-1] || '';
+                return d + ' ' + label;
+            }            
             function formatDateLongFromYMD(ymd) {
                 const parts = (ymd || '').split('-');
                 if (parts.length < 3) return ymd || '';
@@ -1147,17 +1176,33 @@ $greeting_name = $first_name ? $first_name : $naam;
             const basePosValues = posValues.slice();
             let posChart        = null;
 
+            function buildMonthChangeLabels(dates) {
+                const labels = [];
+                let lastMonthKey = '';
+                dates.forEach((dateStr) => {
+                    const monthKey = (dateStr || '').slice(0, 7);
+                    if (monthKey && monthKey !== lastMonthKey) {
+                        labels.push(formatMonthShortFromYMD(dateStr));
+                        lastMonthKey = monthKey;
+                    } else {
+                        labels.push('');
+                    }
+                });
+                return labels;
+            }
+
             function getFilteredPosData(rangeKey) {
                 if (!basePosDates.length) {
-                    return { dates: [], values: [], labels: [], tickLimit: 6 };
+                    return { dates: [], values: [], labels: [], tickLimit: 6, labelMode: 'month' };
                 }
 
                 if (rangeKey === 'all') {
                     return {
                         dates: basePosDates,
                         values: basePosValues,
-                        labels: basePosDates.map(formatMonthShortFromYMD),
-                        tickLimit: 10,
+                        labels: buildMonthChangeLabels(basePosDates),
+                        tickLimit: basePosDates.length,
+                        labelMode: 'month',
                     };
                 }
 
@@ -1166,8 +1211,9 @@ $greeting_name = $first_name ? $first_name : $naam;
                     return {
                         dates: basePosDates,
                         values: basePosValues,
-                        labels: basePosDates.map(formatMonthShortFromYMD),
-                        tickLimit: 10,
+                        labels: buildMonthChangeLabels(basePosDates),
+                        tickLimit: basePosDates.length,
+                        labelMode: 'month',
                     };
                 }
 
@@ -1177,8 +1223,9 @@ $greeting_name = $first_name ? $first_name : $naam;
                     return {
                         dates: basePosDates,
                         values: basePosValues,
-                        labels: basePosDates.map(formatMonthShortFromYMD),
-                        tickLimit: 10,
+                        labels: buildMonthChangeLabels(basePosDates),
+                        tickLimit: basePosDates.length,
+                        labelMode: 'month',
                     };
                 }
 
@@ -1200,12 +1247,14 @@ $greeting_name = $first_name ? $first_name : $naam;
                     return {
                         dates: basePosDates,
                         values: basePosValues,
-                        labels: basePosDates.map(formatMonthShortFromYMD),
-                        tickLimit: 10,
+                        labels: buildMonthChangeLabels(basePosDates),
+                        tickLimit: basePosDates.length,
+                        labelMode: 'month',
                     };
                 }
 
                 let tickLimit = 10;
+                let labelMode = 'day';                
                 switch (days) {
                     case 1:
                         tickLimit = 3;
@@ -1218,6 +1267,7 @@ $greeting_name = $first_name ? $first_name : $naam;
                         break;
                     case 365:
                         tickLimit = 12;
+                        labelMode = 'month';                        
                         break;
                     default:
                         tickLimit = 10;
@@ -1226,8 +1276,11 @@ $greeting_name = $first_name ? $first_name : $naam;
                 return {
                     dates: filteredDates,
                     values: filteredValues,
-                    labels: filteredDates.map(formatMonthShortFromYMD),
+                    labels: labelMode === 'month'
+                        ? buildMonthChangeLabels(filteredDates)
+                        : filteredDates.map(formatDayMonthShortFromYMD),
                     tickLimit,
+                    labelMode,
                 };
             }
 
@@ -1241,19 +1294,13 @@ $greeting_name = $first_name ? $first_name : $naam;
                 const pad = delta * 0.20;
 
                 const currentDates = filtered.dates.length ? filtered.dates : basePosDates;
-                const monthFromDate = (dateStr) => formatMonthShortFromYMD(dateStr || '');
-                
                 posChart.data.labels = filtered.labels;
                 posChart.data.datasets[0].data = filtered.values;
                 posChart.options.scales.x.ticks.maxTicksLimit = filtered.tickLimit;
                 posChart.options.scales.x.ticks.callback = function(value, index) {
-                    const rawDate = currentDates[index] || '';
-                    if (!rawDate) return '';
-                    if (index > 0 && monthFromDate(rawDate) === monthFromDate(currentDates[index - 1])) {
-                        return '';
-                    }
-                    return monthFromDate(rawDate);
+                    return filtered.labels[index] || '';
                 };
+                posChart.options.scales.x.ticks.autoSkip = false;                
                 posChart.options.scales.y.suggestedMin = Math.max(0, minVal - pad);
                 posChart.options.scales.y.suggestedMax = maxVal + pad;                
                 posChart.update();
@@ -1350,7 +1397,10 @@ $greeting_name = $first_name ? $first_name : $naam;
                     scales: {
                         x: {
                             offset: false,
-                            ticks: { maxTicksLimit: 10 },
+                            ticks: {
+                                maxTicksLimit: basePosDates.length,
+                                autoSkip: false
+                            },
                             grid: {
                                 display: false,
                                 drawBorder: false
@@ -1512,6 +1562,20 @@ function ggrp_fe_transacties_shortcode( $atts ) {
 
     $history = ggr_portal_get_history_for_user( $user_id );
     if ( ! $history ) {
+        return '<section class="ggrp-fe"><h1>Transacties</h1><p>Nog geen transacties gevonden.</p></section>';
+    }
+
+    $today_date = current_time( 'Y-m-d' );
+    $history = array_values(
+        array_filter(
+            $history,
+            function( $row ) use ( $today_date ) {
+                return ! empty( $row->datum ) && $row->datum <= $today_date;
+            }
+        )
+    );
+
+    if ( empty( $history ) ) {
         return '<section class="ggrp-fe"><h1>Transacties</h1><p>Nog geen transacties gevonden.</p></section>';
     }
 
