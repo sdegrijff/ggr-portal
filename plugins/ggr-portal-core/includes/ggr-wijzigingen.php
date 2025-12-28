@@ -97,7 +97,7 @@ function ggr_portal_investeren_shortcode() {
                                 if ( is_wp_error( $mutatie_id ) ) {
                                     $errors[] = 'Kon de mutatie voor de storting niet aanmaken.';
                                 } else {
-                                    $success_messages[] = 'Je storting is direct doorgevoerd als mutatie.';
+                                    $success_messages[] = 'Je storting is ontvangen.';
                                 }
                             } else {
                                 $errors[] = 'Mutatie-functies ontbreken om de storting te verwerken.';
@@ -298,14 +298,6 @@ function ggr_portal_investeren_shortcode() {
             </div>
         <?php endif; ?>
 
-        <?php if ( ! empty( $success_messages ) ) : ?>
-            <div class="ggrp-fe-alert ggrp-fe-alert--success">
-                <?php foreach ( $success_messages as $msg ) : ?>
-                    <p><?php echo esc_html( $msg ); ?></p>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
-
         <?php if ( ! $selected_action ) : ?>
             <div class="ggrp-fe-wijziging-grid">
                 <a href="<?php echo esc_url( add_query_arg( 'change', 'deposit' ) ); ?>"
@@ -340,6 +332,9 @@ function ggr_portal_investeren_shortcode() {
                     </div>
                 
                 </a>
+            </div>
+                
+            <div class="ggrp-fe-wijziging-grid">
                 <a href="<?php echo esc_url( add_query_arg( 'change', 'strategy' ) ); ?>"
                    class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split ggrp-fe-wijziging-card--clickable">
                 
@@ -355,9 +350,6 @@ function ggr_portal_investeren_shortcode() {
                         </p>
                     </div>
                 </a>
-            </div>
-                
-            <div class="ggrp-fe-wijziging-grid">
                 <a href="<?php echo esc_url( add_query_arg( 'change', 'bank_change' ) ); ?>"
                    class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split ggrp-fe-wijziging-card--clickable">
                 
@@ -374,6 +366,10 @@ function ggr_portal_investeren_shortcode() {
                     </div>
                 
                 </a>
+            </div>
+            
+            
+            <div class="ggrp-fe-wijziging-grid">
                 <a href="<?php echo esc_url( add_query_arg( 'change', 'feedback' ) ); ?>"
                    class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split ggrp-fe-wijziging-card--clickable">
                 
@@ -388,7 +384,6 @@ function ggr_portal_investeren_shortcode() {
                             Deel je suggesties om deze pagina handiger te maken.
                         </p>
                     </div>
-                
                 </a>
             </div>
         <?php else : ?>
