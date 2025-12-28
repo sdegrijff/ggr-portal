@@ -245,7 +245,7 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 		[
 			'slug'  => 'ggr_bericht',
 			'label' => 'Berichten',
-			'icon'  => 'ri-increase-decrease-line',
+			'icon'  => 'ri-message-3-line',
 			'url'   => admin_url( 'edit.php?post_type=ggr_bericht' ),
 		],			
 		[
