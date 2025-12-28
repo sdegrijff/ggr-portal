@@ -113,6 +113,39 @@ function ggr_mutaties_get_nav_date_for_planned_date( $planned_date ) {
     return $dt->format( 'Y-m-d' );
 }
 
+function ggr_mutaties_create_mutatie( $type, $user_id = 0, $amount = '', $participaties = '' ) {
+    $types = ggr_mutaties_get_types();
+    if ( ! isset( $types[ $type ] ) ) {
+        return new WP_Error( 'ggr_mutatie_type', 'Ongeldig mutatietype.' );
+    }
+
+    $user_id = (int) $user_id;
+    $scope   = $user_id > 0 ? 'user' : 'all';
+    $planned = ggr_mutaties_get_next_run_date();
+
+    $post_id = wp_insert_post(
+        array(
+            'post_type'   => 'ggr_mutatie',
+            'post_status' => 'publish',
+        ),
+        true
+    );
+
+    if ( is_wp_error( $post_id ) ) {
+        return $post_id;
+    }
+
+    update_post_meta( $post_id, 'ggr_mutatie_status', 'nieuw' );
+    update_post_meta( $post_id, 'ggr_mutatie_type', $type );
+    update_post_meta( $post_id, 'ggr_mutatie_amount', $amount );
+    update_post_meta( $post_id, 'ggr_mutatie_participaties', $participaties );
+    update_post_meta( $post_id, 'ggr_mutatie_scope', $scope );
+    update_post_meta( $post_id, 'ggr_mutatie_user_id', $user_id );
+    update_post_meta( $post_id, 'ggr_mutatie_planned_date', $planned );
+
+    return $post_id;
+}
+
 function ggr_register_mutaties_cpt() {
     $labels = array(
         'name'               => 'Mutaties',
@@ -637,12 +670,50 @@ function ggr_mutaties_render_admin_page() {
             $action_ids = array();
             $errors[] = 'Ongeldige actie (nonce).';
         }
+    } elseif ( isset( $_POST['ggr_mutaties_dividend_run_nonce'] ) && wp_verify_nonce( $_POST['ggr_mutaties_dividend_run_nonce'], 'ggr_mutaties_dividend_run' ) ) {
+        $action = 'dividend_run';
     } elseif ( isset( $_POST['ggr_mutaties_action_nonce'] ) && wp_verify_nonce( $_POST['ggr_mutaties_action_nonce'], 'ggr_mutaties_action' ) ) {
         $action = isset( $_POST['ggr_mutaties_action'] ) ? sanitize_key( wp_unslash( $_POST['ggr_mutaties_action'] ) ) : '';
         $action_ids = isset( $_POST['ggr_mutatie_ids'] ) ? array_map( 'intval', (array) $_POST['ggr_mutatie_ids'] ) : array();
     }
 
-    if ( $action && $action_ids ) {
+    if ( 'dividend_run' === $action ) {
+        $participants = get_users(
+            array(
+                'role__in' => array( 'participant' ),
+                'fields'   => array( 'ID' ),
+            )
+        );
+
+        if ( empty( $participants ) ) {
+            $errors[] = 'Geen participanten gevonden voor een dividend run.';
+        } else {
+            $created = 0;
+            foreach ( $participants as $participant ) {
+                $user_id  = (int) $participant->ID;
+                $strategy = get_user_meta( $user_id, 'ggr_distribution_strategy', true );
+                $strategy = $strategy ? sanitize_key( $strategy ) : 'herbeleggen';
+
+                if ( ! in_array( $strategy, array( 'herbeleggen', 'uitkeren' ), true ) ) {
+                    $strategy = 'herbeleggen';
+                }
+
+                $type   = 'herbeleggen' === $strategy ? 'dividend_herinvestering' : 'dividend_uitkering';
+                $result = ggr_mutaties_create_mutatie( $type, $user_id );
+
+                if ( is_wp_error( $result ) ) {
+                    $errors[] = $result->get_error_message();
+                    continue;
+                }
+
+                $created++;
+            }
+
+            if ( $created > 0 ) {
+                $message = sprintf( 'Dividend run aangemaakt voor %d participanten.', $created );
+            }
+        }
+    } elseif ( $action && $action_ids ) {
         if ( 'approve' === $action ) {
             $today     = current_time( 'Y-m-d' );
             $applied   = 0;
@@ -706,7 +777,13 @@ function ggr_mutaties_render_admin_page() {
 
         <p>Beheer financiële mutaties (dividend herinvestering/uitkering, opnames en inleg) en plan deze in voor de eerstvolgende maandnota.</p>
 
-        <p><a class="button button-primary" href="<?php echo esc_url( $new_url ); ?>">Nieuwe mutatie</a></p>
+        <p>
+            <a class="button button-primary" href="<?php echo esc_url( $new_url ); ?>">Nieuwe mutatie</a>
+        </p>
+        <form method="post" style="margin: 0 0 16px;">
+            <?php wp_nonce_field( 'ggr_mutaties_dividend_run', 'ggr_mutaties_dividend_run_nonce' ); ?>
+            <button type="submit" class="button">Dividend run</button>
+        </form>
 
         <?php if ( $message ) : ?>
             <div class="notice notice-success"><p><?php echo esc_html( $message ); ?></p></div>
