@@ -51,6 +51,44 @@ function ggr_register_bericht_cpt() {
     register_post_type( 'ggr_bericht', $args );
 }
 
+add_filter( 'manage_edit-ggr_bericht_columns', 'ggr_bericht_admin_columns' );
+add_action( 'manage_ggr_bericht_posts_custom_column', 'ggr_bericht_admin_column_render', 10, 2 );
+
+function ggr_bericht_admin_columns( $columns ) {
+    $new_columns = array();
+
+    foreach ( $columns as $key => $label ) {
+        $new_columns[ $key ] = $label;
+        if ( 'title' === $key ) {
+            $new_columns['ggr_message_type'] = 'Type bericht';
+        }
+    }
+
+    if ( ! isset( $new_columns['ggr_message_type'] ) ) {
+        $new_columns['ggr_message_type'] = 'Type bericht';
+    }
+
+    return $new_columns;
+}
+
+function ggr_bericht_admin_column_render( $column, $post_id ) {
+    if ( 'ggr_message_type' !== $column ) {
+        return;
+    }
+
+    $type = get_post_meta( $post_id, '_ggr_message_type', true );
+    $labels = array(
+        ''            => 'Algemeen',
+        'release'     => 'Nieuwe release',
+        'legal'       => 'Wijziging statuten / juridisch',
+        'transaction' => 'Transactie / Transactienota',
+        'other'       => 'Overig',
+    );
+
+    $label = isset( $labels[ $type ] ) ? $labels[ $type ] : '—';
+    echo esc_html( $label );
+}
+
 /**
  * 2. Meta boxes voor doelgroep / type / datum / transactieref / periode
  */
@@ -70,9 +108,6 @@ function ggr_bericht_add_meta_boxes() {
 function ggr_bericht_meta_box_callback( $post ) {
     wp_nonce_field( 'ggr_bericht_meta_save', 'ggr_bericht_meta_nonce' );
 
-    $audience   = get_post_meta( $post->ID, '_ggr_message_audience', true );
-    $user_id    = get_post_meta( $post->ID, '_ggr_message_user_id', true );
-    $role       = get_post_meta( $post->ID, '_ggr_message_role', true );
     $type       = get_post_meta( $post->ID, '_ggr_message_type', true );
     $date       = get_post_meta( $post->ID, '_ggr_message_date', true );
     $trans_ref  = get_post_meta( $post->ID, '_ggr_message_transaction_ref', true );
@@ -83,38 +118,7 @@ function ggr_bericht_meta_box_callback( $post ) {
     }
     ?>
     <p><strong>Doelgroep</strong></p>
-    <p>
-        <label>
-            <input type="radio" name="ggr_message_audience" value="all" <?php checked( $audience, 'all' ); ?> />
-            Iedereen (alle participants)
-        </label><br/>
-        <label>
-            <input type="radio" name="ggr_message_audience" value="role" <?php checked( $audience, 'role' ); ?> />
-            Op basis van rol
-        </label>
-        <select name="ggr_message_role" style="min-width: 200px;">
-            <?php
-            $roles = array(
-                ''              => '— kies een rol —',
-                'participant'   => 'Participant',
-                'administrator' => 'Beheerder',
-            );
-            foreach ( $roles as $key => $label ) :
-                ?>
-                <option value="<?php echo esc_attr( $key ); ?>" <?php selected( $role, $key ); ?>>
-                    <?php echo esc_html( $label ); ?>
-                </option>
-            <?php endforeach; ?>
-        </select><br/>
-        <label>
-            <input type="radio" name="ggr_message_audience" value="user" <?php checked( $audience, 'user' ); ?> />
-            Specifieke gebruiker (user ID)
-        </label>
-        <input type="number" name="ggr_message_user_id" value="<?php echo esc_attr( $user_id ); ?>" style="width: 120px;" />
-        <span class="description">Gebruik de WordPress user ID van de participant.</span>
-    </p>
-
-    <hr/>
+    <p class="description">Berichten worden standaard getoond aan participanten.</p>
 
     <p><strong>Type bericht</strong></p>
     <p>
@@ -175,9 +179,9 @@ function ggr_bericht_meta_save( $post_id ) {
         return;
     }
 
-    $audience  = isset( $_POST['ggr_message_audience'] ) ? sanitize_text_field( $_POST['ggr_message_audience'] ) : 'all';
-    $user_id   = isset( $_POST['ggr_message_user_id'] ) ? absint( $_POST['ggr_message_user_id'] ) : 0;
-    $role      = isset( $_POST['ggr_message_role'] ) ? sanitize_text_field( $_POST['ggr_message_role'] ) : '';
+    $audience  = 'role';
+    $user_id   = 0;
+    $role      = 'participant';
     $type      = isset( $_POST['ggr_message_type'] ) ? sanitize_text_field( $_POST['ggr_message_type'] ) : '';
     $date      = isset( $_POST['ggr_message_date'] ) ? sanitize_text_field( $_POST['ggr_message_date'] ) : '';
     $trans_ref = isset( $_POST['ggr_message_transaction_ref'] ) ? sanitize_text_field( $_POST['ggr_message_transaction_ref'] ) : '';
@@ -1655,5 +1659,3 @@ return ob_get_clean();
 
 }
 add_shortcode( 'ggr_transacties_overzicht', 'ggr_transacties_overzicht_shortcode' );
-
-
