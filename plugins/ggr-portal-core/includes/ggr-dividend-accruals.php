@@ -436,12 +436,6 @@ function ggr_render_dividend_accrual_page() {
 
         <h2><?php echo $is_edit ? 'Dividend accrual bewerken' : 'Nieuwe dividend accrual'; ?></h2>
         <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;">
-            <div style="min-width:240px;max-width:320px;">
-                <h3 style="margin-top:0;">Financieel overzicht</h3>
-                <p style="margin:0 0 6px;"><strong>Totaal bruto:</strong> € <?php echo esc_html( number_format( $totals['gross'], 2, ',', '.' ) ); ?></p>
-                <p style="margin:0 0 6px;"><strong>Distributievergoeding (10%):</strong> € <?php echo esc_html( number_format( $totals['fee'], 2, ',', '.' ) ); ?></p>
-                <p style="margin:0;"><strong>Totaal netto:</strong> € <?php echo esc_html( number_format( $totals['net'], 2, ',', '.' ) ); ?></p>
-            </div>
             <form method="post" style="max-width: 520px;flex:1;">
                 <?php wp_nonce_field( 'ggr_save_dividend_accrual' ); ?>
                 <input type="hidden" name="accrual_id" value="<?php echo esc_attr( $edit_id ); ?>" />
@@ -461,6 +455,12 @@ function ggr_render_dividend_accrual_page() {
                     </button>
                 </p>
             </form>
+            <div style="min-width:240px;max-width:320px;">
+                <h3 style="margin-top:0;">Financieel overzicht</h3>
+                <p style="margin:0 0 6px;"><strong>Totaal bruto:</strong> € <?php echo esc_html( number_format( $totals['gross'], 2, ',', '.' ) ); ?></p>
+                <p style="margin:0 0 6px;"><strong>Distributievergoeding (10%):</strong> € <?php echo esc_html( number_format( $totals['fee'], 2, ',', '.' ) ); ?></p>
+                <p style="margin:0;"><strong>Totaal netto:</strong> € <?php echo esc_html( number_format( $totals['net'], 2, ',', '.' ) ); ?></p>
+            </div>
         </div>
 
         <h2>Overzicht</h2>
