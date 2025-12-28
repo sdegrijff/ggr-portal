@@ -8,6 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 add_action( 'init', 'ggr_register_mutaties_cpt' );
+add_action( 'init', 'ggr_mutaties_remove_post_support', 11 );
 
 /**
  * Beschikbare statussen voor mutaties.
@@ -140,6 +141,11 @@ function ggr_register_mutaties_cpt() {
     register_post_type( 'ggr_mutatie', $args );
 }
 
+function ggr_mutaties_remove_post_support() {
+    remove_post_type_support( 'ggr_mutatie', 'title' );
+    remove_post_type_support( 'ggr_mutatie', 'editor' );
+}
+
 /**
  * Admin-menu voor mutaties.
  */
@@ -189,7 +195,8 @@ function ggr_mutaties_render_metabox( $post ) {
     $planned = get_post_meta( $post->ID, 'ggr_mutatie_planned_date', true );
     $scope   = get_post_meta( $post->ID, 'ggr_mutatie_scope', true );
     $user_id = get_post_meta( $post->ID, 'ggr_mutatie_user_id', true );
-
+    $nav_price = function_exists( 'ggr_get_latest_stock_price' ) ? ggr_get_latest_stock_price() : null;
+    
     if ( ! $status ) {
         $status = 'nieuw';
     }
@@ -222,16 +229,35 @@ function ggr_mutaties_render_metabox( $post ) {
             <th scope="row"><label for="ggr_mutatie_amount">Bedrag</label></th>
             <td>
                 <input type="text" name="ggr_mutatie_amount" id="ggr_mutatie_amount" value="<?php echo esc_attr( $amount ); ?>" />
-                <p class="description">Voer het bedrag in euro in (optioneel als participaties worden opgegeven). Dividend herinvestering wordt omgerekend naar participaties.</p>
+                <p class="description">
+                    Voer het bedrag in euro in (optioneel als participaties worden opgegeven). Dividend herinvestering wordt omgerekend naar participaties.
+                    <?php if ( null !== $nav_price ) : ?>
+                        <br>Huidige waarde per participatie: <strong>€ <?php echo esc_html( number_format( (float) $nav_price, 6, ',', '.' ) ); ?></strong>
+                    <?php endif; ?>
+                </p>
             </td>
         </tr>
         <tr>
             <th scope="row"><label for="ggr_mutatie_participaties">Participaties</label></th>
             <td>
                 <input type="text" name="ggr_mutatie_participaties" id="ggr_mutatie_participaties" value="<?php echo esc_attr( $units ); ?>" />
-                <p class="description">Voor inleg/opname of dividend herinvestering: aantal participaties (wordt omgerekend tegen de GGR stock price op de transactiedatum).</p>
+                <p class="description">
+                    Voor inleg/opname of dividend herinvestering: aantal participaties (wordt omgerekend tegen de GGR stock price op de transactiedatum).
+                    <?php if ( null !== $nav_price ) : ?>
+                        <br>Huidige waarde per participatie: <strong>€ <?php echo esc_html( number_format( (float) $nav_price, 6, ',', '.' ) ); ?></strong>
+                    <?php endif; ?>
+                </p>
                 </td>
         </tr>
+        <tr>
+            <th scope="row"><label for="ggr_mutatie_direct_apply">Direct doorvoeren</label></th>
+            <td>
+                <label>
+                    <input type="checkbox" name="ggr_mutatie_direct_apply" id="ggr_mutatie_direct_apply" value="1" />
+                    Mutatie direct toepassen (zonder planning)
+                </label>
+            </td>
+        </tr>        
         <tr>
             <th scope="row"><label for="ggr_mutatie_scope">Doelgroep</label></th>
             <td>
@@ -277,6 +303,9 @@ function ggr_mutaties_render_metabox( $post ) {
     (function() {
         var scopeField = document.getElementById('ggr_mutatie_scope');
         var userRow = document.getElementById('ggr_mutatie_user_row');
+        var amountField = document.getElementById('ggr_mutatie_amount');
+        var unitsField = document.getElementById('ggr_mutatie_participaties');
+        var navPrice = <?php echo null !== $nav_price ? esc_js( (float) $nav_price ) : 'null'; ?>;        
         if (!scopeField || !userRow) return;
 
         function toggleUserRow() {
@@ -289,6 +318,50 @@ function ggr_mutaties_render_metabox( $post ) {
 
         scopeField.addEventListener('change', toggleUserRow);
         toggleUserRow();
+
+        if (!amountField || !unitsField || !navPrice) return;
+
+        var isUpdating = false;
+
+        function parseDecimal(value) {
+            if (!value) return 0;
+            return parseFloat(value.replace(',', '.')) || 0;
+        }
+
+        function formatDecimal(value, decimals) {
+            return value.toFixed(decimals).replace('.', ',');
+        }
+
+        function syncFromAmount() {
+            if (isUpdating) return;
+            isUpdating = true;
+            var amountValue = parseDecimal(amountField.value);
+            if (!amountValue) {
+                unitsField.value = '';
+                isUpdating = false;
+                return;
+            }
+            var unitsValue = amountValue / navPrice;
+            unitsField.value = formatDecimal(unitsValue, 4);
+            isUpdating = false;
+        }
+
+        function syncFromUnits() {
+            if (isUpdating) return;
+            isUpdating = true;
+            var unitsValue = parseDecimal(unitsField.value);
+            if (!unitsValue) {
+                amountField.value = '';
+                isUpdating = false;
+                return;
+            }
+            var amountValue = unitsValue * navPrice;
+            amountField.value = formatDecimal(amountValue, 2);
+            isUpdating = false;
+        }
+
+        amountField.addEventListener('input', syncFromAmount);
+        unitsField.addEventListener('input', syncFromUnits);        
     })();
     </script>
     <?php
@@ -341,6 +414,47 @@ function ggr_mutaties_save_meta( $post_id ) {
     $planned = ggr_mutaties_normalize_planned_date( $planned );
     
     update_post_meta( $post_id, 'ggr_mutatie_planned_date', $planned );
+
+    if ( isset( $_POST['ggr_mutatie_direct_apply'] ) && '1' === $_POST['ggr_mutatie_direct_apply'] ) {
+        $errors  = array();
+        $updated = ggr_mutaties_apply_to_history( $post_id, $planned, $errors );
+
+        if ( $updated ) {
+            update_post_meta( $post_id, 'ggr_mutatie_status', 'uitgevoerd' );
+        }
+
+        if ( $errors ) {
+            set_transient( 'ggr_mutatie_direct_apply_errors_' . $post_id, $errors, MINUTE_IN_SECONDS );
+        }
+    }
+}
+
+add_action( 'admin_notices', 'ggr_mutaties_direct_apply_notice' );
+
+function ggr_mutaties_direct_apply_notice() {
+    $screen = get_current_screen();
+    if ( ! $screen || 'ggr_mutatie' !== $screen->post_type ) {
+        return;
+    }
+
+    if ( empty( $_GET['post'] ) ) {
+        return;
+    }
+
+    $post_id = (int) $_GET['post'];
+    $errors  = get_transient( 'ggr_mutatie_direct_apply_errors_' . $post_id );
+
+    if ( ! $errors ) {
+        return;
+    }
+
+    delete_transient( 'ggr_mutatie_direct_apply_errors_' . $post_id );
+
+    echo '<div class="notice notice-error"><p><strong>Mutatie niet direct doorgevoerd.</strong></p><ul>';
+    foreach ( $errors as $error ) {
+        echo '<li>' . esc_html( $error ) . '</li>';
+    }
+    echo '</ul></div>';    
 }
 
 function ggr_mutaties_get_target_user_ids( $scope, $user_id ) {
