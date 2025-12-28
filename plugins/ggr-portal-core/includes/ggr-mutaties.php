@@ -44,10 +44,12 @@ function ggr_mutaties_get_next_run_date( $base_date = null ) {
     return wp_date( 'Y-m-01', strtotime( 'first day of next month', $timestamp ) );
 }
 
-function ggr_mutaties_normalize_planned_date( $raw_date ) {
+function ggr_mutaties_normalize_planned_date( $raw_date, $allow_any_date = false ) {
     $raw_date = trim( (string) $raw_date );
     if ( $raw_date === '' ) {
-        return ggr_mutaties_get_next_run_date();
+        return $allow_any_date
+            ? wp_date( 'Y-m-d', current_time( 'timestamp' ) )
+            : ggr_mutaties_get_next_run_date();
     }
 
     if ( function_exists( 'ggr_portal_parse_date_to_mysql' ) ) {
@@ -57,15 +59,19 @@ function ggr_mutaties_normalize_planned_date( $raw_date ) {
     }
 
     if ( ! $planned_date ) {
-        return ggr_mutaties_get_next_run_date();
+        return $allow_any_date
+            ? wp_date( 'Y-m-d', current_time( 'timestamp' ) )
+            : ggr_mutaties_get_next_run_date();
     }
 
     $dt = DateTime::createFromFormat( 'Y-m-d', $planned_date, wp_timezone() );
     if ( ! $dt ) {
-        return ggr_mutaties_get_next_run_date();
+        return $allow_any_date
+            ? wp_date( 'Y-m-d', current_time( 'timestamp' ) )
+            : ggr_mutaties_get_next_run_date();
     }
 
-    if ( '01' !== $dt->format( 'd' ) ) {
+    if ( ! $allow_any_date && '01' !== $dt->format( 'd' ) ) {
         $dt->modify( 'first day of next month' );
     }
 
@@ -187,6 +193,13 @@ function ggr_mutaties_register_metaboxes() {
     );
 }
 
+add_action( 'add_meta_boxes_ggr_mutatie', 'ggr_mutaties_move_publish_box', 99 );
+
+function ggr_mutaties_move_publish_box() {
+    remove_meta_box( 'submitdiv', 'ggr_mutatie', 'side' );
+    add_meta_box( 'submitdiv', 'Publiceren', 'post_submit_meta_box', 'ggr_mutatie', 'normal', 'high' );
+}
+
 function ggr_mutaties_render_metabox( $post ) {
     $status  = get_post_meta( $post->ID, 'ggr_mutatie_status', true );
     $type    = get_post_meta( $post->ID, 'ggr_mutatie_type', true );
@@ -214,6 +227,7 @@ function ggr_mutaties_render_metabox( $post ) {
     }
 
     ?>
+    <?php wp_nonce_field( 'ggr_mutatie_meta_save', 'ggr_mutatie_meta_nonce' ); ?>    
     <table class="form-table" role="presentation">
         <tr>
             <th scope="row"><label for="ggr_mutatie_type">Type</label></th>
@@ -411,11 +425,12 @@ function ggr_mutaties_save_meta( $post_id ) {
     update_post_meta( $post_id, 'ggr_mutatie_scope', $scope );
     update_post_meta( $post_id, 'ggr_mutatie_user_id', 'all' === $scope ? 0 : $user_id );
     update_post_meta( $post_id, 'ggr_mutatie_status', $status );
-    $planned = ggr_mutaties_normalize_planned_date( $planned );
+    $direct_apply = isset( $_POST['ggr_mutatie_direct_apply'] ) && '1' === $_POST['ggr_mutatie_direct_apply'];
+    $planned      = ggr_mutaties_normalize_planned_date( $planned, $direct_apply );
     
     update_post_meta( $post_id, 'ggr_mutatie_planned_date', $planned );
 
-    if ( isset( $_POST['ggr_mutatie_direct_apply'] ) && '1' === $_POST['ggr_mutatie_direct_apply'] ) {
+    if ( $direct_apply ) {
         $errors  = array();
         $updated = ggr_mutaties_apply_to_history( $post_id, $planned, $errors );
 
