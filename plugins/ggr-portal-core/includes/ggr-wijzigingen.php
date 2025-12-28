@@ -28,7 +28,7 @@ function ggr_portal_investeren_shortcode() {
     $submitted_action  = '';
     $active_flow       = '';
     $selected_action   = isset( $_GET['change'] ) ? sanitize_key( wp_unslash( $_GET['change'] ) ) : '';
-    $available_actions = array( 'deposit', 'strategy', 'bank_change', 'feedback' );
+    $available_actions = array( 'deposit', 'withdrawal', 'strategy', 'bank_change', 'feedback' );
 
     if ( ! in_array( $selected_action, $available_actions, true ) ) {
         $selected_action = '';
@@ -36,11 +36,13 @@ function ggr_portal_investeren_shortcode() {
 
 
     $deposit_stage    = 'amount';
+    $withdrawal_stage = 'amount';
     $strategy_stage   = 'choose';
     $bank_stage       = 'details';
 
     $deposit_amount     = '';
     $deposit_reference  = '';
+    $withdrawal_amount  = '';
     $strategy_choice    = '';
     $new_iban           = '';
     $new_iban_name      = '';
@@ -87,9 +89,19 @@ function ggr_portal_investeren_shortcode() {
                         $active_flow = 'deposit';
 
                         if ( 'confirm' === $deposit_stage ) {
-                        $submitted_action = 'deposit';
-                        $deposit_stage    = 'done';
-                        $success_messages[] = 'Bedankt! We hebben bevestigd dat je de storting hebt gedaan.';
+                            $submitted_action = 'deposit';
+                            $deposit_stage    = 'done';
+
+                            if ( function_exists( 'ggr_mutaties_create_mutatie' ) ) {
+                                $mutatie_id = ggr_mutaties_create_mutatie( 'inleg', $user->ID, $deposit_amount );
+                                if ( is_wp_error( $mutatie_id ) ) {
+                                    $errors[] = 'Kon de mutatie voor de storting niet aanmaken.';
+                                } else {
+                                    $success_messages[] = 'Je storting is direct doorgevoerd als mutatie.';
+                                }
+                            } else {
+                                $errors[] = 'Mutatie-functies ontbreken om de storting te verwerken.';
+                            }
 
                             if ( function_exists( 'ggr_meldingen_add' ) ) {
                                 $content_lines = array(
@@ -116,6 +128,39 @@ function ggr_portal_investeren_shortcode() {
 
                     break;
 
+                case 'withdrawal':
+                    $withdrawal_amount_raw = isset( $_POST['ggr_withdrawal_amount'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_withdrawal_amount'] ) ) : '';
+                    $withdrawal_amount     = (float) str_replace( ',', '.', $withdrawal_amount_raw );
+                    $withdrawal_stage      = isset( $_POST['ggr_flow_step'] ) ? sanitize_key( wp_unslash( $_POST['ggr_flow_step'] ) ) : 'amount';
+
+                    if ( $withdrawal_amount <= 0 ) {
+                        $errors[] = 'Vul een geldig opnamebedrag in.';
+                    }
+
+                    if ( empty( $errors ) ) {
+                        $active_flow = 'withdrawal';
+
+                        if ( 'confirm' === $withdrawal_stage ) {
+                            $submitted_action = 'withdrawal';
+                            $withdrawal_stage = 'done';
+
+                            if ( function_exists( 'ggr_mutaties_create_mutatie' ) ) {
+                                $mutatie_id = ggr_mutaties_create_mutatie( 'opname', $user->ID, $withdrawal_amount );
+                                if ( is_wp_error( $mutatie_id ) ) {
+                                    $errors[] = 'Kon de mutatie voor de opname niet aanmaken.';
+                                } else {
+                                    $success_messages[] = 'Je opname is direct doorgevoerd als mutatie.';
+                                }
+                            } else {
+                                $errors[] = 'Mutatie-functies ontbreken om de opname te verwerken.';
+                            }
+                        } else {
+                            $withdrawal_stage = 'confirm';
+                        }
+                    }
+
+                    break;                    
+
                 case 'strategy':
                     $strategy_choice = isset( $_POST['ggr_strategy_choice'] ) ? sanitize_key( wp_unslash( $_POST['ggr_strategy_choice'] ) ) : '';
                     $strategy_stage  = isset( $_POST['ggr_flow_step'] ) ? sanitize_key( wp_unslash( $_POST['ggr_flow_step'] ) ) : 'choose';
@@ -128,10 +173,10 @@ function ggr_portal_investeren_shortcode() {
                         $active_flow = 'strategy';
 
                         if ( 'confirm' === $strategy_stage ) {
-                        $submitted_action   = 'strategy';
-                        $strategy_stage     = 'done';
-                        $current_strategy   = $strategy_choice;
-                        $success_messages[] = 'Je strategievoorkeur is opgeslagen. We verwerken dit zo snel mogelijk.';
+                            $submitted_action   = 'strategy';
+                            $strategy_stage     = 'done';
+                            $current_strategy   = $strategy_choice;
+                            $success_messages[] = 'Je strategievoorkeur is direct bijgewerkt in je profiel.';
                             update_user_meta( $user->ID, 'ggr_distribution_strategy', $strategy_choice );
 
                             if ( function_exists( 'ggr_meldingen_add' ) ) {
@@ -277,6 +322,22 @@ function ggr_portal_investeren_shortcode() {
                             Wil je meer geld storten in het GGR Income fund? 
                         </p>
                     </div>
+
+                </a>
+                <a href="<?php echo esc_url( add_query_arg( 'change', 'withdrawal' ) ); ?>"
+                   class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split ggrp-fe-wijziging-card--clickable">
+                
+                    <div class="ggrp-fe-wijziging-icon" aria-hidden="true">
+                        <i class="ri-hand-coin-line"></i>
+                    </div>
+                
+                    <div class="ggrp-fe-wijziging-content">
+                        <p class="ggrp-fe-kicker">Opnemen</p>
+                        <h2>Geld opnemen</h2>
+                        <p class="ggrp-fe-card-text">
+                            Geef door welk bedrag je wilt opnemen.
+                        </p>
+                    </div>
                 
                 </a>
                 <a href="<?php echo esc_url( add_query_arg( 'change', 'strategy' ) ); ?>"
@@ -294,7 +355,7 @@ function ggr_portal_investeren_shortcode() {
                         </p>
                     </div>
                 </a>
-                </div>
+            </div>
                 
             <div class="ggrp-fe-wijziging-grid">
                 <a href="<?php echo esc_url( add_query_arg( 'change', 'bank_change' ) ); ?>"
@@ -410,6 +471,63 @@ function ggr_portal_investeren_shortcode() {
                             <?php endif; ?>
                         </div>
                     </div>
+                <?php elseif ( 'withdrawal' === $selected_action ) : ?>
+                    <div class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split <?php echo ( 'withdrawal' === $active_flow ) ? 'is-active' : ''; ?>">
+                        <div class="ggrp-fe-wijziging-icon" aria-hidden="true">
+                            <i class="ri-hand-coin-line"></i>
+                        </div>
+                        <div class="ggrp-fe-wijziging-content">
+                        <?php
+                        $withdrawal_step_label = '';
+                        if ( 'confirm' === $withdrawal_stage ) {
+                            $withdrawal_step_label = 'Stap 2 van 2';
+                        } elseif ( 'done' !== $withdrawal_stage ) {
+                            $withdrawal_step_label = 'Stap 1 van 2';
+                        }
+                        ?>
+
+                        <div class="ggrp-fe-wijziging-topbar">
+                            <?php if ( $withdrawal_step_label ) : ?>
+                                <div class="ggrp-fe-step-badge"><?php echo esc_html( $withdrawal_step_label ); ?></div>
+                            <?php endif; ?>
+                        </div>
+
+                        <p class="ggrp-fe-kicker">Opnemen</p>
+                        <h2>Geld opnemen</h2>
+
+                            <?php if ( 'confirm' === $withdrawal_stage ) : ?>
+                                <p class="ggrp-fe-card-text">Bevestig dat je dit bedrag wilt opnemen.</p>
+                                <ul class="ggrp-fe-summary-list">
+                                    <li><strong>Bedrag:</strong> <?php echo wp_kses_post( ggrp_fe_format_money( $withdrawal_amount ) ); ?></li>
+                                </ul>
+                                <form method="post" class="ggrp-fe-form ggrp-fe-form--stacked ggrp-fe-form--inline-actions">
+                                    <?php wp_nonce_field( 'ggr_wijziging', 'ggr_wijziging_nonce' ); ?>
+                                    <input type="hidden" name="ggr_change_action" value="withdrawal" />
+                                    <input type="hidden" name="ggr_flow_step" value="confirm" />
+                                    <input type="hidden" name="ggr_withdrawal_amount" value="<?php echo esc_attr( $withdrawal_amount ); ?>" />
+                                    <button type="submit" class="ggrp-fe-button ggrp-fe-button--primary">Opname bevestigen</button>
+                                </form>
+                            <?php elseif ( 'done' === $withdrawal_stage ) : ?>
+                                <div class="ggrp-fe-alert ggrp-fe-alert--success">
+                                    <p>Bedankt! Je opname is als mutatie aangemaakt.</p>
+                                </div>
+                            <?php else : ?>
+                                <p class="ggrp-fe-card-text">Geef door welk bedrag je wilt opnemen.</p>
+                                <form method="post" class="ggrp-fe-form ggrp-fe-form--stacked">
+                                    <?php wp_nonce_field( 'ggr_wijziging', 'ggr_wijziging_nonce' ); ?>
+                                    <input type="hidden" name="ggr_change_action" value="withdrawal" />
+                                    <input type="hidden" name="ggr_flow_step" value="amount" />
+
+                                    <div class="ggrp-fe-form-row">
+                                        <label for="ggr_withdrawal_amount">Opnamebedrag (EUR)</label>
+                                        <input type="number" id="ggr_withdrawal_amount" name="ggr_withdrawal_amount" min="0" step="0.01" value="<?php echo esc_attr( $withdrawal_amount ); ?>" required />
+                                    </div>
+
+                                    <button type="submit" class="ggrp-fe-button">Verder naar bevestiging</button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 <?php elseif ( 'strategy' === $selected_action ) : ?>
                     <div class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split <?php echo ( 'strategy' === $active_flow ) ? 'is-active' : ''; ?>">
                         <div class="ggrp-fe-wijziging-icon" aria-hidden="true">
@@ -446,7 +564,7 @@ function ggr_portal_investeren_shortcode() {
                                 </form>
                             <?php elseif ( 'done' === $strategy_stage ) : ?>
                                 <div class="ggrp-fe-alert ggrp-fe-alert--success">
-                                    <p>Je strategiekeuze is ontvangen. We passen dit zo snel mogelijk aan.</p>
+                                    <p>Je strategie is direct bijgewerkt.</p>
                                 </div>
                             <?php else : ?>
                                 <p class="ggrp-fe-card-text">Kies of je rendement wilt laten uitkeren of automatisch wilt herinvesteren.</p>
