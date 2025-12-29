@@ -101,17 +101,12 @@ function ggr_dividend_accruals_get_per_participation( $date ) {
         return null;
     }
 
-    $per_participation = isset( $row['per_participation'] ) ? (float) $row['per_participation'] : 0.0;
-
-    if ( $per_participation > 0 ) {
-        return $per_participation;
-    }
-
     $total_parts = isset( $row['total_participations'] ) ? (float) $row['total_participations'] : 0.0;
     $total_value = isset( $row['accrual_total'] ) ? (float) $row['accrual_total'] : 0.0;
 
     if ( $total_parts <= 0 || $total_value <= 0 ) {
-        return null;
+        $per_participation = isset( $row['per_participation'] ) ? (float) $row['per_participation'] : 0.0;
+        return $per_participation > 0 ? $per_participation : null;
     }
 
     return round( $total_value / $total_parts, 6 );
@@ -315,7 +310,7 @@ function ggr_render_dividend_accrual_page() {
         check_admin_referer( 'ggr_save_dividend_accrual' );
 
         $date_raw  = isset( $_POST['accrual_date'] ) ? sanitize_text_field( wp_unslash( $_POST['accrual_date'] ) ) : '';
-        $total_raw = isset( $_POST['accrual_total'] ) ? sanitize_text_field( wp_unslash( $_POST['accrual_total'] ) ) : '';
+        $gross_raw = isset( $_POST['accrual_gross'] ) ? sanitize_text_field( wp_unslash( $_POST['accrual_gross'] ) ) : '';
         $edit_id   = isset( $_POST['accrual_id'] ) ? (int) $_POST['accrual_id'] : 0;
 
         $form_date  = $date_raw;
