@@ -249,9 +249,10 @@ function portal_login_redirect_participant( $redirect_to, $request, $user ) {
         return $redirect_to;
     }
 
-    // Admins gewoon hun normale redirect geven
-    if ( user_can( $user, 'manage_options' ) ) {
-        return $redirect_to;
+    // Admins/medewerkers: altijd naar het admin dashboard in portal shell
+    $roles = (array) $user->roles;
+    if ( user_can( $user, 'manage_options' ) || in_array( 'employee', $roles, true ) ) {
+        return admin_url( 'admin.php?page=ggr-portal-dashboard' );
     }
 
     // Voor alle andere users: eerst 2FA, daarna dashboard
