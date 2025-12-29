@@ -67,6 +67,27 @@ add_action( 'admin_menu', function() {
 } );
 
 /**
+ * Redirect admins/medewerkers van wp-admin dashboard naar het portal dashboard.
+ */
+add_action( 'admin_init', function() {
+	if ( wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
+		return;
+	}
+
+	if ( ! ggr_admin_shell_user_can_access() ) {
+		return;
+	}
+
+	global $pagenow;
+	$page_param = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+
+	if ( 'index.php' === $pagenow && '' === $page_param ) {
+		wp_safe_redirect( admin_url( 'admin.php?page=ggr-portal-dashboard' ) );
+		exit;
+	}
+} );
+
+/**
  * Render dashboard pagina (basis).
  */
 function ggr_admin_render_dashboard() {
@@ -75,9 +96,233 @@ function ggr_admin_render_dashboard() {
 		exit;
 	}
 
-	echo '<div class="wrap">';
+	$participant_count = 0;
+	$participant_query = new WP_User_Query( [
+		'role'         => 'participant',
+		'fields'       => 'ID',
+		'number'       => 1,
+		'count_total'  => true,
+	] );
+	if ( $participant_query->get_total() !== null ) {
+		$participant_count = (int) $participant_query->get_total();
+	}
+
+	global $wpdb;
+	$stock_table = $wpdb->prefix . 'ggr_stock_prices';
+	$latest_stock = $wpdb->get_row(
+		"SELECT price_date, price_value, fund_total, total_participations
+		 FROM {$stock_table}
+		 ORDER BY price_date DESC
+		 LIMIT 1",
+		ARRAY_A
+	);
+
+	$latest_nav_value = null;
+	$latest_nav_date  = '';
+	$total_value      = null;
+	$total_parts      = null;
+
+	if ( $latest_stock ) {
+		$latest_nav_value = (float) $latest_stock['price_value'];
+		$latest_nav_date  = $latest_stock['price_date'];
+		$total_parts      = isset( $latest_stock['total_participations'] ) ? (float) $latest_stock['total_participations'] : null;
+		$total_value      = isset( $latest_stock['fund_total'] ) ? (float) $latest_stock['fund_total'] : null;
+	}
+
+	if ( $total_parts === null && function_exists( 'ggr_portal_get_total_participations_all_users' ) ) {
+		$total_parts = ggr_portal_get_total_participations_all_users( $latest_nav_date ?: null );
+	}
+
+	if ( $total_value === null && $latest_nav_value !== null && $total_parts !== null ) {
+		$total_value = $latest_nav_value * $total_parts;
+	}
+
+	$average_value = ( $participant_count > 0 && $total_value !== null )
+		? ( $total_value / $participant_count )
+		: null;
+
+	$dividend_table = $wpdb->prefix . 'ggr_dividend_accruals';
+	$dividend_rows  = $wpdb->get_results(
+		"SELECT accrual_total
+		 FROM {$dividend_table}
+		 ORDER BY accrual_date DESC
+		 LIMIT 12",
+		ARRAY_A
+	);
+
+	$average_dividend = null;
+	if ( ! empty( $dividend_rows ) ) {
+		$dividend_sum = 0.0;
+		foreach ( $dividend_rows as $row ) {
+			$dividend_sum += isset( $row['accrual_total'] ) ? (float) $row['accrual_total'] : 0.0;
+		}
+		$average_dividend = $dividend_sum / count( $dividend_rows );
+	}
+
+	$mutaties = get_posts( [
+		'post_type'      => 'ggr_mutatie',
+		'posts_per_page' => 5,
+		'post_status'    => [ 'publish', 'draft' ],
+		'orderby'        => 'date',
+		'order'          => 'DESC',
+	] );
+
+	$mutatie_types    = function_exists( 'ggr_mutaties_get_types' ) ? ggr_mutaties_get_types() : [];
+	$mutatie_statuses = function_exists( 'ggr_mutaties_get_statuses' ) ? ggr_mutaties_get_statuses() : [];
+
+	$meldingen = get_posts( [
+		'post_type'      => 'ggr_melding',
+		'posts_per_page' => 5,
+		'post_status'    => [ 'publish', 'draft' ],
+		'orderby'        => 'date',
+		'order'          => 'DESC',
+	] );
+
+	$melding_statuses = function_exists( 'ggr_meldingen_get_statuses' ) ? ggr_meldingen_get_statuses() : [];
+
+	$format_money = function( $value ) {
+		if ( $value === null ) {
+			return '—';
+		}
+		return '€ ' . number_format( (float) $value, 2, ',', '.' );
+	};
+
+	echo '<div class="wrap ggr-admin-dashboard">';
 	echo '<h1>Dashboard</h1>';
-	echo '<p>Welkom in het GGR admin dashboard.</p>';
+	echo '<p class="ggrp-fe-subtitle">Overzicht van de belangrijkste kerncijfers en recente updates.</p>';
+
+	echo '<div class="ggrp-fe-kpi-row ggr-admin-dashboard-kpis">';
+
+	echo '<article class="ggrp-fe-card">';
+	echo '<h2 class="ggrp-fe-card-title">Aantal participanten</h2>';
+	echo '<div class="ggrp-fe-card-value">' . esc_html( number_format_i18n( $participant_count ) ) . '</div>';
+	echo '<div class="ggrp-fe-card-meta">Actieve deelnemers in het portal.</div>';
+	echo '</article>';
+
+	echo '<article class="ggrp-fe-card">';
+	echo '<h2 class="ggrp-fe-card-title">Totale positiewaarde</h2>';
+	echo '<div class="ggrp-fe-card-value">' . esc_html( $format_money( $total_value ) ) . '</div>';
+	echo '<div class="ggrp-fe-card-meta">Op basis van de meest recente NAV.</div>';
+	echo '</article>';
+
+	echo '<article class="ggrp-fe-card">';
+	echo '<h2 class="ggrp-fe-card-title">Gem. positiewaarde p.p.</h2>';
+	echo '<div class="ggrp-fe-card-value">' . esc_html( $format_money( $average_value ) ) . '</div>';
+	echo '<div class="ggrp-fe-card-meta">Totaal gedeeld door deelnemers.</div>';
+	echo '</article>';
+
+	echo '<article class="ggrp-fe-card">';
+	echo '<h2 class="ggrp-fe-card-title">Gem. dividend per maand</h2>';
+	echo '<div class="ggrp-fe-card-value">' . esc_html( $format_money( $average_dividend ) ) . '</div>';
+	echo '<div class="ggrp-fe-card-meta">Gemiddelde over de laatste 12 maanden.</div>';
+	echo '</article>';
+
+	echo '</div>';
+
+	echo '<div class="ggr-admin-dashboard-grid">';
+	echo '<section class="ggrp-fe-panel ggr-admin-dashboard-panel">';
+	echo '<div class="ggrp-fe-panel-header">';
+	echo '<h2>Laatste mutaties</h2>';
+	echo '<a class="ggr-admin-dashboard-link" href="' . esc_url( admin_url( 'admin.php?page=ggr-mutaties' ) ) . '">Bekijk alle mutaties</a>';
+	echo '</div>';
+	echo '<div class="ggrp-fe-panel-body ggr-admin-dashboard-panel-body">';
+
+	if ( empty( $mutaties ) ) {
+		echo '<p class="ggrp-fe-empty-chart">Nog geen mutaties gevonden.</p>';
+	} else {
+		echo '<div class="ggr-admin-dashboard-table ggr-admin-dashboard-table--mutaties">';
+		echo '<div class="ggr-admin-dashboard-table-head">';
+		echo '<span>Datum</span>';
+		echo '<span>Type</span>';
+		echo '<span>Deelnemer</span>';
+		echo '<span>Bedrag</span>';
+		echo '<span>Status</span>';
+		echo '</div>';
+		foreach ( $mutaties as $mutatie ) {
+			$type_key   = get_post_meta( $mutatie->ID, 'ggr_mutatie_type', true );
+			$status_key = get_post_meta( $mutatie->ID, 'ggr_mutatie_status', true );
+			$amount     = get_post_meta( $mutatie->ID, 'ggr_mutatie_amount', true );
+			$user_id    = (int) get_post_meta( $mutatie->ID, 'ggr_mutatie_user_id', true );
+			$scope      = get_post_meta( $mutatie->ID, 'ggr_mutatie_scope', true );
+			$planned    = get_post_meta( $mutatie->ID, 'ggr_mutatie_planned_date', true );
+
+			$user_label = 'Alle participanten';
+			if ( 'user' === $scope && $user_id ) {
+				$user = get_user_by( 'id', $user_id );
+				$user_label = $user ? $user->display_name : 'Onbekend';
+			}
+
+			$type_label   = isset( $mutatie_types[ $type_key ] ) ? $mutatie_types[ $type_key ] : $type_key;
+			$status_label = isset( $mutatie_statuses[ $status_key ] ) ? $mutatie_statuses[ $status_key ] : $status_key;
+			$date_label   = $planned ? date_i18n( 'd-m-Y', strtotime( $planned ) ) : get_the_date( 'd-m-Y', $mutatie );
+
+			echo '<div class="ggr-admin-dashboard-table-row">';
+			echo '<span>' . esc_html( $date_label ) . '</span>';
+			echo '<span>' . esc_html( $type_label ) . '</span>';
+			echo '<span>' . esc_html( $user_label ) . '</span>';
+			echo '<span>' . esc_html( $format_money( $amount ) ) . '</span>';
+			echo '<span>' . esc_html( $status_label ) . '</span>';
+			echo '</div>';
+		}
+		echo '</div>';
+	}
+	echo '</div>';
+	echo '</section>';
+
+	echo '<section class="ggrp-fe-panel ggr-admin-dashboard-panel">';
+	echo '<div class="ggrp-fe-panel-header"><h2>Huidige NAV koers</h2></div>';
+	echo '<div class="ggrp-fe-panel-body ggr-admin-dashboard-panel-body">';
+
+	if ( $latest_nav_value === null ) {
+		echo '<p class="ggrp-fe-empty-chart">Nog geen NAV koers beschikbaar.</p>';
+	} else {
+		$nav_date_label = $latest_nav_date ? date_i18n( 'd-m-Y', strtotime( $latest_nav_date ) ) : '';
+		echo '<div class="ggr-admin-dashboard-nav">';
+		echo '<div class="ggr-admin-dashboard-nav-value">' . esc_html( $format_money( $latest_nav_value ) ) . '</div>';
+		echo '<div class="ggr-admin-dashboard-nav-meta">Laatste koersdatum: ' . esc_html( $nav_date_label ?: '—' ) . '</div>';
+		if ( $total_parts !== null ) {
+			echo '<div class="ggr-admin-dashboard-nav-meta">Totaal participaties: ' . esc_html( number_format( (float) $total_parts, 4, ',', '.' ) ) . '</div>';
+		}
+		echo '</div>';
+	}
+
+	echo '</div>';
+	echo '</section>';
+	echo '</div>';
+
+	echo '<section class="ggrp-fe-panel ggr-admin-dashboard-panel">';
+	echo '<div class="ggrp-fe-panel-header">';
+	echo '<h2>Laatste meldingen</h2>';
+	echo '<a class="ggr-admin-dashboard-link" href="' . esc_url( admin_url( 'admin.php?page=ggr-meldingen' ) ) . '">Bekijk alle meldingen</a>';
+	echo '</div>';
+	echo '<div class="ggrp-fe-panel-body ggr-admin-dashboard-panel-body">';
+
+	if ( empty( $meldingen ) ) {
+		echo '<p class="ggrp-fe-empty-chart">Nog geen meldingen gevonden.</p>';
+	} else {
+		echo '<div class="ggr-admin-dashboard-table ggr-admin-dashboard-table--meldingen">';
+		echo '<div class="ggr-admin-dashboard-table-head">';
+		echo '<span>Datum</span>';
+		echo '<span>Melding</span>';
+		echo '<span>Status</span>';
+		echo '</div>';
+		foreach ( $meldingen as $melding ) {
+			$status_key   = get_post_meta( $melding->ID, 'ggr_melding_status', true );
+			$status_label = isset( $melding_statuses[ $status_key ] ) ? $melding_statuses[ $status_key ] : $status_key;
+			$date_label   = get_the_date( 'd-m-Y H:i', $melding );
+
+			echo '<div class="ggr-admin-dashboard-table-row">';
+			echo '<span>' . esc_html( $date_label ) . '</span>';
+			echo '<span>' . esc_html( $melding->post_title ) . '</span>';
+			echo '<span>' . esc_html( $status_label ) . '</span>';
+			echo '</div>';
+		}
+		echo '</div>';
+	}
+
+	echo '</div>';
+	echo '</section>';
+
 	echo '</div>';
 }
 
