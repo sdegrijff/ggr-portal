@@ -702,7 +702,7 @@
 
 .ggrp-fe-help-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
     gap: 16px;
 }
 
@@ -715,6 +715,17 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+.ggrp-fe-help-card .ggrp-fe-form {
+    max-width: 100%;
+    width: 100%;
+}
+
+@media (max-width: 960px) {
+    .ggrp-fe-help-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .ggrp-fe-contact-list {
