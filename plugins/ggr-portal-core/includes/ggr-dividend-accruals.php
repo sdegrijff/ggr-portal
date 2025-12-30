@@ -447,6 +447,34 @@ function ggr_ibkr_accruals_get_attribute( SimpleXMLElement $node, array $keys ) 
     return '';
 }
 
+function ggr_ibkr_accruals_get_child_value( SimpleXMLElement $node, array $keys ) {
+    $children = $node->children();
+
+    if ( ! $children ) {
+        return '';
+    }
+
+    $lower_keys = array_map( 'strtolower', $keys );
+
+    foreach ( $children as $key => $value ) {
+        if ( in_array( strtolower( (string) $key ), $lower_keys, true ) ) {
+            return trim( (string) $value );
+        }
+    }
+
+    return '';
+}
+
+function ggr_ibkr_accruals_get_value( SimpleXMLElement $node, array $keys ) {
+    $attribute = ggr_ibkr_accruals_get_attribute( $node, $keys );
+
+    if ( '' !== $attribute ) {
+        return $attribute;
+    }
+
+    return ggr_ibkr_accruals_get_child_value( $node, $keys );
+}
+
 function ggr_ibkr_accruals_parse_statement( $body ) {
     $xml = simplexml_load_string( $body );
 
@@ -458,7 +486,7 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
         ? ggr_ibkr_nav_extract_date_from_xml( $xml )
         : current_time( 'Y-m-d' );
 
-    $nodes = $xml->xpath( '//*[@actionID or @actionId or @action_id or @grossValue or @grossAmount or @tax or @netAmount or @netamount]' );
+    $nodes = $xml->xpath( '//*[@actionID or @actionId or @action_id or @grossValue or @grossAmount or @tax or @netAmount or @netamount or actionID or actionId or action_id or reportDate or report_date or grossValue or grossAmount or tax or netAmount or netamount]' );
 
     if ( empty( $nodes ) ) {
         return new WP_Error( 'ggr_ibkr_missing_rows', 'Geen accruals gevonden in Flex statement.' );
@@ -471,11 +499,11 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
             continue;
         }
 
-        $action_id_raw = ggr_ibkr_accruals_get_attribute( $node, array( 'actionID', 'actionId', 'action_id', 'id' ) );
-        $report_raw    = ggr_ibkr_accruals_get_attribute( $node, array( 'reportDate', 'report_date', 'date' ) );
-        $gross_raw     = ggr_ibkr_accruals_get_attribute( $node, array( 'grossValue', 'grossAmount', 'gross', 'amount' ) );
-        $tax_raw       = ggr_ibkr_accruals_get_attribute( $node, array( 'tax', 'taxAmount', 'withholdingTax' ) );
-        $net_raw       = ggr_ibkr_accruals_get_attribute( $node, array( 'netAmount', 'netamount', 'net', 'netValue' ) );
+        $action_id_raw = ggr_ibkr_accruals_get_value( $node, array( 'actionID', 'actionId', 'action_id', 'id' ) );
+        $report_raw    = ggr_ibkr_accruals_get_value( $node, array( 'reportDate', 'report_date', 'date' ) );
+        $gross_raw     = ggr_ibkr_accruals_get_value( $node, array( 'grossValue', 'grossAmount', 'gross', 'amount' ) );
+        $tax_raw       = ggr_ibkr_accruals_get_value( $node, array( 'tax', 'taxAmount', 'withholdingTax' ) );
+        $net_raw       = ggr_ibkr_accruals_get_value( $node, array( 'netAmount', 'netamount', 'net', 'netValue' ) );
 
         $action_id = $action_id_raw ? trim( $action_id_raw ) : '';
         $report_date = $report_raw ? ggr_dividend_accruals_parse_date( $report_raw ) : $statement_date;
