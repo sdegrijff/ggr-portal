@@ -110,7 +110,7 @@ function ggr_admin_render_dashboard() {
 	global $wpdb;
 	$stock_table = $wpdb->prefix . 'ggr_stock_prices';
 	$latest_stock = $wpdb->get_row(
-		"SELECT price_date, price_value, fund_total, total_participations
+		"SELECT price_date, price_value, fund_total, total_participations, updated_at
 		 FROM {$stock_table}
 		 ORDER BY price_date DESC
 		 LIMIT 1",
@@ -187,9 +187,17 @@ function ggr_admin_render_dashboard() {
 		return '€ ' . number_format( (float) $value, 2, ',', '.' );
 	};
 
+	$last_updated_label = 'Nog niet bijgewerkt';
+	if ( $latest_stock && ! empty( $latest_stock['updated_at'] ) ) {
+		$last_updated_label = wp_date( 'd-m-Y H:i', strtotime( $latest_stock['updated_at'] ) );
+	} elseif ( $latest_nav_date ) {
+		$last_updated_label = wp_date( 'd-m-Y', strtotime( $latest_nav_date ) );
+	}
+
 	echo '<div class="wrap ggr-admin-dashboard">';
 	echo '<h1>Dashboard</h1>';
 	echo '<p class="ggrp-fe-subtitle">Overzicht van de belangrijkste kerncijfers en recente updates.</p>';
+	echo '<p class="ggr-admin-dashboard-updated">Laatst bijgewerkt: ' . esc_html( $last_updated_label ) . '</p>';
 
 	echo '<div class="ggrp-fe-kpi-row ggr-admin-dashboard-kpis">';
 
@@ -197,6 +205,18 @@ function ggr_admin_render_dashboard() {
 	echo '<h2 class="ggrp-fe-card-title">Aantal participanten</h2>';
 	echo '<div class="ggrp-fe-card-value">' . esc_html( number_format_i18n( $participant_count ) ) . '</div>';
 	echo '<div class="ggrp-fe-card-meta">Actieve deelnemers in het portal.</div>';
+	echo '</article>';
+
+	echo '<article class="ggrp-fe-card">';
+	echo '<h2 class="ggrp-fe-card-title">Totale participaties</h2>';
+	echo '<div class="ggrp-fe-card-value">' . esc_html( $total_parts !== null ? number_format( (float) $total_parts, 4, ',', '.' ) : '—' ) . '</div>';
+	echo '<div class="ggrp-fe-card-meta">Totaal uitgegeven participaties.</div>';
+	echo '</article>';
+
+	echo '<article class="ggrp-fe-card">';
+	echo '<h2 class="ggrp-fe-card-title">Huidige NAV koers</h2>';
+	echo '<div class="ggrp-fe-card-value">' . esc_html( $format_money( $latest_nav_value ) ) . '</div>';
+	echo '<div class="ggrp-fe-card-meta">Laatste koersdatum: ' . esc_html( $latest_nav_date ? date_i18n( 'd-m-Y', strtotime( $latest_nav_date ) ) : '—' ) . '</div>';
 	echo '</article>';
 
 	echo '<article class="ggrp-fe-card">';
@@ -270,30 +290,9 @@ function ggr_admin_render_dashboard() {
 	echo '</section>';
 
 	echo '<section class="ggrp-fe-panel ggr-admin-dashboard-panel">';
-	echo '<div class="ggrp-fe-panel-header"><h2>Huidige NAV koers</h2></div>';
-	echo '<div class="ggrp-fe-panel-body ggr-admin-dashboard-panel-body">';
-
-	if ( $latest_nav_value === null ) {
-		echo '<p class="ggrp-fe-empty-chart">Nog geen NAV koers beschikbaar.</p>';
-	} else {
-		$nav_date_label = $latest_nav_date ? date_i18n( 'd-m-Y', strtotime( $latest_nav_date ) ) : '';
-		echo '<div class="ggr-admin-dashboard-nav">';
-		echo '<div class="ggr-admin-dashboard-nav-value">' . esc_html( $format_money( $latest_nav_value ) ) . '</div>';
-		echo '<div class="ggr-admin-dashboard-nav-meta">Laatste koersdatum: ' . esc_html( $nav_date_label ?: '—' ) . '</div>';
-		if ( $total_parts !== null ) {
-			echo '<div class="ggr-admin-dashboard-nav-meta">Totaal participaties: ' . esc_html( number_format( (float) $total_parts, 4, ',', '.' ) ) . '</div>';
-		}
-		echo '</div>';
-	}
-
-	echo '</div>';
-	echo '</section>';
-	echo '</div>';
-
-	echo '<section class="ggrp-fe-panel ggr-admin-dashboard-panel">';
 	echo '<div class="ggrp-fe-panel-header">';
 	echo '<h2>Laatste meldingen</h2>';
-	echo '<a class="ggr-admin-dashboard-link" href="' . esc_url( admin_url( 'admin.php?page=ggr-meldingen' ) ) . '">Bekijk alle meldingen</a>';
+	echo '<a class="ggr-admin-dashboard-link ggr-admin-dashboard-link--blue" href="' . esc_url( admin_url( 'admin.php?page=ggr-meldingen' ) ) . '">Bekijk alle meldingen</a>';
 	echo '</div>';
 	echo '<div class="ggrp-fe-panel-body ggr-admin-dashboard-panel-body">';
 
@@ -322,7 +321,6 @@ function ggr_admin_render_dashboard() {
 
 	echo '</div>';
 	echo '</section>';
-
 	echo '</div>';
 }
 
