@@ -1006,9 +1006,10 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
             <div class="ggrp-fe-panel-header">
                 <h2>Positiewaarde</h2>
                 <div class="ggrp-fe-range-buttons" aria-label="Filter grafiekperiode">
-                    <button type="button" class="ggrp-fe-range-button is-active" data-range="all">Alles</button>
+                    <button type="button" class="ggrp-fe-range-button" data-range="7">7 dagen</button>
                     <button type="button" class="ggrp-fe-range-button" data-range="30">30 dagen</button>
-                    <button type="button" class="ggrp-fe-range-button" data-range="7">7 dagen</button>                    
+                    <button type="button" class="ggrp-fe-range-button" data-range="90">90 dagen</button>
+                    <button type="button" class="ggrp-fe-range-button is-active" data-range="all">Alles</button>              
                 </div>
             </div>
             <div class="ggrp-fe-panel-body ggrp-fe-panel-body--chart">
@@ -1258,6 +1259,9 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
                     case 30:
                         tickLimit = 8;
                         break;
+                    case 90:
+                        tickLimit = 10;
+                        break;                        
                     case 365:
                         tickLimit = 12;
                         labelMode = 'month';                        
