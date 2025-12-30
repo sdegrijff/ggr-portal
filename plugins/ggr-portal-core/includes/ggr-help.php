@@ -84,6 +84,19 @@ function ggr_portal_help_shortcode() {
                     );
                 }
 
+                if ( empty( $errors ) && function_exists( 'ggr_portal_send_templated_email' ) ) {
+                    $help_url = home_url( '/help-vragen/' );
+                    ggr_portal_send_templated_email(
+                        'feedback_thanks',
+                        $user->ID,
+                        array(
+                            'feedback_message' => $feedback,
+                            'portal_link'      => $help_url,
+                            'login_link'       => wp_login_url( $help_url ),
+                        )
+                    );
+                }
+
                 if ( empty( $errors ) ) {
                     $feedback_notice = 'Bedankt voor je feedback! We nemen dit mee in de verbeteringen.';
                 }
