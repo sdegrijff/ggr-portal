@@ -38,7 +38,7 @@ if ( function_exists( 'ggr_portal_is_onboarding_page' ) && ggr_portal_is_onboard
             <div class="ggr-shell-logo">
                 <a href="<?php echo esc_url( home_url( '/dashboard/' ) ); ?>">
                     <img
-                        src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20full%20logo%20-%20Blue%20-%20Black.png"
+                        src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GGR%20Icon%20-%20Blue%20-%20Black.png"
                         alt="GGR Income Fund"
                         class="ggr-logo-img"
                     />
@@ -106,8 +106,11 @@ if ( function_exists( 'ggr_portal_is_onboarding_page' ) && ggr_portal_is_onboard
                     </span>
                     <span>Berichten</span>
                 </a>
+            </nav>
 
-                <?php
+
+             <nav class="ggr-shell-nav ggr-shell-nav--third">
+                                 <?php
                 $referral_url    = home_url( '/verwijs-een-vriend/' );
                 $referral_active = ggr_is_page_slug( 'verwijs-een-vriend' );
                 ?>
@@ -118,10 +121,8 @@ if ( function_exists( 'ggr_portal_is_onboarding_page' ) && ggr_portal_is_onboard
                         <i class="ri-user-add-line"></i>
                     </span>
                     <span>Verwijs een vriend</span>
-                </a>                
-            </nav>
-
-            <div class="ggr-shell-divider"></div>
+                </a>  
+                </nav>
             <div class="ggr-shell-divider"></div>
 
             <nav class="ggr-shell-nav ggr-shell-nav--secondary">
