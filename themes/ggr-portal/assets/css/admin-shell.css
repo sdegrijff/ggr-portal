@@ -198,6 +198,67 @@ body.ggr-admin-shell-enabled .ggr-admin-shell__content .form-table td {
     padding-right: 6px;
 }
 
+.ggr-admin-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+    align-items: start;
+}
+
+.ggr-admin-dashboard-panel {
+    min-width: 0;
+}
+
+.ggr-admin-dashboard-panel .ggrp-fe-panel-body {
+    padding-top: 12px;
+}
+
+.ggr-admin-dashboard-table {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ggr-admin-dashboard-table-head,
+.ggr-admin-dashboard-table-row {
+    display: grid;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 10px;
+}
+
+.ggr-admin-dashboard-table-head {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6b7280;
+    background: #f3f4f6;
+}
+
+.ggr-admin-dashboard-table-row {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    color: #111827;
+}
+
+.ggr-admin-dashboard-table--mutaties .ggr-admin-dashboard-table-head,
+.ggr-admin-dashboard-table--mutaties .ggr-admin-dashboard-table-row {
+    grid-template-columns: 90px 1.1fr 1.2fr 0.9fr 0.9fr;
+}
+
+.ggr-admin-dashboard-table--meldingen .ggr-admin-dashboard-table-head,
+.ggr-admin-dashboard-table--meldingen .ggr-admin-dashboard-table-row {
+    grid-template-columns: 120px 1.4fr 0.8fr;
+}
+
+@media (max-width: 1200px) {
+    .ggr-admin-dashboard-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 body.ggr-admin-shell-enabled .ggr-admin-shell__content .page-title-action {
     display: inline-flex;
     align-items: center;
