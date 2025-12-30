@@ -678,7 +678,10 @@ function ggr_render_stock_price_page() {
             $result = ggr_ibkr_nav_fetch_and_store();
 
             if ( is_wp_error( $result ) ) {
-                $error = 'IBKR NAV ophalen is mislukt: ' . $result->get_error_message();
+                $error_message = function_exists( 'ggr_ibkr_nav_format_error_message' )
+                    ? ggr_ibkr_nav_format_error_message( $result )
+                    : $result->get_error_message();
+                $error = 'IBKR NAV ophalen is mislukt: ' . $error_message;
             } else {
                 $notice = sprintf(
                     'IBKR NAV opgeslagen voor %s: € %s per participatie (totaal: € %s, participaties: %s).',
@@ -1035,6 +1038,12 @@ function ggr_render_stock_price_page() {
                             Laatste succesvolle import: <strong><?php echo esc_html( $ibkr_status['last_run']['date'] ); ?></strong>
                             (NAV: € <?php echo esc_html( number_format( (float) $ibkr_status['last_run']['nav'], 6, ',', '.' ) ); ?>,
                             bijgewerkt op <?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_status['last_run']['timestamp'] ) ); ?>).
+                        </p>
+                    <?php endif; ?>
+                    <?php if ( ! empty( $ibkr_status['last_error'] ) && is_array( $ibkr_status['last_error'] ) ) : ?>
+                        <p>
+                            Laatste fout: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_status['last_error']['timestamp'] ) ); ?></strong>
+                            (<?php echo esc_html( $ibkr_status['last_error']['message'] ); ?>).
                         </p>
                     <?php endif; ?>
                 </div>
