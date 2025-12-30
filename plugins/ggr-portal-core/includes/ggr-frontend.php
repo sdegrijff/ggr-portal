@@ -1818,7 +1818,7 @@ function ggrp_fe_transacties_shortcode( $atts ) {
                                             <?php if ( $delta_parts !== 0.0 ) : ?>
                                                 <div style="margin-top:0.3rem;font-size:0.8rem;color:#9ca3af;">
                                                     Mutatie:
-                                                    <?php echo esc_html( ggrp_fe_format_signed_number( $delta_parts, 3 ) ); ?>
+                                                    <?php echo esc_html( ggrp_fe_format_signed_number( $delta_parts, 4 ) ); ?>
                                                     participaties
                                                 </div>
                                             <?php endif; ?>
