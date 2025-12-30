@@ -70,13 +70,15 @@ function ggrp_fe_handle_account_update() {
         case 'participant_contact':
             $first_name = isset( $_POST['first_name'] ) ? sanitize_text_field( wp_unslash( $_POST['first_name'] ) ) : '';
             $last_name  = isset( $_POST['last_name'] )  ? sanitize_text_field( wp_unslash( $_POST['last_name'] ) )  : '';
+            $greeting_name = isset( $_POST['ggr_greeting_name'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_greeting_name'] ) ) : '';
             $email      = isset( $_POST['email'] )      ? sanitize_email( wp_unslash( $_POST['email'] ) )           : '';
             $phone      = isset( $_POST['phone'] )      ? sanitize_text_field( wp_unslash( $_POST['phone'] ) )      : '';
 
             update_user_meta( $user_id, 'first_name', $first_name );
             update_user_meta( $user_id, 'last_name',  $last_name );
             update_user_meta( $user_id, 'phone',      $phone );
-
+            update_user_meta( $user_id, 'ggr_greeting_name', $greeting_name );
+            
             if ( $email && is_email( $email ) ) {
                 wp_update_user( [
                     'ID'         => $user_id,
@@ -228,6 +230,7 @@ function ggrp_fe_get_account_data( $user_id ) {
     $first_name = isset( $meta['first_name'][0] ) ? $meta['first_name'][0] : '';
     $last_name  = isset( $meta['last_name'][0] )  ? $meta['last_name'][0]  : '';
     $full_name  = trim( $first_name . ' ' . $last_name );
+    $greeting_name = isset( $meta['ggr_greeting_name'][0] ) ? $meta['ggr_greeting_name'][0] : '';
     if ( $full_name === '' ) {
         $full_name = $user->display_name;
     }
@@ -273,6 +276,7 @@ function ggrp_fe_get_account_data( $user_id ) {
 
         'first_name'  => $first_name,
         'last_name'   => $last_name,
+        'greeting_name' => $greeting_name,
         'full_name'   => $full_name,
         'email'       => $user->user_email,
         'phone'       => $phone,
@@ -353,6 +357,7 @@ function ggrp_fe_account_shortcode( $atts ) {
                         <div class="ggrp-fe-account-label">Participant</div>
                         <div class="ggrp-fe-account-value">
                             <div><?php echo esc_html( $participant_name ?: '-' ); ?></div>
+                            <div><?php echo esc_html( $data['greeting_name'] ? 'Groetnaam: ' . $data['greeting_name'] : '-' ); ?></div>
                             <div><?php echo esc_html( $data['email'] ?: '-' ); ?></div>
                             <div><?php echo esc_html( $data['phone'] ?: '-' ); ?></div>
                         </div>
@@ -374,6 +379,10 @@ function ggrp_fe_account_shortcode( $atts ) {
                                         <label>Voornaam</label>
                                         <input type="text" name="first_name" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['first_name'] ); ?>" />
                                     </div>
+                                    <div class="ggrp-fe-account-form-row">
+                                        <label>Groetnaam</label>
+                                        <input type="text" name="ggr_greeting_name" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['greeting_name'] ); ?>" />
+                                    </div>                                    
                                     <div class="ggrp-fe-account-form-row">
                                         <label>Achternaam</label>
                                         <input type="text" name="last_name" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['last_name'] ); ?>" />
