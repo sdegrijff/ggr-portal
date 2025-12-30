@@ -166,15 +166,6 @@ function ggrp_fe_handle_account_update() {
             $profile_changed = true;
             break;
 
-        case 'bank':
-            $iban      = isset( $_POST['bank_account_iban'] ) ? sanitize_text_field( wp_unslash( $_POST['bank_account_iban'] ) ) : '';
-            $iban_name = isset( $_POST['bank_account_name'] ) ? sanitize_text_field( wp_unslash( $_POST['bank_account_name'] ) ) : '';
-
-            update_user_meta( $user_id, 'bank_account_iban', $iban );
-            update_user_meta( $user_id, 'bank_account_name', $iban_name );
-            $profile_changed = true;
-            break;
-
         case 'company':
             $company_name = isset( $_POST['company_name'] ) ? sanitize_text_field( wp_unslash( $_POST['company_name'] ) ) : '';
             $company_kvk  = isset( $_POST['company_kvk'] )  ? sanitize_text_field( wp_unslash( $_POST['company_kvk'] ) )  : '';
@@ -227,10 +218,13 @@ function ggrp_fe_get_account_data( $user_id ) {
 
     $meta = get_user_meta( $user_id );
 
-    $first_name = isset( $meta['first_name'][0] ) ? $meta['first_name'][0] : '';
-    $last_name  = isset( $meta['last_name'][0] )  ? $meta['last_name'][0]  : '';
-    $full_name  = trim( $first_name . ' ' . $last_name );
+    $first_name    = isset( $meta['first_name'][0] ) ? $meta['first_name'][0] : '';
+    $last_name     = isset( $meta['last_name'][0] )  ? $meta['last_name'][0]  : '';
+    $full_name     = trim( $first_name . ' ' . $last_name );
     $greeting_name = isset( $meta['ggr_greeting_name'][0] ) ? $meta['ggr_greeting_name'][0] : '';
+    if ( '' === trim( $greeting_name ) ) {
+        $greeting_name = $first_name;
+    }
     if ( $full_name === '' ) {
         $full_name = $user->display_name;
     }
@@ -247,9 +241,6 @@ function ggrp_fe_get_account_data( $user_id ) {
     $co_last  = ! empty( $meta['co_last_name'][0] )  ? $meta['co_last_name'][0]  : '';
     $co_email = ! empty( $meta['co_email'][0] )      ? $meta['co_email'][0]      : '';
     $co_phone = ! empty( $meta['co_phone'][0] )      ? $meta['co_phone'][0]      : '';
-
-    $bank_iban = ! empty( $meta['bank_account_iban'][0] ) ? $meta['bank_account_iban'][0] : '';
-    $bank_name = ! empty( $meta['bank_account_name'][0] ) ? $meta['bank_account_name'][0] : '';
 
     $company_name = '';
     if ( ! empty( $meta['company_name'][0] ) ) {
@@ -285,9 +276,6 @@ function ggrp_fe_get_account_data( $user_id ) {
         'co_last_name'  => $co_last,
         'co_email'      => $co_email,
         'co_phone'      => $co_phone,
-
-        'bank_iban'   => $bank_iban,
-        'bank_name'   => $bank_name,
 
         'company_name' => $company_name,
         'company_kvk'  => $company_kvk,
@@ -357,7 +345,6 @@ function ggrp_fe_account_shortcode( $atts ) {
                         <div class="ggrp-fe-account-label">Participant</div>
                         <div class="ggrp-fe-account-value">
                             <div><?php echo esc_html( $participant_name ?: '-' ); ?></div>
-                            <div><?php echo esc_html( $data['greeting_name'] ? 'Groetnaam: ' . $data['greeting_name'] : '-' ); ?></div>
                             <div><?php echo esc_html( $data['email'] ?: '-' ); ?></div>
                             <div><?php echo esc_html( $data['phone'] ?: '-' ); ?></div>
                         </div>
@@ -379,10 +366,6 @@ function ggrp_fe_account_shortcode( $atts ) {
                                         <label>Voornaam</label>
                                         <input type="text" name="first_name" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['first_name'] ); ?>" />
                                     </div>
-                                    <div class="ggrp-fe-account-form-row">
-                                        <label>Groetnaam</label>
-                                        <input type="text" name="ggr_greeting_name" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['greeting_name'] ); ?>" />
-                                    </div>                                    
                                     <div class="ggrp-fe-account-form-row">
                                         <label>Achternaam</label>
                                         <input type="text" name="last_name" class="ggrp-fe-account-input" value="<?php echo esc_attr( $data['last_name'] ); ?>" />
@@ -608,57 +591,7 @@ function ggrp_fe_account_shortcode( $atts ) {
                 </div>
             </article>
 
-            <!-- 3. BANKGEGEVENS -->
-            <article class="ggrp-fe-account-card">
-                <div class="ggrp-fe-account-card-header">
-                    <h2>Bankgegevens</h2>
-                </div>
-
-                <div class="ggrp-fe-account-card-body">
-                    <div class="ggrp-fe-account-row" data-section="bank">
-                        <div class="ggrp-fe-account-label">Bankgegevens</div>
-                        <div class="ggrp-fe-account-value">
-                            <div><?php echo esc_html( $data['bank_iban'] ?: '-' ); ?></div>
-                            <div><?php echo esc_html( $data['bank_name'] ?: '-' ); ?></div>
-                        </div>
-                        <?php if ( $can_edit_profile ) : ?>
-                            <a href="#" class="ggrp-fe-account-row-edit">Edit</a>
-                        <?php endif; ?>
-                    </div>
-
-                    <?php if ( $can_edit_profile ) : ?>
-                        <div class="ggrp-fe-account-row-form" data-section="bank">
-                            <form method="post" class="ggrp-fe-account-form">
-                                <?php wp_nonce_field( 'ggr_account_update', 'ggr_account_nonce' ); ?>
-                                <input type="hidden" name="ggr_account_section" value="bank" />
-
-                                <div class="ggrp-fe-account-label"> </div>
-                                <div class="ggrp-fe-account-form-fields">
-                                    <div class="ggrp-fe-account-form-row">
-                                        <label>Rekeningnummer (IBAN)</label>
-                                        <input type="text" name="bank_account_iban" class="ggrp-fe-account-input"
-                                               value="<?php echo esc_attr( $data['bank_iban'] ); ?>" />
-                                    </div>
-                                    <div class="ggrp-fe-account-form-row">
-                                        <label>Tenaamstelling rekening</label>
-                                        <input type="text" name="bank_account_name" class="ggrp-fe-account-input"
-                                               value="<?php echo esc_attr( $data['bank_name'] ); ?>" />
-                                    </div>
-                                </div>
-
-                                <div class="ggrp-fe-account-actions">
-                                    <button type="submit" class="ggrp-fe-account-btn ggrp-fe-account-btn--primary">Opslaan</button>
-                                    <button type="button" class="ggrp-fe-account-btn ggrp-fe-account-btn--ghost ggrp-fe-account-cancel">
-                                        Annuleren
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </article>
-
-            <!-- 4. BEDRIJFSGEGEVENS -->
+            <!-- 3. BEDRIJFSGEGEVENS -->
             <article class="ggrp-fe-account-card">
                 <div class="ggrp-fe-account-card-header">
                     <h2>Bedrijfsgegevens (optioneel)</h2>
