@@ -28,7 +28,7 @@ body {
 /* Sidebar: fixed 100vh, menu altijd in beeld */
 
 .ggr-shell-sidebar {
-    width: 210px;
+    width: 175px;
     background: var(--ggr-sidebar-bg);
     border-right: 1px solid var(--ggr-border-soft);
     padding: 28px 22px 20px;
@@ -53,7 +53,7 @@ body {
 }
 
 .ggr-logo-img {
-    max-width: 180px;
+    max-width: 60px;
     width: 100%;
     height: auto;
     display: block;
@@ -81,9 +81,12 @@ body {
 /* Onderste 3 items: via flex onderin sidebar (niet meer extra fixed) */
 
 .ggr-shell-nav--secondary {
-    margin-top: auto;
     padding-top: 10px;
     border-top: 1px solid #f3f4f6;
+}
+
+.ggr-shell-nav.ggr-shell-nav--third {
+    margin-top: auto;
 }
 
 /* Items */
@@ -169,8 +172,7 @@ body {
     justify-content: center;
     align-items: flex-start;
     background: var(--ggr-main-bg);
-
-    margin-left: 260px; /* ruimte voor fixed sidebar */
+    margin-left: 215px; /* ruimte voor fixed sidebar */
     min-height: 100vh;
 }
 
