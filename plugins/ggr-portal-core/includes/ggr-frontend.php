@@ -395,16 +395,9 @@ function ggrp_fe_dashboard_shortcode( $atts ) {
 $user    = wp_get_current_user();
 $user_id = get_current_user_id();
 
-$first_name = '';
-if ( $user && ! empty( $user->first_name ) ) {
-    $first_name = $user->first_name;
-}
-
-// fallback: display_name (of 'investeerder')
-$naam = $user && ! empty( $user->display_name ) ? $user->display_name : 'investeerder';
-
-// uiteindelijke groetnaam: voornaam als die er is, anders display_name/fallback
-$greeting_name = $first_name ? $first_name : $naam;
+$greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
+    ? ggr_portal_get_greeting_name( $user )
+    : ( $user && ! empty( $user->display_name ) ? $user->display_name : 'investeerder' );
 
     if ( ! function_exists( 'ggr_portal_get_history_for_user' ) || ! $user_id ) {
         return '<section class="ggrp-fe"><h1>Dashboard</h1><p>Historie niet beschikbaar.</p></section>';
@@ -982,12 +975,12 @@ $greeting_name = $first_name ? $first_name : $naam;
                 <h2 class="ggrp-fe-card-title">Participaties</h2>
                 <div class="ggrp-fe-card-value">
                     <?php echo esc_html(
-                        number_format( (float) $parts_total, 3, ',', '.' )
+                        number_format( (float) $parts_total, 4, ',', '.' )
                     ); ?>
                 </div>
                 <div class="ggrp-fe-card-meta">
                     <span class="<?php echo esc_attr( $chip_part_class ); ?>">
-                        <?php echo esc_html( ggrp_fe_format_signed_number( $parts_delta_last_tx, 3 ) ); ?>
+                        <?php echo esc_html( ggrp_fe_format_signed_number( $parts_delta_last_tx, 4 ) ); ?>
                     </span>
                     <span class="ggrp-fe-card-meta-text">participaties deze maand</span>
                 </div>
@@ -1817,10 +1810,10 @@ function ggrp_fe_transacties_shortcode( $atts ) {
                                     <div class="ggrp-fe-trans-extra-value">
                                         <?php if ( $old_parts !== null && $new_parts !== null ) : ?>
                                             <div>Oorspronkelijk:
-                                                <?php echo esc_html( number_format( $old_parts, 3, ',', '.' ) ); ?>
+                                                <?php echo esc_html( number_format( $old_parts, 4, ',', '.' ) ); ?>
                                             </div>
                                             <div>Na transactie:
-                                                <?php echo esc_html( number_format( $new_parts, 3, ',', '.' ) ); ?>
+                                                <?php echo esc_html( number_format( $new_parts, 4, ',', '.' ) ); ?>
                                             </div>
                                             <?php if ( $delta_parts !== 0.0 ) : ?>
                                                 <div style="margin-top:0.3rem;font-size:0.8rem;color:#9ca3af;">
