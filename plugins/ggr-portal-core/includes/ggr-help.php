@@ -1,41 +1,10 @@
 <?php
 /**
- * Help & FAQ functionaliteit
+ * Help Shortcode en functionaliteiten
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
-}
-
-/**
- * Registreer FAQ custom post type.
- */
-add_action( 'init', 'ggr_portal_register_faq_cpt' );
-function ggr_portal_register_faq_cpt() {
-    $labels = array(
-        'name'               => 'FAQs',
-        'singular_name'      => 'FAQ',
-        'menu_name'          => 'FAQs',
-        'add_new'            => 'Nieuwe FAQ',
-        'add_new_item'       => 'Nieuwe FAQ toevoegen',
-        'edit_item'          => 'FAQ bewerken',
-        'new_item'           => 'Nieuwe FAQ',
-        'view_item'          => 'FAQ bekijken',
-        'search_items'       => 'FAQ zoeken',
-        'not_found'          => 'Geen FAQ gevonden',
-        'not_found_in_trash' => 'Geen FAQ in prullenbak',
-    );
-
-    $args = array(
-        'labels'        => $labels,
-        'public'        => false,
-        'show_ui'       => true,
-        'show_in_menu'  => true,
-        'supports'      => array( 'title', 'editor', 'page-attributes' ),
-        'menu_position' => 27,
-    );
-
-    register_post_type( 'ggr_faq', $args );
 }
 
 /**
