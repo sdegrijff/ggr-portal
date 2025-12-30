@@ -1630,10 +1630,67 @@ function ggrp_fe_transacties_shortcode( $atts ) {
         return strcmp( $b->datum, $a->datum );
     });
 
+    // Afgeleide UI-regels: dividend op laatste dag vorige maand, losse regels bij combinaties
+    $display_rows = [];
+    foreach ( $history as $row ) {
+        $inleg   = (float) $row->inlegbedrag;
+        $opname  = (float) $row->opnamebedrag;
+        $div     = (float) $row->distributievergoeding;
+
+        $has_inleg  = $inleg  > 0;
+        $has_opname = $opname > 0;
+        $has_div    = $div    > 0;
+
+        $display_date = $row->datum;
+        if ( $has_div ) {
+            $dt_row = DateTime::createFromFormat( 'Y-m-d', $row->datum );
+            if ( $dt_row ) {
+                $dt_prev_end = clone $dt_row;
+                $dt_prev_end->modify( 'first day of this month' )->modify( '-1 day' );
+                $display_date = $dt_prev_end->format( 'Y-m-d' );
+                if ( function_exists( 'ggr_get_stock_price_date_for_date' ) ) {
+                    $price_date = ggr_get_stock_price_date_for_date( $display_date );
+                    if ( $price_date ) {
+                        $display_date = $price_date;
+                    }
+                }
+            }
+        }
+
+        if ( $has_div && ( $has_inleg || $has_opname ) ) {
+            $div_row                        = clone $row;
+            $div_row->inlegbedrag            = 0;
+            $div_row->opnamebedrag           = 0;
+            $div_row->distributievergoeding  = $div;
+            $div_row->display_date           = $display_date;
+            $div_row->old_positiewaarde      = null;
+            $div_row->new_positiewaarde      = null;
+            $div_row->old_participaties      = null;
+            $div_row->new_participaties      = null;
+            $display_rows[] = $div_row;
+
+            $main_row                       = clone $row;
+            $main_row->distributievergoeding = 0;
+            $main_row->display_date          = $row->datum;
+            $display_rows[] = $main_row;
+        } else {
+            $single_row               = clone $row;
+            $single_row->display_date = $has_div ? $display_date : $row->datum;
+            $display_rows[] = $single_row;
+        }
+    }
+
+    usort( $display_rows, function( $a, $b ) {
+        $date_a = isset( $a->display_date ) ? $a->display_date : $a->datum;
+        $date_b = isset( $b->display_date ) ? $b->display_date : $b->datum;
+        return strcmp( $date_b, $date_a );
+    } );
+
     // Beschikbare jaren bepalen
     $years = [];
-    foreach ( $history as $row ) {
-        $d = DateTime::createFromFormat( 'Y-m-d', $row->datum );
+    foreach ( $display_rows as $row ) {
+        $date_value = isset( $row->display_date ) ? $row->display_date : $row->datum;
+        $d          = DateTime::createFromFormat( 'Y-m-d', $date_value );
         if ( ! $d ) {
             continue;
         }
@@ -1652,8 +1709,9 @@ function ggrp_fe_transacties_shortcode( $atts ) {
     }
 
     // Filter transacties op jaar
-    $filtered = array_filter( $history, function( $row ) use ( $selected_year ) {
-        $d = DateTime::createFromFormat( 'Y-m-d', $row->datum );
+    $filtered = array_filter( $display_rows, function( $row ) use ( $selected_year ) {
+        $date_value = isset( $row->display_date ) ? $row->display_date : $row->datum;
+        $d          = DateTime::createFromFormat( 'Y-m-d', $date_value );
         if ( ! $d ) {
             return false;
         }
@@ -1749,8 +1807,9 @@ function ggrp_fe_transacties_shortcode( $atts ) {
                             $type = 'Samengesteld';
                         }
 
-                        $d = DateTime::createFromFormat( 'Y-m-d', $row->datum );
-                        $datum_label = $d ? $d->format( 'd M Y' ) : $row->datum;
+                        $row_date    = isset( $row->display_date ) ? $row->display_date : $row->datum;
+                        $d           = DateTime::createFromFormat( 'Y-m-d', $row_date );
+                        $datum_label = $d ? $d->format( 'd M Y' ) : $row_date;
 
                         $bedrag_fmt = '€' . number_format( $bedrag, 2, ',', '.' );
 
