@@ -1020,6 +1020,10 @@ function ggr_portal_render_message_pdf_html( WP_Post $post, $user_id ) {
             font-size: 14px;
             line-height: 1.4;
             color: #111827;
+            text-align: justify;
+            text-justify: inter-word;   /* vooral nuttig in sommige engines */
+            hyphens: auto;              /* betere woordafbreking */
+}
         }
 
         .top-bar,
@@ -1186,13 +1190,13 @@ function ggr_portal_render_message_pdf_html( WP_Post $post, $user_id ) {
 
     <div class="header-row">
         <div class="header-logo">
-            <img src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20full%20logo%20-%20Blue%20-%20Black.png"
-                 alt="GGR Income Fund">
+            <img src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GGR%20Icon%20-%20Blue%20-%20Black.png"
+                 alt="GGR Icon">
         </div>
         <div class="header-contact">
             +31 85 080 50 35<br>
-            info@ggrincome.com<br>
-            Alexanderstraat 90, 6812BH Arnhem
+            mif@ggrfunds.com<br>
+            Rietbaan 2, 2908 LP Capelle a/d IJssel
         </div>
     </div>
 
