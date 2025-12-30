@@ -4547,15 +4547,33 @@ function ggr_onboarding_store_signature_image( $user_id, $signature_data, $meta_
 
 function ggr_onboarding_handle_file_upload( $file_key, $user_id ) {
     if ( empty( $_FILES[ $file_key ]['name'] ) ) {
-        return;
+        return true;
+    }
+
+    $max_size = 32 * MB_IN_BYTES;
+    $file_size = isset( $_FILES[ $file_key ]['size'] ) ? (int) $_FILES[ $file_key ]['size'] : 0;
+    if ( $file_size > $max_size ) {
+        return new WP_Error(
+            'file_too_large',
+            sprintf(
+                'Het bestand "%s" is groter dan 32 MB.',
+                isset( $_FILES[ $file_key ]['name'] ) ? sanitize_file_name( wp_unslash( $_FILES[ $file_key ]['name'] ) ) : $file_key
+            )
+        );
     }
 
     require_once ABSPATH . 'wp-admin/includes/file.php';
     $uploaded = wp_handle_upload( $_FILES[ $file_key ], array( 'test_form' => false ) );
 
+    if ( ! empty( $uploaded['error'] ) ) {
+        return new WP_Error( 'upload_failed', $uploaded['error'] );
+    }
+
     if ( isset( $uploaded['url'] ) ) {
         update_user_meta( $user_id, $file_key, $uploaded['url'] );
     }
+
+    return true;
 }
 
 
@@ -4983,7 +5001,10 @@ function ggr_onboarding_handle_collecting_files( $user_id ) {
     );
 
     foreach ( $upload_fields as $upload_field ) {
-        ggr_onboarding_handle_file_upload( $upload_field, $user_id );
+        $upload_result = ggr_onboarding_handle_file_upload( $upload_field, $user_id );
+        if ( is_wp_error( $upload_result ) ) {
+            return $upload_result;
+        }
     }
 
     return true;
@@ -5018,7 +5039,10 @@ function ggr_onboarding_handle_collecting_extra( $user_id ) {
 
     update_user_meta( $user_id, 'ggr_collecting_extra_response', $response );
 
-    ggr_onboarding_handle_file_upload( 'ggr_doc_extra', $user_id );
+    $upload_result = ggr_onboarding_handle_file_upload( 'ggr_doc_extra', $user_id );
+    if ( is_wp_error( $upload_result ) ) {
+        return $upload_result;
+    }
 
     return true;
 }
