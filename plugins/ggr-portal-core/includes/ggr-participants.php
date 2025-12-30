@@ -1610,8 +1610,9 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
     }
 
     // Participant
-    $first_name = get_user_meta( $user->ID, 'first_name', true );
-    $last_name  = get_user_meta( $user->ID, 'last_name', true );
+    $first_name    = get_user_meta( $user->ID, 'first_name', true );
+    $last_name     = get_user_meta( $user->ID, 'last_name', true );
+    $greeting_name = get_user_meta( $user->ID, 'ggr_greeting_name', true );
     $phone      = get_user_meta( $user->ID, 'phone', true );
     
     // Onboarding extra's
@@ -1718,6 +1719,12 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
                             <label for="ggr_first_name">Voornaam</label>
                             <input type="text" name="ggr_first_name" id="ggr_first_name"
                                    value="<?php echo esc_attr( $first_name ); ?>" />
+                        </div>
+
+                        <div class="ggr-admin-inline-field">
+                            <label for="ggr_greeting_name">Groetnaam</label>
+                            <input type="text" name="ggr_greeting_name" id="ggr_greeting_name"
+                                   value="<?php echo esc_attr( $greeting_name ); ?>" />
                         </div>
 
                         <div class="ggr-admin-inline-field">
@@ -2087,6 +2094,10 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
                 'user_email' => $email,
             ] );
         }
+    }
+
+    if ( isset( $_POST['ggr_greeting_name'] ) ) {
+        update_user_meta( $user_id, 'ggr_greeting_name', $sanitize_text( 'ggr_greeting_name' ) );
     }
     
     // Stap 1: bedrag
@@ -2610,8 +2621,9 @@ function ggr_portal_render_participant_profile_page() {
 
         $meta         = get_user_meta( $user_id );
     $locale_meta  = isset( $meta['locale'][0] )       ? $meta['locale'][0]       : '';
-    $first_name   = isset( $meta['first_name'][0] )   ? $meta['first_name'][0]   : '';
-    $last_name    = isset( $meta['last_name'][0] )    ? $meta['last_name'][0]    : '';
+    $first_name    = isset( $meta['first_name'][0] )   ? $meta['first_name'][0]   : '';
+    $last_name     = isset( $meta['last_name'][0] )    ? $meta['last_name'][0]    : '';
+    $greeting_name = isset( $meta['ggr_greeting_name'][0] ) ? $meta['ggr_greeting_name'][0] : '';
     $phone        = isset( $meta['phone'][0] )        ? $meta['phone'][0]        : '';
     $company_name = isset( $meta['company_name'][0] ) ? $meta['company_name'][0] : '';
     $company_kvk  = isset( $meta['company_kvk'][0] )  ? $meta['company_kvk'][0]  : '';
@@ -3048,6 +3060,10 @@ function ggr_portal_render_participant_profile_page() {
                                     <label for="ggr_kyc_first_name">Voornaam</label>
                                     <input name="ggr_kyc_first_name" id="ggr_kyc_first_name" type="text" value="<?php echo esc_attr( $kyc_first_name ); ?>" />
                                 </div>
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_greeting_name">Groetnaam</label>
+                                    <input name="ggr_greeting_name" id="ggr_greeting_name" type="text" value="<?php echo esc_attr( $greeting_name ); ?>" />
+                                </div>                                
                                 <div class="ggr-admin-inline-field">
                                     <label for="ggr_kyc_last_name">Achternaam</label>
                                     <input name="ggr_kyc_last_name" id="ggr_kyc_last_name" type="text" value="<?php echo esc_attr( $kyc_last_name ); ?>" />
