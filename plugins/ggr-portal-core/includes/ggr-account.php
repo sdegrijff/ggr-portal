@@ -262,6 +262,11 @@ function ggrp_fe_get_account_data( $user_id ) {
         ? ggrp_fe_format_nl_datetime( $meta['ggr_last_login_at'][0] )
         : '';
 
+    $account_type = ! empty( $meta['ggr_account_type'][0] ) ? $meta['ggr_account_type'][0] : '';
+    $distribution_strategy = ! empty( $meta['ggr_distribution_strategy'][0] )
+        ? $meta['ggr_distribution_strategy'][0]
+        : '';
+
     return [
         'user'        => $user,
 
@@ -284,6 +289,9 @@ function ggrp_fe_get_account_data( $user_id ) {
         'zip'      => $zip,
         'city'     => $city,
         'country'  => $country,
+
+        'account_type'          => $account_type,
+        'distribution_strategy' => $distribution_strategy,
 
         'onboarding_updated' => $onboarding_updated,
         'last_login'         => $last_login,
@@ -318,8 +326,22 @@ function ggrp_fe_account_shortcode( $atts ) {
     $roles            = (array) $data['user']->roles;
     $can_edit_profile = in_array( 'lead', $roles, true ) || current_user_can( 'manage_options' );
     
-    $participant_name   = trim( $data['first_name'] . ' ' . $data['last_name'] );
+    $participant_name    = trim( $data['first_name'] . ' ' . $data['last_name'] );
     $co_participant_name = trim( $data['co_first_name'] . ' ' . $data['co_last_name'] );
+
+    $account_type_label = '-';
+    if ( 'private' === $data['account_type'] ) {
+        $account_type_label = 'Particulier';
+    } elseif ( 'business' === $data['account_type'] ) {
+        $account_type_label = 'Zakelijk';
+    }
+
+    $strategy_label = '-';
+    if ( 'herbeleggen' === $data['distribution_strategy'] ) {
+        $strategy_label = 'Herbeleggen';
+    } elseif ( 'uitkeren' === $data['distribution_strategy'] ) {
+        $strategy_label = 'Uitkeren';
+    }
 
     ob_start();
     ?>
@@ -332,7 +354,29 @@ function ggrp_fe_account_shortcode( $atts ) {
 
         <div class="ggrp-fe-account-grid">
 
-            <!-- 1. CONTACTGEGEVENS -->
+            <!-- 1. ACCOUNTGEGEVENS -->
+            <article class="ggrp-fe-account-card">
+                <div class="ggrp-fe-account-card-header">
+                    <h2>Accountgegevens</h2>
+                </div>
+
+                <div class="ggrp-fe-account-card-body">
+                    <div class="ggrp-fe-account-row">
+                        <div class="ggrp-fe-account-label">Account type</div>
+                        <div class="ggrp-fe-account-value">
+                            <div><?php echo esc_html( $account_type_label ); ?></div>
+                        </div>
+                    </div>
+                    <div class="ggrp-fe-account-row">
+                        <div class="ggrp-fe-account-label">Beleggingsstrategie</div>
+                        <div class="ggrp-fe-account-value">
+                            <div><?php echo esc_html( $strategy_label ); ?></div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+
+            <!-- 2. CONTACTGEGEVENS -->
             <article class="ggrp-fe-account-card">
                 <div class="ggrp-fe-account-card-header">
                     <h2>Contactgegevens</h2>
@@ -528,7 +572,7 @@ function ggrp_fe_account_shortcode( $atts ) {
                 </div>
             </article>
 
-            <!-- 2. ADRESGEGEVENS -->
+            <!-- 3. ADRESGEGEVENS -->
             <article class="ggrp-fe-account-card">
                 <div class="ggrp-fe-account-card-header">
                     <h2>Adresgegevens</h2>
@@ -591,55 +635,57 @@ function ggrp_fe_account_shortcode( $atts ) {
                 </div>
             </article>
 
-            <!-- 3. BEDRIJFSGEGEVENS -->
-            <article class="ggrp-fe-account-card">
-                <div class="ggrp-fe-account-card-header">
-                    <h2>Bedrijfsgegevens (optioneel)</h2>
-                </div>
-
-                <div class="ggrp-fe-account-card-body">
-                    <div class="ggrp-fe-account-row" data-section="company">
-                        <div class="ggrp-fe-account-label">Bedrijfsgegevens</div>
-                        <div class="ggrp-fe-account-value">
-                            <div><?php echo esc_html( $data['company_name'] ?: '-' ); ?></div>
-                            <div><?php echo esc_html( $data['company_kvk'] ?: '-' ); ?></div>
-                        </div>
-                        <?php if ( $can_edit_profile ) : ?>
-                            <a href="#" class="ggrp-fe-account-row-edit">Edit</a>
-                        <?php endif; ?>
+            <?php if ( 'private' !== $data['account_type'] ) : ?>
+                <!-- 4. BEDRIJFSGEGEVENS -->
+                <article class="ggrp-fe-account-card">
+                    <div class="ggrp-fe-account-card-header">
+                        <h2>Bedrijfsgegevens (optioneel)</h2>
                     </div>
 
-                    <?php if ( $can_edit_profile ) : ?>
-                        <div class="ggrp-fe-account-row-form" data-section="company">
-                            <form method="post" class="ggrp-fe-account-form">
-                                <?php wp_nonce_field( 'ggr_account_update', 'ggr_account_nonce' ); ?>
-                                <input type="hidden" name="ggr_account_section" value="company" />
-
-                                <div class="ggrp-fe-account-label"> </div>
-                                <div class="ggrp-fe-account-form-fields">
-                                    <div class="ggrp-fe-account-form-row">
-                                        <label>Bedrijfsnaam</label>
-                                        <input type="text" name="company_name" class="ggrp-fe-account-input"
-                                               value="<?php echo esc_attr( $data['company_name'] ); ?>" />
-                                    </div>
-                                    <div class="ggrp-fe-account-form-row">
-                                        <label>KvK-nummer</label>
-                                        <input type="text" name="company_kvk" class="ggrp-fe-account-input"
-                                               value="<?php echo esc_attr( $data['company_kvk'] ); ?>" />
-                                    </div>
-                                </div>
-
-                                <div class="ggrp-fe-account-actions">
-                                    <button type="submit" class="ggrp-fe-account-btn ggrp-fe-account-btn--primary">Opslaan</button>
-                                    <button type="button" class="ggrp-fe-account-btn ggrp-fe-account-btn--ghost ggrp-fe-account-cancel">
-                                        Annuleren
-                                    </button>
-                                </div>
-                            </form>
+                    <div class="ggrp-fe-account-card-body">
+                        <div class="ggrp-fe-account-row" data-section="company">
+                            <div class="ggrp-fe-account-label">Bedrijfsgegevens</div>
+                            <div class="ggrp-fe-account-value">
+                                <div><?php echo esc_html( $data['company_name'] ?: '-' ); ?></div>
+                                <div><?php echo esc_html( $data['company_kvk'] ?: '-' ); ?></div>
+                            </div>
+                            <?php if ( $can_edit_profile ) : ?>
+                                <a href="#" class="ggrp-fe-account-row-edit">Edit</a>
+                            <?php endif; ?>
                         </div>
-                    <?php endif; ?>
-                </div>
-            </article>
+
+                        <?php if ( $can_edit_profile ) : ?>
+                            <div class="ggrp-fe-account-row-form" data-section="company">
+                                <form method="post" class="ggrp-fe-account-form">
+                                    <?php wp_nonce_field( 'ggr_account_update', 'ggr_account_nonce' ); ?>
+                                    <input type="hidden" name="ggr_account_section" value="company" />
+
+                                    <div class="ggrp-fe-account-label"> </div>
+                                    <div class="ggrp-fe-account-form-fields">
+                                        <div class="ggrp-fe-account-form-row">
+                                            <label>Bedrijfsnaam</label>
+                                            <input type="text" name="company_name" class="ggrp-fe-account-input"
+                                                   value="<?php echo esc_attr( $data['company_name'] ); ?>" />
+                                        </div>
+                                        <div class="ggrp-fe-account-form-row">
+                                            <label>KvK-nummer</label>
+                                            <input type="text" name="company_kvk" class="ggrp-fe-account-input"
+                                                   value="<?php echo esc_attr( $data['company_kvk'] ); ?>" />
+                                        </div>
+                                    </div>
+
+                                    <div class="ggrp-fe-account-actions">
+                                        <button type="submit" class="ggrp-fe-account-btn ggrp-fe-account-btn--primary">Opslaan</button>
+                                        <button type="button" class="ggrp-fe-account-btn ggrp-fe-account-btn--ghost ggrp-fe-account-cancel">
+                                            Annuleren
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </article>
+            <?php endif; ?>
 
         </div>
     </section>
