@@ -166,6 +166,51 @@ function ggr_portal_render_email_template_metabox( $post ) {
     $key     = get_post_meta( $post->ID, '_ggr_email_key', true );
     $subject = get_post_meta( $post->ID, '_ggr_email_subject', true );
     $active  = get_post_meta( $post->ID, '_ggr_email_active', true );
+    $available_template_keys = array(
+        'account_welcome'              => 'Account welkom',
+        'account_activated'            => 'Account geactiveerd',
+        'two_factor_code'              => '2FA code',
+        'password_reset'               => 'Wachtwoord reset',
+        'password_changed'             => 'Wachtwoord gewijzigd',
+        'email_changed'                => 'E-mailadres gewijzigd',
+        'new_portal_message'           => 'Nieuw portalbericht',
+        'help_request_confirmation'    => 'Helpvraag bevestiging',
+        'documents_approved'           => 'Documenten goedgekeurd',
+        'documents_rejected'           => 'Documenten afgekeurd',
+        'onboarding_email_verification'=> 'Onboarding e-mailverificatie',
+        'referral_invite'              => 'Verwijs-vriend uitnodiging',
+        'admin_new_melding'            => 'Admin: nieuwe melding',
+    );
+    $available_placeholders = array(
+        'user_display_name'        => 'Naam van de gebruiker',
+        'account_email'            => 'Account e-mailadres',
+        'portal_link'              => 'Link naar het portaal',
+        'login_link'               => 'Login-link',
+        'two_factor_code'          => '2FA code',
+        'two_factor_valid_minutes' => 'Geldigheid 2FA-code (minuten)',
+        'reset_link'               => 'Wachtwoord reset-link',
+        'reset_valid_minutes'      => 'Geldigheid reset-link (minuten)',
+        'message_title'            => 'Titel van het bericht',
+        'message_date'             => 'Datum van het bericht',
+        'message_url'              => 'Deeplink naar het bericht',
+        'help_message'             => 'Helpvraag van de gebruiker',
+        'melding_title'            => 'Titel van de melding',
+        'melding_url'              => 'Link naar de melding',
+        'melding_type'             => 'Type melding',
+        'melding_status'           => 'Status melding',
+        'melding_author'           => 'Auteur van de melding',
+        'referrer_name'            => 'Naam van de verwijzer',
+        'referrer_email'           => 'E-mailadres van de verwijzer',
+        'referral_link'            => 'Verwijzingslink',
+        'old_email'                => 'Oud e-mailadres',
+        'new_email'                => 'Nieuw e-mailadres',
+        'site_name'                => 'Naam van de site',
+        'site_url'                 => 'URL van de site',
+        'admin_email'              => 'Admin e-mailadres',
+        'contract_link'            => 'Link naar contract in onboarding',
+        'rejection_feedback'       => 'Feedback bij afkeuring',
+        'verification_link'        => 'Verificatielink',
+    );
     ?>
     <p>
         <label for="ggr_email_key"><strong>Template key (uniek, technisch):</strong></label><br>
@@ -191,32 +236,19 @@ function ggr_portal_render_email_template_metabox( $post ) {
 
     <hr>
 
-    <p><strong>Beschikbare placeholders (basis, uit te breiden):</strong></p>
+    <p><strong>Shortcodes naar de mails zelf (template keys):</strong></p>
     <ul style="list-style: disc; margin-left: 20px;">
-        <li><code>{{user_display_name}}</code></li>
-        <li><code>{{account_email}}</code></li>
-        <li><code>{{portal_link}}</code></li>
-        <li><code>{{login_link}}</code></li>
+        <?php foreach ( $available_template_keys as $template_key => $label ) : ?>
+            <li><code><?php echo esc_html( $template_key ); ?></code> — <?php echo esc_html( $label ); ?></li>
+        <?php endforeach; ?>
+    </ul>
+    <p>Gebruik deze sleutel in de “Template key” hierboven om de juiste mail te koppelen.</p>
 
-        <li><code>{{two_factor_code}}</code></li>
-        <li><code>{{two_factor_valid_minutes}}</code></li>
-        <li><code>{{reset_link}}</code></li>
-
-        <li><code>{{message_title}}</code></li>
-        <li><code>{{message_date}}</code></li>
-        <li><code>{{message_url}}</code></li>
-
-        <li><code>{{help_message}}</code></li>
-
-        <li><code>{{melding_title}}</code></li>
-        <li><code>{{melding_url}}</code></li>
-        <li><code>{{melding_type}}</code></li>
-        <li><code>{{melding_status}}</code></li>
-        <li><code>{{melding_author}}</code></li>
-
-        <li><code>{{referrer_name}}</code></li>
-        <li><code>{{referrer_email}}</code></li>
-        <li><code>{{referral_link}}</code></li>
+    <p><strong>Shortcodes die je in de mail kunt gebruiken (placeholders):</strong></p>
+    <ul style="list-style: disc; margin-left: 20px;">
+        <?php foreach ( $available_placeholders as $placeholder => $label ) : ?>
+            <li><code><?php echo esc_html( '{{' . $placeholder . '}}' ); ?></code> — <?php echo esc_html( $label ); ?></li>
+        <?php endforeach; ?>
     </ul>
     <p>Gebruik deze in de editor hierboven in de tekst van de e-mail.</p>
 
