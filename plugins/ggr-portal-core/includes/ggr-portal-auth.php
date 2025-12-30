@@ -106,7 +106,9 @@ function ggr_portal_send_2fa_code_email( $user, $code ) {
     // Als er geen actieve template is of iets faalt -> eenvoudige fallback
     if ( ! $sent ) {
         $subject = __( 'Je GGR bevestigingscode', 'ggr-portal-core' );
-        $name    = $user->first_name ?: $user->display_name;
+        $name    = function_exists( 'ggr_portal_get_greeting_name' )
+            ? ggr_portal_get_greeting_name( $user )
+            : ( $user->first_name ?: $user->display_name );
 
         $message  = sprintf( __( 'Beste %s,', 'ggr-portal-core' ), $name ) . "\n\n";
         $message .= __( 'Je bevestigingscode voor het GGR portal is:', 'ggr-portal-core' ) . "\n\n";
