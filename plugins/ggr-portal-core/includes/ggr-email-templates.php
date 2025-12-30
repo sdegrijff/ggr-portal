@@ -15,10 +15,53 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 
 /**
+ * Haal de greeting name op met fallback.
+ *
+ * Ondersteunt:
+ * - WP_User object
+ * - user array (zoals in email_change_email hook)
+ * - user ID
+ */
+function ggr_portal_get_greeting_name( $user, $fallback = true ) {
+    // Normaliseer naar WP_User
+    if ( $user instanceof WP_User ) {
+        $wp_user = $user;
+    } elseif ( is_array( $user ) && isset( $user['ID'] ) ) {
+        $wp_user = get_user_by( 'id', (int) $user['ID'] );
+        if ( ! $wp_user ) {
+            return '';
+        }
+    } else {
+        // Aanname: numeric ID
+        $wp_user = get_user_by( 'id', (int) $user );
+        if ( ! $wp_user ) {
+            return '';
+        }
+    }
+
+    $greeting_name = trim( get_user_meta( $wp_user->ID, 'ggr_greeting_name', true ) );
+    if ( '' !== $greeting_name ) {
+        return $greeting_name;
+    }
+
+    if ( ! $fallback ) {
+        return '';
+    }
+
+    $first_name = trim( get_user_meta( $wp_user->ID, 'first_name', true ) );
+    if ( '' !== $first_name ) {
+        return $first_name;
+    }
+
+    return ! empty( $wp_user->display_name ) ? $wp_user->display_name : $wp_user->user_login;
+}
+
+/**
  * Mooie weergavenaam ophalen met fallbacks:
- * 1. Voornaam (user_meta 'first_name')
- * 2. display_name
- * 3. user_login
+ * 1. Greeting name (user_meta 'ggr_greeting_name')
+ * 2. Voor- en achternaam
+ * 3. display_name
+ * 4. user_login
  *
  * Ondersteunt:
  * - WP_User object
@@ -42,7 +85,12 @@ function ggr_portal_get_nice_user_name( $user ) {
         }
     }
 
-    // 1. Voor- en achternaam
+    $greeting_name = ggr_portal_get_greeting_name( $wp_user, false );
+    if ( '' !== $greeting_name ) {
+        return $greeting_name;
+    }
+
+    // 2. Voor- en achternaam
     $first_name = trim( get_user_meta( $wp_user->ID, 'first_name', true ) );
     $last_name  = trim( get_user_meta( $wp_user->ID, 'last_name', true ) );
 
@@ -50,12 +98,12 @@ function ggr_portal_get_nice_user_name( $user ) {
         return trim( $first_name . ' ' . $last_name );
     }
 
-    // 2. display_name
+    // 3. display_name
     if ( ! empty( $wp_user->display_name ) ) {
         return $wp_user->display_name;
     }
 
-    // 3. user_login
+    // 4. user_login
     return $wp_user->user_login;
 }
 
@@ -158,6 +206,14 @@ function ggr_portal_render_email_template_metabox( $post ) {
         <li><code>{{message_date}}</code></li>
         <li><code>{{message_url}}</code></li>
 
+        <li><code>{{help_message}}</code></li>
+
+        <li><code>{{melding_title}}</code></li>
+        <li><code>{{melding_url}}</code></li>
+        <li><code>{{melding_type}}</code></li>
+        <li><code>{{melding_status}}</code></li>
+        <li><code>{{melding_author}}</code></li>
+
         <li><code>{{referrer_name}}</code></li>
         <li><code>{{referrer_email}}</code></li>
         <li><code>{{referral_link}}</code></li>
@@ -249,6 +305,12 @@ function ggr_portal_save_email_template_meta( $post_id ) {
                     'message_title'            => 'Voorbeeldbericht',
                     'message_date'             => date_i18n( 'd-m-Y' ),
                     'login_link'               => home_url( '/login/' ),
+                    'help_message'             => 'Voorbeeld helpbericht.',
+                    'melding_title'            => 'Nieuwe melding',
+                    'melding_url'              => admin_url( 'admin.php?page=ggr-meldingen' ),
+                    'melding_type'             => 'help',
+                    'melding_status'           => 'nieuw',
+                    'melding_author'           => 'Test deelnemer',                
                     'referrer_name'            => 'Test verwijzer',
                     'referrer_email'           => 'verwijzer@example.com',
                     'referral_link'            => home_url( '/investeerder-worden/' ),                    
@@ -367,6 +429,33 @@ function ggr_portal_send_templated_email( $template_key, $user_id, $extra_placeh
     $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
 
     return wp_mail( $user->user_email, $rendered['subject'], $rendered['body'], $headers );
+}
+
+/**
+ * Helper om een template te sturen naar het admin adres.
+ */
+function ggr_portal_send_admin_templated_email( $template_key, $extra_placeholders = [], $admin_email = '' ) {
+    $email = $admin_email ? $admin_email : get_option( 'admin_email' );
+    if ( ! $email || ! is_email( $email ) ) {
+        return false;
+    }
+
+    $placeholders = array_merge(
+        [
+            'portal_link' => home_url( '/' ),
+            'login_link'  => wp_login_url(),
+        ],
+        $extra_placeholders
+    );
+
+    $rendered = ggr_portal_render_email( $template_key, $placeholders );
+    if ( ! $rendered ) {
+        return false;
+    }
+
+    $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
+
+    return wp_mail( $email, $rendered['subject'], $rendered['body'], $headers );
 }
 
 /**
@@ -735,6 +824,3 @@ function ggr_portal_send_new_message_notification( $user_id, WP_Post $post ) {
         $extra_placeholders
     );
 }
-
-
-
