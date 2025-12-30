@@ -18,18 +18,17 @@ function ggr_admin_shell_is_allowed() {
 	$current_user = wp_get_current_user();
 	$shell_param  = isset( $_GET['ggr_admin_shell'] ) ? sanitize_text_field( wp_unslash( $_GET['ggr_admin_shell'] ) ) : '';
 	
+
+	// Medewerkers (employee rol) krijgen altijd de portal-shell.
+	if ( in_array( 'employee', (array) $current_user->roles, true ) ) {
+	}
+
 	if ( '0' === $shell_param ) {
-		return false;	 
+		return false;
 	}
 	
 	// Administrator krijgt standaard de portal-shell.
 	if ( current_user_can( 'manage_options' ) ) {
-		return true;
-	}
-
-
-	// Medewerkers (employee rol) krijgen de portal-shell.
-	if ( in_array( 'employee', (array) $current_user->roles, true ) ) {
 		return true;
 	}
 
@@ -77,6 +76,11 @@ add_action( 'admin_init', function() {
 	if ( ! ggr_admin_shell_user_can_access() ) {
 		return;
 	}
+	
+	if ( ! ggr_admin_shell_is_allowed() ) {
+		return;
+	}
+
 
 	global $pagenow;
 	$page_param = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
