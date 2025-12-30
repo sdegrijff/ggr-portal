@@ -60,7 +60,8 @@ function ggr_bericht_admin_columns( $columns ) {
     foreach ( $columns as $key => $label ) {
         $new_columns[ $key ] = $label;
         if ( 'title' === $key ) {
-            $new_columns['ggr_message_type'] = 'Type bericht';
+            $new_columns['ggr_message_type']      = 'Type bericht';
+            $new_columns['ggr_message_recipient'] = 'Ontvanger';
         }
     }
 
@@ -68,25 +69,41 @@ function ggr_bericht_admin_columns( $columns ) {
         $new_columns['ggr_message_type'] = 'Type bericht';
     }
 
+    if ( ! isset( $new_columns['ggr_message_recipient'] ) ) {
+        $new_columns['ggr_message_recipient'] = 'Ontvanger';
+    }
+
     return $new_columns;
 }
 
 function ggr_bericht_admin_column_render( $column, $post_id ) {
-    if ( 'ggr_message_type' !== $column ) {
+    if ( 'ggr_message_type' === $column ) {
+        $type = get_post_meta( $post_id, '_ggr_message_type', true );
+        $labels = array(
+            ''            => 'Algemeen',
+            'release'     => 'Nieuwe release',
+            'legal'       => 'Wijziging statuten / juridisch',
+            'transaction' => 'Transactie / Transactienota',
+            'other'       => 'Overig',
+        );
+
+        $label = isset( $labels[ $type ] ) ? $labels[ $type ] : '—';
+        echo esc_html( $label );
         return;
     }
 
-    $type = get_post_meta( $post_id, '_ggr_message_type', true );
-    $labels = array(
-        ''            => 'Algemeen',
-        'release'     => 'Nieuwe release',
-        'legal'       => 'Wijziging statuten / juridisch',
-        'transaction' => 'Transactie / Transactienota',
-        'other'       => 'Overig',
-    );
+    if ( 'ggr_message_recipient' !== $column ) {
+        return;
+    }
 
-    $label = isset( $labels[ $type ] ) ? $labels[ $type ] : '—';
-    echo esc_html( $label );
+    $role = get_post_meta( $post_id, '_ggr_message_role', true );
+    $recipient_label = 'Participant';
+
+    if ( in_array( $role, array( 'administrator', 'admin' ), true ) ) {
+        $recipient_label = 'Admin';
+    }
+
+    echo esc_html( $recipient_label );
 }
 
 /**
@@ -118,7 +135,22 @@ function ggr_bericht_meta_box_callback( $post ) {
     }
     ?>
     <p><strong>Doelgroep</strong></p>
-    <p class="description">Berichten worden standaard getoond aan participanten.</p>
+    <p class="description">Kies de ontvanger voor dit bericht.</p>
+
+    <?php
+    $role = get_post_meta( $post->ID, '_ggr_message_role', true );
+    if ( ! $role ) {
+        $role = 'participant';
+    }
+    ?>
+
+    <p>
+        <label for="ggr_message_role"><strong>Ontvanger</strong></label><br/>
+        <select name="ggr_message_role" id="ggr_message_role">
+            <option value="participant" <?php selected( $role, 'participant' ); ?>>Participant</option>
+            <option value="administrator" <?php selected( $role, 'administrator' ); ?>>Admin</option>
+        </select>
+    </p>
 
     <p><strong>Type bericht</strong></p>
     <p>
@@ -181,7 +213,10 @@ function ggr_bericht_meta_save( $post_id ) {
 
     $audience  = 'role';
     $user_id   = 0;
-    $role      = 'participant';
+    $role      = isset( $_POST['ggr_message_role'] ) ? sanitize_key( $_POST['ggr_message_role'] ) : 'participant';
+    if ( ! in_array( $role, array( 'participant', 'administrator' ), true ) ) {
+        $role = 'participant';
+    }
     $type      = isset( $_POST['ggr_message_type'] ) ? sanitize_text_field( $_POST['ggr_message_type'] ) : '';
     $date      = isset( $_POST['ggr_message_date'] ) ? sanitize_text_field( $_POST['ggr_message_date'] ) : '';
     $trans_ref = isset( $_POST['ggr_message_transaction_ref'] ) ? sanitize_text_field( $_POST['ggr_message_transaction_ref'] ) : '';
