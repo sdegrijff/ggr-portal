@@ -28,7 +28,7 @@ function ggr_portal_investeren_shortcode() {
     $submitted_action  = '';
     $active_flow       = '';
     $selected_action   = isset( $_GET['change'] ) ? sanitize_key( wp_unslash( $_GET['change'] ) ) : '';
-    $available_actions = array( 'deposit', 'withdrawal', 'strategy', 'bank_change', 'feedback' );
+    $available_actions = array( 'deposit', 'withdrawal', 'strategy', 'bank_change' );
 
     if ( ! in_array( $selected_action, $available_actions, true ) ) {
         $selected_action = '';
@@ -46,7 +46,6 @@ function ggr_portal_investeren_shortcode() {
     $strategy_choice    = '';
     $new_iban           = '';
     $new_iban_name      = '';
-    $feedback_note      = '';
     $back_link_url      = remove_query_arg( 'change' );
     $back_link_url      = remove_query_arg( 'change' );    
 
@@ -239,29 +238,6 @@ function ggr_portal_investeren_shortcode() {
 
                     break;
 
-                case 'feedback':
-                    $feedback_note = isset( $_POST['ggr_feedback_note'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_feedback_note'] ) ) : '';
-
-                    if ( '' === $feedback_note ) {
-                        $errors[] = 'Vul je feedback in.';
-                    } else {
-                        $submitted_action   = 'feedback';
-                        $success_messages[] = 'Bedankt voor je feedback! We nemen dit mee in de verbeteringen.';
-
-                        if ( function_exists( 'ggr_meldingen_add' ) ) {
-                            ggr_meldingen_add(
-                                'Feedback wijzigingspagina door ' . $nice_user_name,
-                                $feedback_note . "\nIngediend op: " . $submitted_at_label,
-                                $user->ID,
-                                array(
-                                    'melding_type'      => 'wijziging',
-                                    'wijziging_variant' => 'feedback',
-                                )
-                            );
-                        }
-                    }
-                    break;
-
                 default:
                     $errors[] = 'Onbekende actie. Probeer het opnieuw.';
                     break;
@@ -368,24 +344,6 @@ function ggr_portal_investeren_shortcode() {
                 </a>
             </div>
             
-            
-            <div class="ggrp-fe-wijziging-grid">
-                <a href="<?php echo esc_url( add_query_arg( 'change', 'feedback' ) ); ?>"
-                   class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split ggrp-fe-wijziging-card--clickable">
-                
-                    <div class="ggrp-fe-wijziging-icon" aria-hidden="true">
-                        <i class="ri-feedback-line"></i>
-                    </div>
-                
-                    <div class="ggrp-fe-wijziging-content">
-                        <p class="ggrp-fe-kicker">Feedback</p>
-                        <h2>Verbetering doorgeven</h2>
-                        <p class="ggrp-fe-card-text">
-                            Deel je suggesties om deze pagina handiger te maken.
-                        </p>
-                    </div>
-                </a>
-            </div>
         <?php else : ?>
             <a class="ggrp-fe-back-link" href="<?php echo esc_url( $back_link_url ); ?>">← Terug naar overzicht</a>
             <div class="ggrp-fe-wijziging-grid">
@@ -657,26 +615,6 @@ function ggr_portal_investeren_shortcode() {
                                     <button type="submit" class="ggrp-fe-button">Verder naar verificatie</button>
                                 </form>
                             <?php endif; ?>
-                        </div>
-                    </div>
-                <?php elseif ( 'feedback' === $selected_action ) : ?>
-                    <div class="ggrp-fe-wijziging-card ggrp-fe-wijziging-card--split">
-                        <div class="ggrp-fe-wijziging-icon" aria-hidden="true">
-                            <i class="ri-feedback-line"></i>
-                        </div>
-                        <div class="ggrp-fe-wijziging-content">
-                            <p class="ggrp-fe-kicker">Feedback</p>
-                            <h2>Verbetering doorgeven</h2>
-                            <p class="ggrp-fe-card-text">Laat ons weten hoe we deze pagina kunnen verbeteren. Je naam en datum worden automatisch meegestuurd.</p>
-                            <form method="post" class="ggrp-fe-form ggrp-fe-form--stacked">
-                                <?php wp_nonce_field( 'ggr_wijziging', 'ggr_wijziging_nonce' ); ?>
-                                <input type="hidden" name="ggr_change_action" value="feedback" />
-                                <div class="ggrp-fe-form-row">
-                                    <label for="ggr_feedback_note">Feedback</label>
-                                    <textarea id="ggr_feedback_note" name="ggr_feedback_note" rows="3" required><?php echo esc_textarea( $feedback_note ); ?></textarea>
-                                </div>
-                                <button type="submit" class="ggrp-fe-button">Feedback versturen</button>
-                            </form>
                         </div>
                     </div>
                 <?php endif; ?>
