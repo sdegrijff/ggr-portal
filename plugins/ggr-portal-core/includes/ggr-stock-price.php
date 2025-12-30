@@ -453,6 +453,32 @@ function ggr_get_stock_price_for_date( $date, $fallback = true ) {
 }
 
 /**
+ * Haal de laatste koersdatum op t/m een datum.
+ *
+ * @param string $date Datum (elk formaat dat strtotime pakt).
+ * @return string|null Datum in Y-m-d formaat of null.
+ */
+function ggr_get_stock_price_date_for_date( $date ) {
+    global $wpdb;
+
+    $table_name = $wpdb->prefix . 'ggr_stock_prices';
+    $date       = date( 'Y-m-d', strtotime( $date ) );
+
+    $value = $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT price_date
+             FROM {$table_name}
+             WHERE price_date <= %s
+             ORDER BY price_date DESC
+             LIMIT 1",
+            $date
+        )
+    );
+
+    return ( $value !== null && $value !== '' ) ? (string) $value : null;
+}
+
+/**
  * Haal een reeks GGR prijzen op voor een periode (alleen daadwerkelijke snapshots).
  *
  * @param string $from
