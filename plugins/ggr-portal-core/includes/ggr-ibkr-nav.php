@@ -116,6 +116,7 @@ function ggr_ibkr_nav_get_status() {
         'has_credentials' => ggr_ibkr_nav_has_credentials(),
         'next_run'        => wp_next_scheduled( 'ggr_ibkr_nav_fetch_event' ),
         'last_run'        => get_option( 'ggr_ibkr_nav_last_run' ),
+        'last_error'      => get_option( 'ggr_ibkr_nav_last_error' ),
     );
 }
 
@@ -178,19 +179,24 @@ function ggr_ibkr_nav_fetch( $token = null, $query_id = null ) {
  */
 function ggr_ibkr_nav_fetch_and_store( $token = null, $query_id = null ) {
     if ( ! function_exists( 'ggr_upsert_stock_price' ) || ! function_exists( 'ggr_portal_get_total_participations_all_users' ) ) {
-        return new WP_Error( 'ggr_ibkr_missing_helpers', 'Benodigde helpers niet beschikbaar.' );
+        $error = new WP_Error( 'ggr_ibkr_missing_helpers', 'Benodigde helpers niet beschikbaar.' );
+        ggr_ibkr_nav_set_last_error( $error );
+        return $error;
     }
 
     $result = ggr_ibkr_nav_fetch( $token, $query_id );
 
     if ( is_wp_error( $result ) ) {
+        ggr_ibkr_nav_set_last_error( $result );
         return $result;
     }
 
     $total_parts = ggr_portal_get_total_participations_all_users( $result['date'] );
 
     if ( $total_parts <= 0 ) {
-        return new WP_Error( 'ggr_ibkr_nav_missing_participations', 'Geen participaties gevonden om NAV te berekenen.' );
+        $error = new WP_Error( 'ggr_ibkr_nav_missing_participations', 'Geen participaties gevonden om NAV te berekenen.' );
+        ggr_ibkr_nav_set_last_error( $error );
+        return $error;
     }
 
     $nav_per_participation = round( $result['total'] / $total_parts, 6 );
@@ -205,7 +211,9 @@ function ggr_ibkr_nav_fetch_and_store( $token = null, $query_id = null ) {
     );
 
     if ( ! $stored ) {
-        return new WP_Error( 'ggr_ibkr_nav_store_failed', 'Opslaan in ggr_stock_prices is mislukt.' );
+        $error = new WP_Error( 'ggr_ibkr_nav_store_failed', 'Opslaan in ggr_stock_prices is mislukt.' );
+        ggr_ibkr_nav_set_last_error( $error );
+        return $error;
     }
 
     $result['nav']                  = $nav_per_participation;
@@ -213,7 +221,8 @@ function ggr_ibkr_nav_fetch_and_store( $token = null, $query_id = null ) {
     $result['total_participations'] = $total_parts;
 
     ggr_ibkr_nav_set_last_run( $result['date'], $nav_per_participation, $result['total'], $total_parts );
-
+    ggr_ibkr_nav_clear_last_error();
+    
     do_action(
         'ggr_ibkr_nav_stored',
         $result['date'],
@@ -518,6 +527,79 @@ function ggr_ibkr_nav_log_error( $message, $error ) {
     }
 
     error_log( '[GGR IBKR NAV] ' . $message . ' | ' . wp_json_encode( $context ) );
+}
+
+function ggr_ibkr_nav_extract_error_message( $body ) {
+    if ( ! is_string( $body ) || '' === trim( $body ) ) {
+        return '';
+    }
+
+    $xml = simplexml_load_string( $body );
+
+    if ( false === $xml ) {
+        return '';
+    }
+
+    $nodes = $xml->xpath( '//*[local-name()="ErrorMessage" or local-name()="ErrorMsg" or local-name()="ErrorDescription" or local-name()="Error" or local-name()="Message"]' );
+
+    if ( empty( $nodes ) ) {
+        return '';
+    }
+
+    foreach ( $nodes as $node ) {
+        $value = trim( (string) $node );
+        if ( '' !== $value ) {
+            return $value;
+        }
+    }
+
+    return '';
+}
+
+function ggr_ibkr_nav_format_error_message( WP_Error $error ) {
+    $message = $error->get_error_message();
+    $data    = $error->get_error_data();
+    $details = array();
+
+    if ( is_array( $data ) ) {
+        if ( isset( $data['status'] ) ) {
+            $details[] = 'HTTP status ' . $data['status'];
+        }
+
+        if ( isset( $data['body'] ) ) {
+            $body_message = ggr_ibkr_nav_extract_error_message( $data['body'] );
+            if ( $body_message ) {
+                $details[] = $body_message;
+            }
+        }
+    } elseif ( is_string( $data ) ) {
+        $body_message = ggr_ibkr_nav_extract_error_message( $data );
+        if ( $body_message ) {
+            $details[] = $body_message;
+        }
+    }
+
+    if ( ! empty( $details ) ) {
+        $message .= ' (' . implode( ' - ', array_unique( $details ) ) . ')';
+    }
+
+    return $message;
+}
+
+function ggr_ibkr_nav_set_last_error( WP_Error $error ) {
+    update_option(
+        'ggr_ibkr_nav_last_error',
+        array(
+            'timestamp' => time(),
+            'code'      => $error->get_error_code(),
+            'message'   => ggr_ibkr_nav_format_error_message( $error ),
+        ),
+        false
+    );
+}
+
+function ggr_ibkr_nav_clear_last_error() {
+    delete_option( 'ggr_ibkr_nav_last_error' );
 }
 
 /**
