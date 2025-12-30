@@ -122,7 +122,7 @@ define('WP_DEBUG', true);
 define('WP_DEBUG_LOG', true);
 define('WP_DEBUG_DISPLAY', false);
 
-// IBKR – Flex Web Service token en Query ID als constants
+// IBKR – Flex Web Service token en Query ID's als constants
 define( 'GGR_IBKR_FLEX_TOKEN', '928261552440963239860871' );
 define( 'GGR_IBKR_FLEX_QUERY_ID', '1353202' );
-
+define( 'GGR_IBKR_FLEX_ACCRUALS_QUERY_ID', '1359137' );
