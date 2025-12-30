@@ -405,6 +405,30 @@ function ggr_ibkr_accruals_request_statement( $token, $reference_code ) {
     return $response;
 }
 
+function ggr_ibkr_accruals_format_error_message( WP_Error $error ) {
+    if ( function_exists( 'ggr_ibkr_nav_format_error_message' ) ) {
+        return ggr_ibkr_nav_format_error_message( $error );
+    }
+
+    return $error->get_error_message();
+}
+
+function ggr_ibkr_accruals_set_last_error( WP_Error $error ) {
+    update_option(
+        'ggr_ibkr_accruals_last_error',
+        array(
+            'timestamp' => time(),
+            'code'      => $error->get_error_code(),
+            'message'   => ggr_ibkr_accruals_format_error_message( $error ),
+        ),
+        false
+    );
+}
+
+function ggr_ibkr_accruals_clear_last_error() {
+    delete_option( 'ggr_ibkr_accruals_last_error' );
+}
+
 function ggr_ibkr_accruals_get_attribute( SimpleXMLElement $node, array $keys ) {
     $attributes = $node->attributes();
 
@@ -890,7 +914,8 @@ function ggr_render_dividend_accrual_page() {
         $entries = ggr_ibkr_accruals_fetch_entries();
 
         if ( is_wp_error( $entries ) ) {
-            $history_error = 'IBKR accruals ophalen is mislukt: ' . $entries->get_error_message();
+            $history_error = 'IBKR accruals ophalen is mislukt: ' . ggr_ibkr_accruals_format_error_message( $entries );
+            ggr_ibkr_accruals_set_last_error( $entries );
         } else {
             $imported = 0;
             foreach ( $entries as $entry ) {
@@ -917,6 +942,7 @@ function ggr_render_dividend_accrual_page() {
             );
 
             $history_notice = sprintf( 'IBKR accruals historie geïmporteerd: %d items opgeslagen.', $imported );
+            ggr_ibkr_accruals_clear_last_error();
         }
     }
 
@@ -933,7 +959,8 @@ function ggr_render_dividend_accrual_page() {
     $ibkr_accruals_token = ggr_ibkr_accruals_get_token();
     $ibkr_accruals_query_id = ggr_ibkr_accruals_get_query_id();
     $ibkr_accruals_last_run = get_option( 'ggr_ibkr_accruals_last_run' );
-
+    $ibkr_accruals_last_error = get_option( 'ggr_ibkr_accruals_last_error' );
+    
     $totals = array(
         'gross' => 0.0,
         'fee'   => 0.0,
@@ -1103,7 +1130,14 @@ function ggr_render_dividend_accrual_page() {
                 </p>
             </div>
         <?php endif; ?>
-
+        <?php if ( ! empty( $ibkr_accruals_last_error ) && is_array( $ibkr_accruals_last_error ) ) : ?>
+            <div class="notice notice-warning is-dismissible">
+                <p>
+                    Laatste fout: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_accruals_last_error['timestamp'] ) ); ?></strong>
+                    (<?php echo esc_html( $ibkr_accruals_last_error['message'] ); ?>).
+                </p>
+            </div>
+        <?php endif; ?>
         <form method="post">
             <?php wp_nonce_field( 'ggr_ibkr_accruals_credentials' ); ?>
             <table class="form-table" role="presentation">
@@ -1157,15 +1191,15 @@ function ggr_render_dividend_accrual_page() {
                     <td><input type="date" id="history_report_date" name="history_report_date" value="<?php echo esc_attr( $history_form_report_date ); ?>" required /></td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="history_gross_value">Gross value (€)</label></th>
+                    <th scope="row"><label for="history_gross_value">Gross value ($)</label></th>
                     <td><input type="text" id="history_gross_value" name="history_gross_value" value="<?php echo esc_attr( $history_form_gross ); ?>" required /></td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="history_tax_value">Tax (€)</label></th>
+                    <th scope="row"><label for="history_tax_value">Tax ($)</label></th>
                     <td><input type="text" id="history_tax_value" name="history_tax_value" value="<?php echo esc_attr( $history_form_tax ); ?>" /></td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="history_net_amount">Net amount (€)</label></th>
+                    <th scope="row"><label for="history_net_amount">Net amount ($)</label></th>
                     <td><input type="text" id="history_net_amount" name="history_net_amount" value="<?php echo esc_attr( $history_form_net ); ?>" required /></td>
                 </tr>
             </table>
