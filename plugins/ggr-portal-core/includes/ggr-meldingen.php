@@ -123,6 +123,29 @@ function ggr_meldingen_add( $title, $content = '', $user_id = 0, $meta = array()
         }
     }
 
+    if ( function_exists( 'ggr_portal_send_admin_templated_email' ) ) {
+        $author_name = '';
+        if ( $user_id ) {
+            $author_name = function_exists( 'ggr_portal_get_nice_user_name' )
+                ? ggr_portal_get_nice_user_name( $user_id )
+                : '';
+        }
+        if ( '' === $author_name ) {
+            $current_user = wp_get_current_user();
+            $author_name  = $current_user ? $current_user->display_name : '';
+        }
+
+        $extra_placeholders = array(
+            'melding_title'  => $title,
+            'melding_url'    => admin_url( 'admin.php?page=ggr-meldingen' ),
+            'melding_type'   => isset( $meta['melding_type'] ) ? $meta['melding_type'] : '',
+            'melding_status' => $status,
+            'melding_author' => $author_name,
+        );
+
+        ggr_portal_send_admin_templated_email( 'admin_new_melding', $extra_placeholders );
+    }
+
     return $post_id;
 }
 
