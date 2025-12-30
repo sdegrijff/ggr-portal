@@ -268,6 +268,7 @@ function ggrp_fe_render_forecast_script() {
 
             if (!rawLabels.length) return;
 
+            const labelsShort = rawLabels.map(formatMonthShortFromYM);
             const hasActual   = rawActual.some((val) => val !== null && !Number.isNaN(val));
             const hasForecast = rawProjection.some((val) => val !== null && !Number.isNaN(val));
             if (!hasActual && !hasForecast) return;
@@ -276,7 +277,7 @@ function ggrp_fe_render_forecast_script() {
             new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: rawLabels.map(formatMonthShortFromYM),
+                    labels: labelsShort,
                     datasets: [
                         {
                             label: 'Realisatie',
@@ -338,7 +339,17 @@ function ggrp_fe_render_forecast_script() {
                     scales: {
                         x: {
                             offset: false,
-                            ticks: { maxTicksLimit: 12 },
+                            ticks: {
+                                autoSkip: true,
+                                maxTicksLimit: 8,
+                                maxRotation: 0,
+                                minRotation: 0,
+                                callback: function(value, index) {
+                                    const label = labelsShort[index] || '';
+                                    const prevLabel = labelsShort[index - 1] || '';
+                                    return label === prevLabel ? '' : label;
+                                }
+                            },
                             grid: {
                                 display: false,
                                 drawBorder: false
@@ -1294,10 +1305,13 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
                 posChart.data.labels = filtered.labels;
                 posChart.data.datasets[0].data = filtered.values;
                 posChart.options.scales.x.ticks.maxTicksLimit = filtered.tickLimit;
+                posChart.options.scales.x.ticks.autoSkip = filtered.labelMode === 'day';
+                posChart.options.scales.x.ticks.autoSkipPadding = filtered.labelMode === 'day' ? 12 : 0;
+                posChart.options.scales.x.ticks.maxRotation = 0;
+                posChart.options.scales.x.ticks.minRotation = 0;                
                 posChart.options.scales.x.ticks.callback = function(value, index) {
                     return filtered.labels[index] || '';
                 };
-                posChart.options.scales.x.ticks.autoSkip = false;                
                 posChart.options.scales.y.suggestedMin = Math.max(0, minVal - pad);
                 posChart.options.scales.y.suggestedMax = maxVal + pad;                
                 posChart.update();
