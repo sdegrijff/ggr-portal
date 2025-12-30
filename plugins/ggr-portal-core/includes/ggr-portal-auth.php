@@ -515,7 +515,7 @@ function ggr_login_form_shortcode() {
 
     <div class="ggr-login-wrapper">
         <div class="ggr-login-card">
-            <h1 class="ggr-login-title">Welkom bij GGR!</h1>
+            <h1 class="ggr-login-title">Welkom bij het GGR Portaal!</h1>
             <p class="ggr-login-subtitle">Inloggen</p>
 
             <div class="ggr-login-fields">
