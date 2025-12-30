@@ -50,49 +50,77 @@ function ggr_portal_help_shortcode() {
 
     $user = wp_get_current_user();
 
-    $errors         = array();
-    $success_notice = '';
+    $errors          = array();
+    $success_notice  = '';
+    $feedback_notice = '';
 
     if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['ggr_help_nonce'] ) ) {
         if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['ggr_help_nonce'] ) ), 'ggr_help' ) ) {
             $errors[] = 'Ongeldige sessie, probeer het opnieuw.';
         } else {
-            $message = isset( $_POST['ggr_help_message'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_help_message'] ) ) : '';
+            $action  = isset( $_POST['ggr_help_action'] ) ? sanitize_key( wp_unslash( $_POST['ggr_help_action'] ) ) : '';
 
-            if ( '' === trim( $message ) ) {
-                $errors[] = 'Vul een bericht in zodat we je kunnen helpen.';
-            }
+            if ( 'question' === $action ) {
+                $message = isset( $_POST['ggr_help_message'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_help_message'] ) ) : '';
 
-            if ( empty( $errors ) ) {
-                if ( function_exists( 'ggr_meldingen_add' ) ) {
-                    $content = $message . "\n\n" . 'Contact: ' . $user->user_email;
+                if ( '' === trim( $message ) ) {
+                    $errors[] = 'Vul een bericht in zodat we je kunnen helpen.';
+                }
 
+                if ( empty( $errors ) ) {
+                    if ( function_exists( 'ggr_meldingen_add' ) ) {
+                        $content = $message . "\n\n" . 'Contact: ' . $user->user_email;
+
+                        ggr_meldingen_add(
+                            'Nieuw helpverzoek van ' . ggr_portal_get_nice_user_name( $user ),
+                            $content,
+                            $user->ID,
+                            array(
+                                'melding_type' => 'help',
+                            )
+                        );
+                    }
+
+                    if ( function_exists( 'ggr_portal_send_templated_email' ) ) {
+                        $help_url = home_url( '/help-vragen/' );
+                        ggr_portal_send_templated_email(
+                            'help_request_confirmation',
+                            $user->ID,
+                            array(
+                                'help_message' => $message,
+                                'portal_link'  => $help_url,
+                                'login_link'   => wp_login_url( $help_url ),
+                            )
+                        );
+                    }
+
+                    $success_notice = 'Je bericht is verzonden. We komen hier zo snel mogelijk op terug.';
+                }
+            } elseif ( 'feedback' === $action ) {
+                $feedback = isset( $_POST['ggr_help_feedback'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_help_feedback'] ) ) : '';
+
+                if ( '' === trim( $feedback ) ) {
+                    $errors[] = 'Vul je feedback in.';
+                }
+
+                if ( empty( $errors ) && function_exists( 'ggr_meldingen_add' ) ) {
                     ggr_meldingen_add(
-                        'Nieuw helpverzoek van ' . ggr_portal_get_nice_user_name( $user ),
-                        $content,
+                        'Feedback door ' . ggr_portal_get_nice_user_name( $user ),
+                        $feedback,
                         $user->ID,
                         array(
-                            'melding_type' => 'help',
+                            'melding_type'      => 'wijziging',
+                            'wijziging_variant' => 'feedback',
                         )
                     );
                 }
 
-                $success_notice = 'Je bericht is verzonden. We komen hier zo snel mogelijk op terug.';
+                if ( empty( $errors ) ) {
+                    $feedback_notice = 'Bedankt voor je feedback! We nemen dit mee in de verbeteringen.';
+                }
             }
         }
     }
-
-    $faq_query = new WP_Query(
-        array(
-            'post_type'      => 'ggr_faq',
-            'post_status'    => 'publish',
-            'posts_per_page' => 50,
-            'orderby'        => array(
-                'menu_order' => 'ASC',
-                'date'       => 'DESC',
-            ),
-        )
-    );
 
     ob_start();
     ?>
@@ -124,6 +152,12 @@ function ggr_portal_help_shortcode() {
             </div>
         <?php endif; ?>
 
+        <?php if ( $feedback_notice ) : ?>
+            <div class="ggrp-fe-alert ggrp-fe-alert--success">
+                <p><?php echo esc_html( $feedback_notice ); ?></p>
+            </div>
+        <?php endif; ?>
+
         <div class="ggrp-fe-help-grid">
             <div class="ggrp-fe-help-card">
                 <h2>Stel je vraag</h2>
@@ -131,6 +165,7 @@ function ggr_portal_help_shortcode() {
 
                 <form method="post" class="ggrp-fe-form ggrp-fe-form--stacked">
                     <?php wp_nonce_field( 'ggr_help', 'ggr_help_nonce' ); ?>
+                    <input type="hidden" name="ggr_help_action" value="question" />                    
                     <div class="ggrp-fe-form-row">
                         <label for="ggr_help_message">Bericht</label>
                         <textarea id="ggr_help_message" name="ggr_help_message" rows="5" placeholder="Beschrijf je vraag of verzoek" required></textarea>
@@ -147,27 +182,18 @@ function ggr_portal_help_shortcode() {
             </div>
 
             <div class="ggrp-fe-help-card">
-                <h2>FAQ</h2>
-                <p class="ggrp-fe-card-text">Veelgestelde vragen vanuit het team.</p>
+                <h2>Feedback voor verbeteringen</h2>
+                <p class="ggrp-fe-card-text">Laat weten wat we kunnen verbeteren in het portal.</p>
 
-                <?php if ( $faq_query->have_posts() ) : ?>
-                    <div class="ggrp-fe-faq-list">
-                        <?php
-                        while ( $faq_query->have_posts() ) :
-                            $faq_query->the_post();
-                            ?>
-                            <div class="ggrp-fe-faq-item">
-                                <h3><?php the_title(); ?></h3>
-                                <div class="ggrp-fe-faq-body"><?php the_content(); ?></div>
-                            </div>
-                            <?php
-                        endwhile;
-                        wp_reset_postdata();
-                        ?>
+                <form method="post" class="ggrp-fe-form ggrp-fe-form--stacked">
+                    <?php wp_nonce_field( 'ggr_help', 'ggr_help_nonce' ); ?>
+                    <input type="hidden" name="ggr_help_action" value="feedback" />
+                    <div class="ggrp-fe-form-row">
+                        <label for="ggr_help_feedback">Feedback</label>
+                        <textarea id="ggr_help_feedback" name="ggr_help_feedback" rows="5" placeholder="Deel je suggesties" required></textarea>
                     </div>
-                <?php else : ?>
-                    <p class="ggrp-fe-card-text">Nog geen FAQ-items beschikbaar.</p>
-                <?php endif; ?>
+                    <button type="submit" class="ggrp-fe-button">Verstuur feedback</button>
+                </form>
             </div>
         </div>
     </section>
