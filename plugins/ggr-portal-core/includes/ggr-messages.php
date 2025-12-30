@@ -1502,9 +1502,10 @@ function ggr_transacties_overzicht_shortcode( $atts ) {
 
     $prev_parts          = 0.0; // stand per laatste dag vorige maand
     $start_parts         = 0.0; // stand per 1e dag nieuwe maand
-    $monthly_distrib     = 0.0; // OPGEBOUWDE kapitaalsuitkering = distributie van settlement-transactie
-    $new_parts           = 0.0; // nieuwe participaties uit settlement-transactie
-    $settlement_found    = false;
+    $monthly_distrib     = 0.0; // OPGEBOUWDE kapitaalsuitkering = distributie uit laatste transactiedag vorige maand
+    $new_parts           = 0.0; // nieuwe participaties uit transacties op 1e dag nieuwe maand
+    $new_parts_found     = false;
+    $last_distrib_date   = null;
 
     $new_start_ymd = $dt_new_start->format( 'Y-m-d' );
 
@@ -1536,15 +1537,26 @@ function ggr_transacties_overzicht_shortcode( $atts ) {
             $start_parts = $cumul_participaties;
         }
 
-        // Settlement-transactie: exacte rij op 1e dag nieuwe maand
+        // Kapitaalsuitkering: laatste transactiedag in de afrekenmaand (<= $dt_prev_end)
+        if ( $row_dt <= $dt_prev_end ) {
+            if ( $last_distrib_date === null || $row_ymd > $last_distrib_date ) {
+                $last_distrib_date = $row_ymd;
+                $monthly_distrib   = 0.0;
+            }
+
+            if ( $last_distrib_date === $row_ymd ) {
+                $monthly_distrib += (float) $row->distributievergoeding;
+            }
+        }
+
+        // Nieuwe maand: transacties op 1e dag nieuwe maand
         if ( $row_ymd === $new_start_ymd ) {
-            $monthly_distrib  = (float) $row->distributievergoeding;      // 40,54 in jouw voorbeeld
-            $new_parts        = (float) $row->nieuwe_participaties;       // 0,4190 in jouw voorbeeld
-            $settlement_found = true;
+            $new_parts       += (float) $row->nieuwe_participaties - (float) $row->verkochte_participaties;
+            $new_parts_found  = true;
         }
     }
 
-    if ( ! $settlement_found && $prev_parts == 0 && $start_parts == 0 ) {
+    if ( ! $new_parts_found && $prev_parts == 0 && $start_parts == 0 ) {
         // Geen relevante data → dan heeft deze nota eigenlijk geen inhoud
         return '<p>Er zijn geen transacties voor deze afwikkelmaand.</p>';
     }
@@ -1559,8 +1571,8 @@ function ggr_transacties_overzicht_shortcode( $atts ) {
     }
 
     // 5. Waarden berekenen
-    // new_parts is al rechtstreeks uit settlement-transactie gehaald
-    if ( ! $settlement_found ) {
+    // new_parts is al rechtstreeks uit 1e dag nieuwe maand gehaald
+    if ( ! $new_parts_found ) {
         // fallback: als er geen settlement-transactie gevonden is, afleiden uit verschil
         $new_parts = $start_parts - $prev_parts;
     }
@@ -1631,7 +1643,7 @@ ob_start();
     >
         <span class="ggr-trans-value">
             <?php
-            $nav_display = $nav_start !== null ? $nav_start : $nav_prev;
+            $nav_display = $nav_prev;
             if ( $nav_display !== null ) {
                 echo number_format( (float) $nav_display, 4, ',', '.' );
             } else {
