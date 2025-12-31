@@ -100,6 +100,10 @@ function ggr_portal_parse_date_to_mysql( $raw ) {
     // 2) d-m-Y
     elseif ( preg_match( '/^\d{1,2}-\d{1,2}-\d{4}$/', $raw ) ) {
         $dt = DateTime::createFromFormat( 'd-m-Y', $raw );
+    }
+    // 3) yyyymmdd
+    elseif ( preg_match( '/^\d{8}$/', $raw ) ) {
+        $dt = DateTime::createFromFormat( 'Ymd', $raw );
     } else {
         return '';
     }
