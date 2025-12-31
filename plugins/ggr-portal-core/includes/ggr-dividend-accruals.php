@@ -567,6 +567,48 @@ function ggr_ibkr_accruals_clear_last_error() {
     delete_option( 'ggr_ibkr_accruals_last_error' );
 }
 
+function ggr_ibkr_accruals_refresh_last_run_from_history() {
+    global $wpdb;
+
+    $table_name = $wpdb->prefix . 'ggr_dividend_accrual_history';
+    $row = $wpdb->get_row(
+        "SELECT COUNT(*) AS total_count, MAX(report_date) AS report_date FROM {$table_name}",
+        ARRAY_A
+    );
+
+    $total_count = isset( $row['total_count'] ) ? (int) $row['total_count'] : 0;
+
+    if ( $total_count <= 0 ) {
+        delete_option( 'ggr_ibkr_accruals_last_run' );
+        return;
+    }
+
+    $existing = get_option( 'ggr_ibkr_accruals_last_run' );
+    $timestamp = is_array( $existing ) && isset( $existing['timestamp'] )
+        ? (int) $existing['timestamp']
+        : current_time( 'timestamp' );
+
+    $last_run = array(
+        'timestamp'   => $timestamp,
+        'count'       => $total_count,
+        'report_date' => ! empty( $row['report_date'] ) ? $row['report_date'] : '',
+    );
+
+    if ( is_array( $existing ) ) {
+        if ( isset( $existing['statement_url'] ) ) {
+            $last_run['statement_url'] = $existing['statement_url'];
+        }
+        if ( isset( $existing['duplicates'] ) ) {
+            $last_run['duplicates'] = $existing['duplicates'];
+        }
+        if ( isset( $existing['imported'] ) ) {
+            $last_run['imported'] = $existing['imported'];
+        }
+    }
+
+    update_option( 'ggr_ibkr_accruals_last_run', $last_run, false );
+}
+
 function ggr_ibkr_accruals_get_attribute( SimpleXMLElement $node, array $keys ) {
     $attributes = $node->attributes( null, true );
 
@@ -714,7 +756,7 @@ function ggr_ibkr_accruals_parse_statement_dom( $body, $statement_date ) {
 
 function ggr_ibkr_accruals_parse_statement_regex( $body, $statement_date ) {
     $matches = array();
-    $pattern = '/<(?:[a-zA-Z0-9_:-]+:)?ChangeInDividendAccrual\b([^>]*?)(?:\/>|>)/i';
+    $pattern = '/<(?:[a-zA-Z0-9_.:-]+:)?ChangeInDividendAccrual\b([^>]*?)(?:\/>|>)/i';
     preg_match_all( $pattern, $body, $matches );
 
     if ( empty( $matches[1] ) ) {
@@ -731,7 +773,7 @@ function ggr_ibkr_accruals_parse_statement_regex( $body, $statement_date ) {
 
     foreach ( $matches[1] as $attribute_block ) {
         $attr_matches = array();
-        preg_match_all( '/([a-zA-Z0-9_:-]+)\s*=\s*"([^"]*)"/', $attribute_block, $attr_matches, PREG_SET_ORDER );
+        preg_match_all( '/([a-zA-Z0-9_:-]+)\s*=\s*(?:"([^"]*)"|\'([^\']*)\')/', $attribute_block, $attr_matches, PREG_SET_ORDER );
 
         if ( empty( $attr_matches ) ) {
             continue;
@@ -740,9 +782,10 @@ function ggr_ibkr_accruals_parse_statement_regex( $body, $statement_date ) {
         $attributes = array();
         foreach ( $attr_matches as $attr_match ) {
             $attribute_name = strtolower( $attr_match[1] );
-            $attributes[ $attribute_name ] = $attr_match[2];
+            $attribute_value = isset( $attr_match[2] ) && $attr_match[2] !== '' ? $attr_match[2] : $attr_match[3];
+            $attributes[ $attribute_name ] = $attribute_value;
             if ( strpos( $attribute_name, ':' ) !== false ) {
-                $attributes[ substr( $attribute_name, strrpos( $attribute_name, ':' ) + 1 ) ] = $attr_match[2];
+                $attributes[ substr( $attribute_name, strrpos( $attribute_name, ':' ) + 1 ) ] = $attribute_value;
             }
         }
 
@@ -1061,6 +1104,10 @@ function ggr_handle_dividend_accrual_actions() {
             array( 'id' => $id ),
             array( '%d' )
         );
+
+        if ( $deleted ) {
+            ggr_ibkr_accruals_refresh_last_run_from_history();
+        }
 
         $msg = $deleted ? 'deleted' : 'delete_failed';
 
