@@ -395,7 +395,7 @@ function ggr_ibkr_accruals_request_statement( $token, $reference_code ) {
         return ggr_ibkr_nav_request_statement( $token, $reference_code );
     }
 
-    $url      = ggr_ibkr_accruals_get_base_url() . '.GetStatement?t=' . rawurlencode( $token ) . '&q=' . rawurlencode( $reference_code ) . '&v=3';
+    $url      = ggr_ibkr_accruals_get_statement_url( $token, $reference_code );
     $response = ggr_ibkr_accruals_http_get( $url );
 
     if ( is_wp_error( $response ) ) {
@@ -403,6 +403,10 @@ function ggr_ibkr_accruals_request_statement( $token, $reference_code ) {
     }
 
     return $response;
+}
+
+function ggr_ibkr_accruals_get_statement_url( $token, $reference_code ) {
+    return ggr_ibkr_accruals_get_base_url() . '.GetStatement?t=' . rawurlencode( $token ) . '&q=' . rawurlencode( $reference_code ) . '&v=3';
 }
 
 function ggr_ibkr_accruals_format_error_message( WP_Error $error ) {
@@ -413,13 +417,27 @@ function ggr_ibkr_accruals_format_error_message( WP_Error $error ) {
     return $error->get_error_message();
 }
 
-function ggr_ibkr_accruals_set_last_error( WP_Error $error ) {
+function ggr_ibkr_accruals_set_last_error( WP_Error $error, $context_message = '' ) {
+    $message = ggr_ibkr_accruals_format_error_message( $error );
+
+    if ( $context_message ) {
+        $message = $context_message . ': ' . $message;
+    }
+
+    $data = $error->get_error_data();
+    $statement_url = '';
+
+    if ( is_array( $data ) && ! empty( $data['statement_url'] ) ) {
+        $statement_url = $data['statement_url'];
+    }
+
     update_option(
         'ggr_ibkr_accruals_last_error',
         array(
             'timestamp' => time(),
             'code'      => $error->get_error_code(),
-            'message'   => ggr_ibkr_accruals_format_error_message( $error ),
+            'message'   => $message,
+            'statement_url' => $statement_url,
         ),
         false
     );
@@ -549,15 +567,18 @@ function ggr_ibkr_accruals_fetch_entries() {
         return $reference_code;
     }
 
+    $statement_url = ggr_ibkr_accruals_get_statement_url( $token, $reference_code );
     $statement_body = ggr_ibkr_accruals_request_statement( $token, $reference_code );
 
     if ( is_wp_error( $statement_body ) ) {
+        $statement_body->add_data( array( 'statement_url' => $statement_url ) );
         return $statement_body;
     }
 
     $parsed = ggr_ibkr_accruals_parse_statement( $statement_body );
 
     if ( is_wp_error( $parsed ) ) {
+        $parsed->add_data( array( 'statement_url' => $statement_url ) );
         return $parsed;
     }
 
@@ -942,8 +963,8 @@ function ggr_render_dividend_accrual_page() {
         $entries = ggr_ibkr_accruals_fetch_entries();
 
         if ( is_wp_error( $entries ) ) {
-            $history_error = 'IBKR accruals ophalen is mislukt: ' . ggr_ibkr_accruals_format_error_message( $entries );
-            ggr_ibkr_accruals_set_last_error( $entries );
+            $history_error = '';
+            ggr_ibkr_accruals_set_last_error( $entries, 'IBKR accruals ophalen is mislukt' );
         } else {
             $imported = 0;
             foreach ( $entries as $entry ) {
@@ -1163,6 +1184,11 @@ function ggr_render_dividend_accrual_page() {
                 <p>
                     Laatste fout: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_accruals_last_error['timestamp'] ) ); ?></strong>
                     (<?php echo esc_html( $ibkr_accruals_last_error['message'] ); ?>).
+                    <?php if ( ! empty( $ibkr_accruals_last_error['statement_url'] ) ) : ?>
+                        <a href="<?php echo esc_url( $ibkr_accruals_last_error['statement_url'] ); ?>" target="_blank" rel="noopener noreferrer">
+                            Flex statement openen
+                        </a>
+                    <?php endif; ?>
                 </p>
             </div>
         <?php endif; ?>
