@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'GGR_STOCK_PRICE_DB_VERSION' ) ) {
-    define( 'GGR_STOCK_PRICE_DB_VERSION', '2.0' );
+    define( 'GGR_STOCK_PRICE_DB_VERSION', '2.1' );
 }
 
 add_action( 'plugins_loaded', 'ggr_maybe_upgrade_stock_price_table' );
@@ -41,6 +41,7 @@ function ggr_create_ggr_stock_price_table() {
             price_value DECIMAL(15,6) NOT NULL,
             fund_total DECIMAL(20,4) DEFAULT NULL,
             total_participations DECIMAL(20,4) DEFAULT NULL,
+            statement_url TEXT DEFAULT NULL,            
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             PRIMARY KEY  (id),
@@ -96,6 +97,10 @@ function ggr_maybe_upgrade_stock_price_table() {
 
     if ( ! in_array( 'total_participations', $existing_columns, true ) ) {
         $wpdb->query( "ALTER TABLE {$table_name} ADD total_participations DECIMAL(20,4) DEFAULT NULL AFTER fund_total" );
+    }
+
+    if ( ! in_array( 'statement_url', $existing_columns, true ) ) {
+        $wpdb->query( "ALTER TABLE {$table_name} ADD statement_url TEXT DEFAULT NULL AFTER total_participations" );
     }
 
     update_option( 'ggr_stock_price_db_version', GGR_STOCK_PRICE_DB_VERSION );
@@ -253,7 +258,10 @@ function ggr_upsert_stock_price( $date_mysql, $price, $extra = array() ) {
 
     $fund_total          = array_key_exists( 'fund_total', $extra ) && $extra['fund_total'] !== null ? (float) $extra['fund_total'] : null;
     $total_participation = array_key_exists( 'total_participations', $extra ) && $extra['total_participations'] !== null ? (float) $extra['total_participations'] : null;
-
+    $has_statement_url   = array_key_exists( 'statement_url', $extra );
+    $statement_url       = $has_statement_url ? trim( (string) $extra['statement_url'] ) : '';
+    $statement_url       = $statement_url !== '' ? esc_url_raw( $statement_url ) : '';
+    
     if ( null === $total_participation && function_exists( 'ggr_portal_get_total_participations_all_users' ) ) {
         $computed_total = ggr_portal_get_total_participations_all_users( $date_mysql );
         $total_participation = ( $computed_total !== null ) ? (float) $computed_total : null;
@@ -292,6 +300,15 @@ function ggr_upsert_stock_price( $date_mysql, $price, $extra = array() ) {
             $set_parts[] = 'total_participations = NULL';
         }
 
+        if ( $has_statement_url ) {
+            if ( $statement_url !== '' ) {
+                $set_parts[] = 'statement_url = %s';
+                $params[]    = $statement_url;
+            } else {
+                $set_parts[] = 'statement_url = NULL';
+            }
+        }
+
         $params[] = (int) $existing_id;
 
         $sql      = "UPDATE {$table_name} SET " . implode( ', ', $set_parts ) . " WHERE id = %d";
@@ -320,6 +337,7 @@ function ggr_upsert_stock_price( $date_mysql, $price, $extra = array() ) {
     $add_field( 'price_value', '%f', (float) $price );
     $add_field( 'fund_total', null !== $fund_total ? '%f' : 'NULL', $fund_total );
     $add_field( 'total_participations', null !== $total_participation ? '%f' : 'NULL', $total_participation );
+    $add_field( 'statement_url', $statement_url !== '' ? '%s' : 'NULL', $statement_url );    
     $add_field( 'created_at', '%s', $now );
     $add_field( 'updated_at', '%s', $now );
 
@@ -1132,11 +1150,6 @@ function ggr_render_stock_price_page() {
 
                 <?php submit_button( 'IBKR instellingen opslaan', 'secondary', 'ggr_ibkr_credentials_submit' ); ?>
             </form>
-            
-            <form method="post" style="margin-top: 1rem;">
-                <?php wp_nonce_field( 'ggr_ibkr_manual_fetch' ); ?>
-                <?php submit_button( 'Handmatig ophalen via IBKR API', 'secondary', 'ggr_ibkr_manual_fetch_submit' ); ?>
-            </form>
 
             <hr />
 
@@ -1223,7 +1236,13 @@ function ggr_render_stock_price_page() {
                 </tbody>
             </table>
 
-            <?php submit_button( $is_edit ? 'GGR-waarde bijwerken' : 'GGR-waarde opslaan', 'primary', 'ggr_price_submit' ); ?>
+            <?php wp_nonce_field( 'ggr_ibkr_manual_fetch' ); ?>
+            <p class="submit">
+                <?php submit_button( $is_edit ? 'GGR-waarde bijwerken' : 'GGR-waarde opslaan', 'primary', 'ggr_price_submit', false ); ?>
+                <?php if ( $show_ibkr_sections ) : ?>
+                    <?php submit_button( 'Laatste waarde ophalen via IBKR API', 'secondary', 'ggr_ibkr_manual_fetch_submit', false ); ?>
+                <?php endif; ?>
+            </p>
         </form>
 
         <hr />
@@ -1247,7 +1266,8 @@ function ggr_render_stock_price_page() {
                         <th scope="col">Datum</th>
                         <th scope="col">Waarde per 1 GGR-participatie</th>
                         <th scope="col">Totaal uit IBKR</th>
-                        <th scope="col">Totaal participaties</th>                        
+                        <th scope="col">Totaal participaties</th>      
+                        <th scope="col">Flex statement</th>                        
                         <th scope="col">Δ t.o.v. vorige (%)</th>
                         <th scope="col">Aangemaakt</th>
                         <th scope="col">Laatst bijgewerkt</th>
@@ -1266,6 +1286,7 @@ function ggr_render_stock_price_page() {
                         $value_disp      = number_format( $value, 4, ',', '.' );
                         $fund_total      = isset( $row['fund_total'] ) ? (float) $row['fund_total'] : null;
                         $total_parts     = isset( $row['total_participations'] ) ? (float) $row['total_participations'] : null;
+                        $statement_url   = isset( $row['statement_url'] ) ? trim( (string) $row['statement_url'] ) : '';                        
                         $fund_total_disp = $fund_total !== null ? number_format( $fund_total, 2, ',', '.' ) : '-';
                         $total_parts_disp = $total_parts !== null ? number_format( $total_parts, 4, ',', '.' ) : '-';
 
@@ -1308,7 +1329,16 @@ function ggr_render_stock_price_page() {
                             <td><?php echo esc_html( $date_disp ); ?></td>
                             <td><?php echo esc_html( $value_disp ); ?></td>
                             <td><?php echo esc_html( $fund_total_disp ); ?></td>
-                            <td><?php echo esc_html( $total_parts_disp ); ?></td>                            
+                            <td><?php echo esc_html( $total_parts_disp ); ?></td>
+                            <td>
+                                <?php if ( $statement_url ) : ?>
+                                    <a href="<?php echo esc_url( $statement_url ); ?>" target="_blank" rel="noopener noreferrer">
+                                        Flex statement downloaden
+                                    </a>
+                                <?php else : ?>
+                                    -
+                                <?php endif; ?>
+                            </td>                            
                             <td><?php echo esc_html( $diff_disp ); ?></td>
                             <td><?php echo esc_html( $created_disp ); ?></td>
                             <td><?php echo esc_html( $updated_disp ); ?></td>
