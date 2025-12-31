@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'GGR_DIVIDEND_ACCRUAL_DB_VERSION' ) ) {
-    define( 'GGR_DIVIDEND_ACCRUAL_DB_VERSION', '1.1' );
+    define( 'GGR_DIVIDEND_ACCRUAL_DB_VERSION', '1.2' );
 }
 
 add_action( 'plugins_loaded', 'ggr_maybe_create_dividend_accrual_table' );
@@ -41,6 +41,12 @@ function ggr_create_dividend_accrual_table() {
             distribution_fee DECIMAL(20,4) DEFAULT NULL,
             total_participations DECIMAL(20,4) DEFAULT NULL,
             per_participation DECIMAL(15,6) DEFAULT NULL,
+            source_currency VARCHAR(10) NOT NULL DEFAULT 'EUR',
+            source_gross DECIMAL(20,4) DEFAULT NULL,
+            source_tax DECIMAL(20,4) DEFAULT NULL,
+            source_net DECIMAL(20,4) DEFAULT NULL,
+            fx_rate_usd_eur DECIMAL(20,6) DEFAULT NULL,
+            computed_from_history TINYINT(1) NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             PRIMARY KEY  (id),
@@ -191,6 +197,30 @@ function ggr_dividend_accruals_parse_float( $raw_value ) {
     return (float) $value;
 }
 
+function ggr_dividend_accruals_normalize_currency( $currency ) {
+    $currency = strtoupper( trim( (string) $currency ) );
+
+    return $currency !== '' ? $currency : 'EUR';
+}
+
+function ggr_dividend_accruals_get_month_start( $date ) {
+    $timestamp = strtotime( (string) $date );
+    if ( ! $timestamp ) {
+        return '';
+    }
+
+    return wp_date( 'Y-m-01', $timestamp );
+}
+
+function ggr_dividend_accruals_get_next_month_start( $month_start ) {
+    $timestamp = strtotime( (string) $month_start );
+    if ( ! $timestamp ) {
+        return '';
+    }
+
+    return wp_date( 'Y-m-01', strtotime( 'first day of next month', $timestamp ) );
+}
+
 function ggr_dividend_accruals_get_by_date( $date ) {
     global $wpdb;
 
@@ -228,7 +258,7 @@ function ggr_dividend_accruals_get_per_participation( $date ) {
     return round( $total_value / $total_parts, 6 );
 }
 
-function ggr_dividend_accruals_upsert( $date, $gross_total, $total_participations = null ) {
+function ggr_dividend_accruals_upsert( $date, $gross_total, $total_participations = null, array $meta = array() ) {
     global $wpdb;
 
     $table_name = $wpdb->prefix . 'ggr_dividend_accruals';
@@ -259,6 +289,37 @@ function ggr_dividend_accruals_upsert( $date, $gross_total, $total_participation
     $per_participation = round( $net_value / $total_participations, 6 );
     $now               = current_time( 'mysql' );
 
+    $meta = wp_parse_args(
+        $meta,
+        array(
+            'source_currency'      => 'EUR',
+            'source_gross'         => null,
+            'source_tax'           => null,
+            'source_net'           => null,
+            'fx_rate_usd_eur'      => null,
+            'computed_from_history' => 0,
+        )
+    );
+
+    $source_currency = ggr_dividend_accruals_normalize_currency( $meta['source_currency'] );
+    $source_gross    = $meta['source_gross'] !== null ? (float) $meta['source_gross'] : null;
+    $source_tax      = $meta['source_tax'] !== null ? (float) $meta['source_tax'] : null;
+    $source_net      = $meta['source_net'] !== null ? (float) $meta['source_net'] : null;
+    $fx_rate         = $meta['fx_rate_usd_eur'] !== null ? (float) $meta['fx_rate_usd_eur'] : null;
+    $computed_from_history = ! empty( $meta['computed_from_history'] ) ? 1 : 0;
+
+    if ( $fx_rate !== null && $fx_rate <= 0 ) {
+        $fx_rate = null;
+    }
+
+    if ( $source_gross === null ) {
+        $source_gross = $gross_value;
+    }
+
+    if ( $source_net === null ) {
+        $source_net = $net_value;
+    }
+
     $existing_id = $wpdb->get_var(
         $wpdb->prepare(
             "SELECT id FROM {$table_name} WHERE accrual_date = %s LIMIT 1",
@@ -275,10 +336,16 @@ function ggr_dividend_accruals_upsert( $date, $gross_total, $total_participation
                 'distribution_fee'     => $distribution_fee,
                 'total_participations' => $total_participations,
                 'per_participation'   => $per_participation,
+                'source_currency'      => $source_currency,
+                'source_gross'         => $source_gross,
+                'source_tax'           => $source_tax,
+                'source_net'           => $source_net,
+                'fx_rate_usd_eur'      => $fx_rate,
+                'computed_from_history' => $computed_from_history,
                 'updated_at'          => $now,
             ),
             array( 'id' => (int) $existing_id ),
-            array( '%f', '%f', '%f', '%f', '%f', '%s' ),
+            array( '%f', '%f', '%f', '%f', '%f', '%s', '%f', '%f', '%f', '%f', '%d', '%s' ),
             array( '%d' )
         );
 
@@ -294,10 +361,16 @@ function ggr_dividend_accruals_upsert( $date, $gross_total, $total_participation
             'distribution_fee'     => $distribution_fee,
             'total_participations' => $total_participations,
             'per_participation'    => $per_participation,
+            'source_currency'      => $source_currency,
+            'source_gross'         => $source_gross,
+            'source_tax'           => $source_tax,
+            'source_net'           => $source_net,
+            'fx_rate_usd_eur'      => $fx_rate,
+            'computed_from_history' => $computed_from_history,
             'created_at'           => $now,
             'updated_at'           => $now,
         ),
-        array( '%s', '%f', '%f', '%f', '%f', '%f', '%s', '%s' )
+        array( '%s', '%f', '%f', '%f', '%f', '%f', '%s', '%f', '%f', '%f', '%f', '%d', '%s', '%s' )
     );
 
     return $inserted ? (int) $wpdb->insert_id : new WP_Error( 'insert_failed', 'Opslaan is mislukt.' );
@@ -363,6 +436,181 @@ function ggr_dividend_accrual_history_upsert( $action_id, $report_date, $gross_v
 
     return $inserted ? (int) $wpdb->insert_id : new WP_Error( 'insert_failed', 'Opslaan is mislukt.' );
 }
+
+function ggr_dividend_accruals_get_history_monthly_totals( $month_start ) {
+    global $wpdb;
+
+    $table_name = $wpdb->prefix . 'ggr_dividend_accrual_history';
+    $month_start = ggr_dividend_accruals_get_month_start( $month_start );
+
+    if ( ! $month_start ) {
+        return null;
+    }
+
+    $month_end = ggr_dividend_accruals_get_next_month_start( $month_start );
+    if ( ! $month_end ) {
+        return null;
+    }
+
+    $row = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT SUM(gross_value) AS gross_total, SUM(tax_value) AS tax_total, SUM(net_amount) AS net_total
+             FROM {$table_name}
+             WHERE report_date >= %s AND report_date < %s",
+            $month_start,
+            $month_end
+        ),
+        ARRAY_A
+    );
+
+    if ( ! $row ) {
+        return null;
+    }
+
+    return array(
+        'gross_total' => isset( $row['gross_total'] ) ? (float) $row['gross_total'] : 0.0,
+        'tax_total'   => isset( $row['tax_total'] ) ? (float) $row['tax_total'] : 0.0,
+        'net_total'   => isset( $row['net_total'] ) ? (float) $row['net_total'] : 0.0,
+    );
+}
+
+function ggr_dividend_accruals_generate_month_from_history( $month_start, $fx_rate = null ) {
+    $month_start = ggr_dividend_accruals_get_month_start( $month_start );
+    if ( ! $month_start ) {
+        return new WP_Error( 'invalid_month', 'Ongeldige maand voor dividend accrual berekening.' );
+    }
+
+    $totals = ggr_dividend_accruals_get_history_monthly_totals( $month_start );
+    if ( ! $totals ) {
+        return new WP_Error( 'missing_history', 'Geen accruals historie gevonden voor deze maand.' );
+    }
+
+    $source_net = (float) $totals['net_total'];
+    $source_gross = (float) $totals['gross_total'];
+    $source_tax = (float) $totals['tax_total'];
+
+    if ( $source_net <= 0 && $source_gross <= 0 ) {
+        return new WP_Error( 'missing_history', 'Geen accruals historie gevonden voor deze maand.' );
+    }
+
+    $existing = ggr_dividend_accruals_get_by_date( $month_start );
+    if ( $existing && empty( $existing['computed_from_history'] ) ) {
+        return $existing['id'];
+    }
+
+    if ( $fx_rate !== null && (float) $fx_rate > 0 ) {
+        $fx_rate = (float) $fx_rate;
+    } else {
+        $fx_rate = null;
+    }
+
+    $gross_total = $source_net > 0 ? $source_net : $source_gross;
+    if ( $fx_rate ) {
+        $gross_total = round( $gross_total * $fx_rate, 4 );
+    }
+
+    $total_participations = function_exists( 'ggr_portal_get_total_participations_all_users' )
+        ? ggr_portal_get_total_participations_all_users( $month_start )
+        : 0.0;
+
+    if ( $total_participations <= 0 ) {
+        return new WP_Error( 'missing_participations', 'Geen participaties gevonden voor deze maand.' );
+    }
+
+    return ggr_dividend_accruals_upsert(
+        $month_start,
+        $gross_total,
+        $total_participations,
+        array(
+            'source_currency'      => 'USD',
+            'source_gross'         => $source_gross,
+            'source_tax'           => $source_tax,
+            'source_net'           => $source_net,
+            'fx_rate_usd_eur'      => $fx_rate,
+            'computed_from_history' => 1,
+        )
+    );
+}
+
+function ggr_dividend_accruals_backfill_history( $fx_rate = null ) {
+    global $wpdb;
+
+    $table_name = $wpdb->prefix . 'ggr_dividend_accrual_history';
+    $range = $wpdb->get_row(
+        "SELECT MIN(report_date) AS min_date, MAX(report_date) AS max_date FROM {$table_name}",
+        ARRAY_A
+    );
+
+    if ( ! $range || empty( $range['min_date'] ) || empty( $range['max_date'] ) ) {
+        return;
+    }
+
+    $start_month = ggr_dividend_accruals_get_month_start( $range['min_date'] );
+    $end_month = ggr_dividend_accruals_get_month_start( $range['max_date'] );
+
+    if ( ! $start_month || ! $end_month ) {
+        return;
+    }
+
+    $last_complete_month = wp_date( 'Y-m-01', strtotime( 'first day of previous month', current_time( 'timestamp' ) ) );
+    if ( strtotime( $end_month ) > strtotime( $last_complete_month ) ) {
+        $end_month = $last_complete_month;
+    }
+
+    $last_processed = get_option( 'ggr_dividend_accruals_history_backfill_until', '' );
+    if ( $last_processed ) {
+        $last_processed = ggr_dividend_accruals_get_month_start( $last_processed );
+    }
+
+    $cursor = $start_month;
+    if ( $last_processed && strtotime( $last_processed ) >= strtotime( $start_month ) ) {
+        $cursor = ggr_dividend_accruals_get_next_month_start( $last_processed );
+    }
+
+    while ( $cursor && strtotime( $cursor ) <= strtotime( $end_month ) ) {
+        ggr_dividend_accruals_generate_month_from_history( $cursor, $fx_rate );
+        $cursor = ggr_dividend_accruals_get_next_month_start( $cursor );
+    }
+
+    update_option( 'ggr_dividend_accruals_history_backfill_until', $end_month, false );
+}
+
+function ggr_dividend_accruals_run_monthly_rollup() {
+    $today = current_time( 'timestamp' );
+    if ( wp_date( 'd', $today ) !== '01' ) {
+        return;
+    }
+
+    $month_key = wp_date( 'Y-m', $today );
+    $last_run  = get_option( 'ggr_dividend_accruals_monthly_last_run', '' );
+
+    if ( $last_run === $month_key ) {
+        return;
+    }
+
+    $previous_month = wp_date( 'Y-m-01', strtotime( 'first day of previous month', $today ) );
+    ggr_dividend_accruals_generate_month_from_history( $previous_month );
+
+    update_option( 'ggr_dividend_accruals_monthly_last_run', $month_key, false );
+}
+
+function ggr_dividend_accruals_schedule_rollup() {
+    if ( ! wp_next_scheduled( 'ggr_dividend_accruals_monthly_event' ) ) {
+        wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'ggr_dividend_accruals_monthly_event' );
+    }
+
+    $last_backfill = get_option( 'ggr_dividend_accruals_history_backfill_until', '' );
+    $last_complete_month = wp_date( 'Y-m-01', strtotime( 'first day of previous month', current_time( 'timestamp' ) ) );
+
+    if ( ! $last_backfill || strtotime( $last_backfill ) < strtotime( $last_complete_month ) ) {
+        if ( ! wp_next_scheduled( 'ggr_dividend_accruals_backfill_event' ) ) {
+            wp_schedule_single_event( time() + MINUTE_IN_SECONDS, 'ggr_dividend_accruals_backfill_event' );
+        }
+    }
+}
+add_action( 'init', 'ggr_dividend_accruals_schedule_rollup' );
+add_action( 'ggr_dividend_accruals_monthly_event', 'ggr_dividend_accruals_run_monthly_rollup' );
+add_action( 'ggr_dividend_accruals_backfill_event', 'ggr_dividend_accruals_backfill_history' );
 
 function ggr_ibkr_accruals_get_token() {
     if ( defined( 'GGR_IBKR_FLEX_TOKEN' ) && GGR_IBKR_FLEX_TOKEN ) {
@@ -1160,6 +1408,9 @@ function ggr_render_dividend_accrual_page() {
     $today      = current_time( 'Y-m-d' );
     $form_date  = $today;
     $form_gross = '';
+    $form_source_currency = 'EUR';
+    $form_source_net = '';
+    $form_fx_rate = '';
     $is_edit    = false;
     $edit_id    = 0;
 
@@ -1181,6 +1432,13 @@ function ggr_render_dividend_accrual_page() {
             } else {
                 $form_gross = number_format( (float) $row['accrual_total'] / 0.9, 2, ',', '' );
             }
+            $form_source_currency = ! empty( $row['source_currency'] ) ? strtoupper( (string) $row['source_currency'] ) : 'EUR';
+            if ( isset( $row['source_net'] ) && $row['source_net'] !== null ) {
+                $form_source_net = number_format( (float) $row['source_net'], 2, ',', '' );
+            }
+            if ( isset( $row['fx_rate_usd_eur'] ) && $row['fx_rate_usd_eur'] !== null ) {
+                $form_fx_rate = number_format( (float) $row['fx_rate_usd_eur'], 6, ',', '' );
+            }
             $is_edit    = true;
         }
     }
@@ -1190,20 +1448,39 @@ function ggr_render_dividend_accrual_page() {
 
         $date_raw  = isset( $_POST['accrual_date'] ) ? sanitize_text_field( wp_unslash( $_POST['accrual_date'] ) ) : '';
         $gross_raw = isset( $_POST['accrual_gross'] ) ? sanitize_text_field( wp_unslash( $_POST['accrual_gross'] ) ) : '';
+        $source_currency_raw = isset( $_POST['source_currency'] ) ? sanitize_text_field( wp_unslash( $_POST['source_currency'] ) ) : 'EUR';
+        $source_net_raw = isset( $_POST['source_net_amount'] ) ? sanitize_text_field( wp_unslash( $_POST['source_net_amount'] ) ) : '';
+        $fx_rate_raw = isset( $_POST['fx_rate_usd_eur'] ) ? sanitize_text_field( wp_unslash( $_POST['fx_rate_usd_eur'] ) ) : '';
         $edit_id   = isset( $_POST['accrual_id'] ) ? (int) $_POST['accrual_id'] : 0;
 
         $form_date  = $date_raw;
         $form_gross = $gross_raw;
+        $form_source_currency = ggr_dividend_accruals_normalize_currency( $source_currency_raw );
+        $form_source_net = $source_net_raw;
+        $form_fx_rate = $fx_rate_raw;
 
         $date_mysql = ggr_dividend_accruals_parse_date( $date_raw );
-        $gross_value = $gross_raw !== ''
-            ? (float) str_replace( array( '.', ' ', ',' ), array( '', '', '.' ), $gross_raw )
-            : 0.0;
+        $source_currency = ggr_dividend_accruals_normalize_currency( $source_currency_raw );
+        $source_net = $source_net_raw !== '' ? ggr_dividend_accruals_parse_float( $source_net_raw ) : null;
+        $fx_rate = $fx_rate_raw !== '' ? ggr_dividend_accruals_parse_float( $fx_rate_raw ) : null;
+        $gross_value = $gross_raw !== '' ? ggr_dividend_accruals_parse_float( $gross_raw ) : 0.0;
+        $use_source_net = ( 'USD' === $source_currency && $source_net !== null && $source_net > 0 );
 
-        if ( ! $date_mysql || $gross_raw === '' ) {
+        if ( $use_source_net ) {
+            $gross_value = $source_net;
+            if ( $fx_rate !== null && $fx_rate > 0 ) {
+                $gross_value = round( $gross_value * $fx_rate, 4 );
+            }
+        }
+
+        if ( ! $date_mysql || ( $gross_raw === '' && ! $use_source_net ) ) {
             $error = 'Datum en bruto dividend zijn verplicht.';
-        } elseif ( $gross_value <= 0 ) {
+        } elseif ( $use_source_net && $source_net <= 0 ) {
+            $error = 'Bron netto bedrag moet groter zijn dan 0.';
+        } elseif ( ! $use_source_net && $gross_value <= 0 ) {
             $error = 'Bruto dividend moet groter zijn dan 0.';
+        } elseif ( $fx_rate !== null && $fx_rate <= 0 ) {
+            $error = 'USD/EUR koers moet groter zijn dan 0.';
         } else {
             $total_parts = function_exists( 'ggr_portal_get_total_participations_all_users' )
                 ? ggr_portal_get_total_participations_all_users( $date_mysql )
@@ -1216,6 +1493,12 @@ function ggr_render_dividend_accrual_page() {
                 $net_value         = round( $gross_value - $distribution_fee, 4 );
                 $per_participation = round( $net_value / $total_parts, 6 );
                 $now               = current_time( 'mysql' );
+                $source_gross = $use_source_net ? $source_net : $gross_value;
+                $source_net_value = $use_source_net ? $source_net : $net_value;
+                $source_tax = null;
+                if ( 'USD' !== $source_currency ) {
+                    $source_currency = 'EUR';
+                }
 
                 if ( $edit_id ) {
                     $existing_date = $wpdb->get_var(
@@ -1238,10 +1521,16 @@ function ggr_render_dividend_accrual_page() {
                                 'distribution_fee'     => $distribution_fee,
                                 'total_participations' => $total_parts,
                                 'per_participation'    => $per_participation,
+                                'source_currency'      => $source_currency,
+                                'source_gross'         => $source_gross,
+                                'source_tax'           => $source_tax,
+                                'source_net'           => $source_net_value,
+                                'fx_rate_usd_eur'      => ( $fx_rate !== null && $fx_rate > 0 ) ? $fx_rate : null,
+                                'computed_from_history' => 0,                            
                                 'updated_at'           => $now,
                             ),
                             array( 'id' => $edit_id ),
-                            array( '%s', '%f', '%f', '%f', '%f', '%f', '%s' ),
+                            array( '%s', '%f', '%f', '%f', '%f', '%f', '%s', '%f', '%f', '%f', '%f', '%d', '%s' ),
                             array( '%d' )
                         );
 
@@ -1251,12 +1540,27 @@ function ggr_render_dividend_accrual_page() {
                             $edit_id  = 0;
                             $form_date  = $date_mysql;
                             $form_gross = '';
+                            $form_source_currency = 'EUR';
+                            $form_source_net = '';
+                            $form_fx_rate = '';                            
                         } else {
                             $error = 'Bijwerken is mislukt.';
                         }
                     }
                 } else {
-                    $saved = ggr_dividend_accruals_upsert( $date_mysql, $gross_value, $total_parts );
+                    $saved = ggr_dividend_accruals_upsert(
+                        $date_mysql,
+                        $gross_value,
+                        $total_parts,
+                        array(
+                            'source_currency'      => $source_currency,
+                            'source_gross'         => $source_gross,
+                            'source_tax'           => $source_tax,
+                            'source_net'           => $source_net_value,
+                            'fx_rate_usd_eur'      => ( $fx_rate !== null && $fx_rate > 0 ) ? $fx_rate : null,
+                            'computed_from_history' => 0,
+                        )
+                    );
 
                     if ( is_wp_error( $saved ) ) {
                         $error = $saved->get_error_message();
@@ -1264,6 +1568,9 @@ function ggr_render_dividend_accrual_page() {
                         $notice   = 'Dividend accrual opgeslagen.';
                         $form_date  = $date_mysql;
                         $form_gross = '';
+                        $form_source_currency = 'EUR';
+                        $form_source_net = '';
+                        $form_fx_rate = '';                        
                     }
                 }
             }
@@ -1452,6 +1759,12 @@ function ggr_render_dividend_accrual_page() {
         $totals['gross'] += $gross;
         $totals['fee']   += $fee;
         $totals['net']   += $net;
+
+        if ( ! empty( $row['source_currency'] ) && strtoupper( (string) $row['source_currency'] ) === 'USD' ) {
+            if ( empty( $row['fx_rate_usd_eur'] ) ) {
+                $needs_fx_notice = true;
+            }
+        }
     }
 
     ?>
@@ -1479,7 +1792,31 @@ function ggr_render_dividend_accrual_page() {
                     </tr>
                     <tr>
                         <th scope="row"><label for="accrual_gross">Bruto dividend (€)</label></th>
-                        <td><input type="text" id="accrual_gross" name="accrual_gross" value="<?php echo esc_attr( $form_gross ); ?>" placeholder="Bijv. 15000,00" required /></td>
+                        <td><input type="text" id="accrual_gross" name="accrual_gross" value="<?php echo esc_attr( $form_gross ); ?>" placeholder="Bijv. 15000,00" /></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="source_currency">Bron valuta</label></th>
+                        <td>
+                            <select id="source_currency" name="source_currency">
+                                <option value="EUR" <?php selected( $form_source_currency, 'EUR' ); ?>>EUR</option>
+                                <option value="USD" <?php selected( $form_source_currency, 'USD' ); ?>>USD</option>
+                            </select>
+                            <p class="description">Gebruik USD als de accruals uit de IBKR historie komen.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="source_net_amount">Bron netto</label></th>
+                        <td>
+                            <input type="text" id="source_net_amount" name="source_net_amount" value="<?php echo esc_attr( $form_source_net ); ?>" placeholder="Bijv. 12000,00" />
+                            <p class="description">Optioneel: basisbedrag in USD om later te converteren naar EUR.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="fx_rate_usd_eur">USD/EUR koers</label></th>
+                        <td>
+                            <input type="text" id="fx_rate_usd_eur" name="fx_rate_usd_eur" value="<?php echo esc_attr( $form_fx_rate ); ?>" placeholder="Bijv. 0,92" />
+                            <p class="description">Optioneel: voeg een koers toe om USD automatisch om te rekenen naar EUR.</p>
+                        </td>
                     </tr>
                 </table>
                 <p>
@@ -1488,8 +1825,24 @@ function ggr_render_dividend_accrual_page() {
                     </button>
                 </p>
             </form>
+            <div style="min-width:260px;max-width:360px;">
+                <h3 style="margin-top:0;">Maandelijkse run</h3>
+                <p style="margin:0 0 8px;">
+                    Op elke eerste dag van de maand wordt automatisch de vorige maand uit de IBKR accruals historie
+                    opgeteld en als Dividend Accrual vastgelegd (met datum = eerste dag van die maand).
+                </p>
+                <p style="margin:0;">
+                    Je kunt deze bedragen altijd aanpassen. Voor USD-bedragen kun je optioneel een USD/EUR koers opslaan
+                    zodat de conversie later handmatig of via API kan worden bijgewerkt.
+                </p>
+            </div>
             <div style="min-width:240px;max-width:320px;">
                 <h3 style="margin-top:0;">Financieel overzicht</h3>
+                <?php if ( $needs_fx_notice ) : ?>
+                    <p style="margin:0 0 8px;color:#b32d2e;">
+                        Let op: er zijn USD-bedragen zonder koers. Vul een USD/EUR koers in om de EUR-totalen te actualiseren.
+                    </p>
+                <?php endif; ?>
                 <p style="margin:0 0 6px;"><strong>Totaal bruto:</strong> € <?php echo esc_html( number_format( $totals['gross'], 2, ',', '.' ) ); ?></p>
                 <p style="margin:0 0 6px;"><strong>Distributievergoeding (10%):</strong> € <?php echo esc_html( number_format( $totals['fee'], 2, ',', '.' ) ); ?></p>
                 <p style="margin:0;"><strong>Totaal netto:</strong> € <?php echo esc_html( number_format( $totals['net'], 2, ',', '.' ) ); ?></p>
@@ -1507,6 +1860,9 @@ function ggr_render_dividend_accrual_page() {
                         <th>Bruto dividend</th>
                         <th>Distributievergoeding</th>
                         <th>Netto dividend</th>
+                        <th>Bron valuta</th>
+                        <th>Bron netto</th>
+                        <th>USD/EUR koers</th>
                         <th>Participaties</th>
                         <th>Per participatie</th>
                         <th>Aangemaakt</th>
@@ -1548,6 +1904,14 @@ function ggr_render_dividend_accrual_page() {
                         $gross_disp = '€ ' . number_format( $gross_value, 2, ',', '.' );
                         $fee_disp   = '€ ' . number_format( $fee_value, 2, ',', '.' );
                         $net_disp   = '€ ' . number_format( $net_value, 2, ',', '.' );
+                        $source_currency = ! empty( $row['source_currency'] ) ? strtoupper( (string) $row['source_currency'] ) : 'EUR';
+                        $source_net = isset( $row['source_net'] ) && $row['source_net'] !== null ? (float) $row['source_net'] : null;
+                        $source_net_disp = $source_net !== null
+                            ? ( $source_currency === 'USD' ? '$ ' : '€ ' ) . number_format( $source_net, 2, ',', '.' )
+                            : '–';
+                        $fx_rate_disp = isset( $row['fx_rate_usd_eur'] ) && $row['fx_rate_usd_eur'] !== null
+                            ? number_format( (float) $row['fx_rate_usd_eur'], 6, ',', '.' )
+                            : '–';
                         $parts_disp = isset( $row['total_participations'] )
                             ? number_format( (float) $row['total_participations'], 4, ',', '.' )
                             : '–';
@@ -1562,6 +1926,9 @@ function ggr_render_dividend_accrual_page() {
                             <td><?php echo esc_html( $gross_disp ); ?></td>
                             <td><?php echo esc_html( $fee_disp ); ?></td>
                             <td><?php echo esc_html( $net_disp ); ?></td>
+                            <td><?php echo esc_html( $source_currency ); ?></td>
+                            <td><?php echo esc_html( $source_net_disp ); ?></td>
+                            <td><?php echo esc_html( $fx_rate_disp ); ?></td>
                             <td><?php echo esc_html( $parts_disp ); ?></td>
                             <td><?php echo esc_html( $per_disp ); ?></td>
                             <td><?php echo esc_html( $created_disp ); ?></td>
@@ -1864,7 +2231,19 @@ function ggr_api_update_dividend_accrual( WP_REST_Request $request ) {
         );
     }
 
-    $saved = ggr_dividend_accruals_upsert( $date_mysql, $gross_value, $total_parts );
+    $saved = ggr_dividend_accruals_upsert(
+        $date_mysql,
+        $gross_value,
+        $total_parts,
+        array(
+            'source_currency'      => 'EUR',
+            'source_gross'         => $gross_value,
+            'source_tax'           => null,
+            'source_net'           => null,
+            'fx_rate_usd_eur'      => null,
+            'computed_from_history' => 0,
+        )
+    );
 
     if ( is_wp_error( $saved ) ) {
         return $saved;
