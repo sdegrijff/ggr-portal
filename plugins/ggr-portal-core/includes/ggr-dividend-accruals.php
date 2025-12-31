@@ -1402,9 +1402,9 @@ function ggr_render_dividend_accrual_page() {
                         );
 
                         $history_report = $history_row['report_date'] ? date_i18n( 'd-m-Y', strtotime( $history_row['report_date'] ) ) : '';
-                        $history_gross_disp = '€ ' . number_format( (float) $history_row['gross_value'], 2, ',', '.' );
-                        $history_tax_disp   = '€ ' . number_format( (float) $history_row['tax_value'], 2, ',', '.' );
-                        $history_net_disp   = '€ ' . number_format( (float) $history_row['net_amount'], 2, ',', '.' );
+                        $history_gross_disp = '$ ' . number_format( (float) $history_row['gross_value'], 2, ',', '.' );
+                        $history_tax_disp   = '$ ' . number_format( (float) $history_row['tax_value'], 2, ',', '.' );
+                        $history_net_disp   = '$ ' . number_format( (float) $history_row['net_amount'], 2, ',', '.' );
                         $history_created    = $history_row['created_at'] ? date_i18n( 'd-m-Y H:i', strtotime( $history_row['created_at'] ) ) : '';
                         $history_updated    = $history_row['updated_at'] ? date_i18n( 'd-m-Y H:i', strtotime( $history_row['updated_at'] ) ) : '';
                         ?>
