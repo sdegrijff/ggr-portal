@@ -1064,12 +1064,22 @@ function ggr_render_stock_price_page() {
                             Laatste succesvolle import: <strong><?php echo esc_html( $ibkr_status['last_run']['date'] ); ?></strong>
                             (NAV: € <?php echo esc_html( number_format( (float) $ibkr_status['last_run']['nav'], 6, ',', '.' ) ); ?>,
                             bijgewerkt op <?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_status['last_run']['timestamp'] ) ); ?>).
+                            <?php if ( ! empty( $ibkr_status['last_run']['statement_url'] ) ) : ?>
+                                <a href="<?php echo esc_url( $ibkr_status['last_run']['statement_url'] ); ?>" target="_blank" rel="noopener noreferrer">
+                                    Flex statement openen
+                                </a>
+                            <?php endif; ?>
                         </p>
                     <?php endif; ?>
                     <?php if ( ! empty( $ibkr_status['last_error'] ) && is_array( $ibkr_status['last_error'] ) ) : ?>
                         <p>
                             Laatste fout: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_status['last_error']['timestamp'] ) ); ?></strong>
                             (<?php echo esc_html( $ibkr_status['last_error']['message'] ); ?>).
+                            <?php if ( ! empty( $ibkr_status['last_error']['statement_url'] ) ) : ?>
+                                <a href="<?php echo esc_url( $ibkr_status['last_error']['statement_url'] ); ?>" target="_blank" rel="noopener noreferrer">
+                                    Flex statement openen
+                                </a>
+                            <?php endif; ?>
                         </p>
                     <?php endif; ?>
                 </div>
