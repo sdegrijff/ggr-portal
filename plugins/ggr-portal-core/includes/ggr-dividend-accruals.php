@@ -406,12 +406,22 @@ function ggr_ibkr_accruals_schedule_cron() {
 }
 add_action( 'init', 'ggr_ibkr_accruals_schedule_cron' );
 
-function ggr_ibkr_accruals_set_last_run( $count, $latest_report_date = '', $statement_url = '' ) {
+function ggr_ibkr_accruals_set_last_run( $imported, $latest_report_date = '', $statement_url = '', $total_count = null, $duplicate_count = null ) {
+    if ( $total_count === null ) {
+        $total_count = $imported;
+    }
+
+    if ( $duplicate_count === null ) {
+        $duplicate_count = 0;
+    }
+
     update_option(
         'ggr_ibkr_accruals_last_run',
         array(
             'timestamp'     => current_time( 'timestamp' ),
-            'count'         => (int) $count,
+            'count'         => (int) $total_count,
+            'imported'      => (int) $imported,
+            'duplicates'    => (int) $duplicate_count,
             'report_date'   => $latest_report_date,
             'statement_url' => $statement_url ? esc_url_raw( $statement_url ) : '',
         ),
@@ -624,9 +634,14 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
         return new WP_Error( 'ggr_ibkr_missing_rows', 'Geen accruals gevonden in Flex statement.' );
     }
 
-    $entries = array();
+    $accrual_nodes = $xml->xpath( '//ChangeInDividendAccrual' );
+    $nodes_to_parse = ! empty( $accrual_nodes ) ? $accrual_nodes : $nodes;
 
-    foreach ( $nodes as $node ) {
+    $entries = array();
+    $total_count = 0;
+    $duplicate_count = 0;
+
+    foreach ( $nodes_to_parse as $node ) {
         if ( ! $node instanceof SimpleXMLElement ) {
             continue;
         }
@@ -647,7 +662,10 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
             continue;
         }
 
-        if ( $gross_value <= 0 && $net_amount <= 0 ) {
+        $total_count++;
+
+        if ( isset( $entries[ $action_id ] ) ) {
+            $duplicate_count++;
             continue;
         }
 
@@ -660,11 +678,15 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
         );
     }
 
-    if ( empty( $entries ) ) {
+    if ( $total_count === 0 ) {
         return new WP_Error( 'ggr_ibkr_missing_rows', 'Geen accruals gevonden in Flex statement.' );
     }
 
-    return array_values( $entries );
+    return array(
+        'entries'         => array_values( $entries ),
+        'total_count'     => $total_count,
+        'duplicate_count' => $duplicate_count,
+    );
 }
 
 function ggr_ibkr_accruals_fetch_entries( $token = null, $query_id = null ) {
@@ -697,8 +719,10 @@ function ggr_ibkr_accruals_fetch_entries( $token = null, $query_id = null ) {
     }
 
     return array(
-        'entries'       => $parsed,
-        'statement_url' => $statement_url,
+        'entries'         => $parsed['entries'],
+        'total_count'     => $parsed['total_count'],
+        'duplicate_count' => $parsed['duplicate_count'],
+        'statement_url'   => $statement_url,
     );
 }
 
@@ -748,7 +772,13 @@ function ggr_ibkr_accruals_fetch_and_store() {
     }
 
     $store_result = ggr_ibkr_accruals_store_entries( $result['entries'], $result['statement_url'] );
-    ggr_ibkr_accruals_set_last_run( $store_result['imported'], $store_result['report_date'], $result['statement_url'] );
+    ggr_ibkr_accruals_set_last_run(
+        $store_result['imported'],
+        $store_result['report_date'],
+        $result['statement_url'],
+        $result['total_count'],
+        $result['duplicate_count']
+    );
     ggr_ibkr_accruals_clear_last_error();
 
     return $store_result;
@@ -1138,7 +1168,12 @@ function ggr_render_dividend_accrual_page() {
         } else {
             $store_result = ggr_ibkr_accruals_store_entries( $result['entries'], $result['statement_url'] );
             ggr_ibkr_accruals_set_last_run( $store_result['imported'], $store_result['report_date'], $result['statement_url'] );
-            $history_notice = sprintf( 'IBKR accruals historie geïmporteerd: %d items opgeslagen.', $store_result['imported'] );
+            $history_notice = sprintf(
+                'IBKR accruals historie geïmporteerd: %d items gevonden, %d duplicates uitgesloten, %d items opgeslagen.',
+                (int) $result['total_count'],
+                (int) $result['duplicate_count'],
+                (int) $store_result['imported']
+            );
             ggr_ibkr_accruals_clear_last_error();
         }
     }
@@ -1332,7 +1367,13 @@ function ggr_render_dividend_accrual_page() {
                 <?php if ( ! empty( $ibkr_accruals_status['last_run'] ) && is_array( $ibkr_accruals_status['last_run'] ) ) : ?>
                     <p>
                         Laatste succesvolle import: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_accruals_status['last_run']['timestamp'] ) ); ?></strong>
-                        (<?php echo esc_html( (int) $ibkr_accruals_status['last_run']['count'] ); ?> items
+                        (<?php echo esc_html( (int) $ibkr_accruals_status['last_run']['count'] ); ?> items gevonden
+                        <?php if ( isset( $ibkr_accruals_status['last_run']['duplicates'] ) ) : ?>
+                            , <?php echo esc_html( (int) $ibkr_accruals_status['last_run']['duplicates'] ); ?> duplicates
+                        <?php endif; ?>
+                        <?php if ( isset( $ibkr_accruals_status['last_run']['imported'] ) ) : ?>
+                            , <?php echo esc_html( (int) $ibkr_accruals_status['last_run']['imported'] ); ?> opgeslagen
+                        <?php endif; ?>
                         <?php if ( ! empty( $ibkr_accruals_status['last_run']['report_date'] ) ) : ?>
                             , reportdatum: <?php echo esc_html( wp_date( 'd-m-Y', strtotime( $ibkr_accruals_status['last_run']['report_date'] ) ) ); ?>
                         <?php endif; ?>
