@@ -205,6 +205,7 @@ function ggr_ibkr_nav_fetch_and_store( $token = null, $query_id = null ) {
     }
 
     $nav_per_participation = round( $result['total'] / $total_parts, 6 );
+    $statement_url = isset( $result['statement_url'] ) ? $result['statement_url'] : '';    
 
     $stored = ggr_upsert_stock_price(
         $result['date'],
@@ -212,6 +213,7 @@ function ggr_ibkr_nav_fetch_and_store( $token = null, $query_id = null ) {
         array(
             'fund_total'           => $result['total'],
             'total_participations' => $total_parts,
+            'statement_url'        => $statement_url,            
         )
     );
 
@@ -225,7 +227,6 @@ function ggr_ibkr_nav_fetch_and_store( $token = null, $query_id = null ) {
     $result['value']                = $nav_per_participation; // backwards compat: value = NAV per participatie
     $result['total_participations'] = $total_parts;
 
-    $statement_url = isset( $result['statement_url'] ) ? $result['statement_url'] : '';
     ggr_ibkr_nav_set_last_run( $result['date'], $nav_per_participation, $result['total'], $total_parts, $statement_url );
     ggr_ibkr_nav_clear_last_error();
     
