@@ -18,7 +18,7 @@ if ( ! defined( 'GGR_DIVIDEND_ACCRUAL_DB_VERSION' ) ) {
 add_action( 'plugins_loaded', 'ggr_maybe_create_dividend_accrual_table' );
 
 if ( ! defined( 'GGR_DIVIDEND_ACCRUAL_HISTORY_DB_VERSION' ) ) {
-    define( 'GGR_DIVIDEND_ACCRUAL_HISTORY_DB_VERSION', '1.0' );
+    define( 'GGR_DIVIDEND_ACCRUAL_HISTORY_DB_VERSION', '1.1' );
 }
 
 add_action( 'plugins_loaded', 'ggr_maybe_create_dividend_accrual_history_table' );
@@ -78,6 +78,7 @@ function ggr_create_dividend_accrual_history_table() {
             gross_value DECIMAL(20,4) NOT NULL,
             tax_value DECIMAL(20,4) NOT NULL,
             net_amount DECIMAL(20,4) NOT NULL,
+            statement_url TEXT DEFAULT NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             PRIMARY KEY  (id),
@@ -258,7 +259,7 @@ function ggr_dividend_accruals_upsert( $date, $gross_total, $total_participation
     return $inserted ? (int) $wpdb->insert_id : new WP_Error( 'insert_failed', 'Opslaan is mislukt.' );
 }
 
-function ggr_dividend_accrual_history_upsert( $action_id, $report_date, $gross_value, $tax_value, $net_amount ) {
+function ggr_dividend_accrual_history_upsert( $action_id, $report_date, $gross_value, $tax_value, $net_amount, $statement_url = '' ) {
     global $wpdb;
 
     $table_name  = $wpdb->prefix . 'ggr_dividend_accrual_history';
@@ -272,6 +273,7 @@ function ggr_dividend_accrual_history_upsert( $action_id, $report_date, $gross_v
     $gross_value = (float) $gross_value;
     $tax_value   = (float) $tax_value;
     $net_amount  = (float) $net_amount;
+    $statement_url = $statement_url ? esc_url_raw( $statement_url ) : null;
     $now         = current_time( 'mysql' );
 
     $existing_id = $wpdb->get_var(
@@ -289,10 +291,11 @@ function ggr_dividend_accrual_history_upsert( $action_id, $report_date, $gross_v
                 'gross_value' => $gross_value,
                 'tax_value'   => $tax_value,
                 'net_amount'  => $net_amount,
+                'statement_url' => $statement_url,
                 'updated_at'  => $now,
             ),
             array( 'id' => (int) $existing_id ),
-            array( '%s', '%f', '%f', '%f', '%s' ),
+            array( '%s', '%f', '%f', '%f', '%s', '%s' ),
             array( '%d' )
         );
 
@@ -302,15 +305,16 @@ function ggr_dividend_accrual_history_upsert( $action_id, $report_date, $gross_v
     $inserted = $wpdb->insert(
         $table_name,
         array(
-            'action_id'   => $action_id,
-            'report_date' => $report_date,
-            'gross_value' => $gross_value,
-            'tax_value'   => $tax_value,
-            'net_amount'  => $net_amount,
-            'created_at'  => $now,
-            'updated_at'  => $now,
+            'action_id'     => $action_id,
+            'report_date'   => $report_date,
+            'gross_value'   => $gross_value,
+            'tax_value'     => $tax_value,
+            'net_amount'    => $net_amount,
+            'statement_url' => $statement_url,
+            'created_at'    => $now,
+            'updated_at'    => $now,
         ),
-        array( '%s', '%s', '%f', '%f', '%f', '%s', '%s' )
+        array( '%s', '%s', '%f', '%f', '%f', '%s', '%s', '%s' )
     );
 
     return $inserted ? (int) $wpdb->insert_id : new WP_Error( 'insert_failed', 'Opslaan is mislukt.' );
@@ -654,9 +658,10 @@ function ggr_ibkr_accruals_fetch_entries( $token = null, $query_id = null ) {
     );
 }
 
-function ggr_ibkr_accruals_store_entries( array $entries ) {
+function ggr_ibkr_accruals_store_entries( array $entries, $statement_url = '' ) {
     $imported           = 0;
     $latest_report_date = '';
+    $statement_url      = $statement_url ? esc_url_raw( $statement_url ) : '';
 
     foreach ( $entries as $entry ) {
         if ( ! is_array( $entry ) ) {
@@ -668,7 +673,8 @@ function ggr_ibkr_accruals_store_entries( array $entries ) {
             $entry['report_date'],
             $entry['gross_value'],
             $entry['tax_value'],
-            $entry['net_amount']
+            $entry['net_amount'],
+            $statement_url
         );
 
         if ( $saved ) {
@@ -697,7 +703,7 @@ function ggr_ibkr_accruals_fetch_and_store() {
         return $result;
     }
 
-    $store_result = ggr_ibkr_accruals_store_entries( $result['entries'] );
+    $store_result = ggr_ibkr_accruals_store_entries( $result['entries'], $result['statement_url'] );
     ggr_ibkr_accruals_set_last_run( $store_result['imported'], $store_result['report_date'], $result['statement_url'] );
     ggr_ibkr_accruals_clear_last_error();
 
@@ -1086,7 +1092,7 @@ function ggr_render_dividend_accrual_page() {
             $history_error = '';
             ggr_ibkr_accruals_set_last_error( $result, 'IBKR accruals ophalen is mislukt' );
         } else {
-            $store_result = ggr_ibkr_accruals_store_entries( $result['entries'] );
+            $store_result = ggr_ibkr_accruals_store_entries( $result['entries'], $result['statement_url'] );
             ggr_ibkr_accruals_set_last_run( $store_result['imported'], $store_result['report_date'], $result['statement_url'] );
             $history_notice = sprintf( 'IBKR accruals historie geïmporteerd: %d items opgeslagen.', $store_result['imported'] );
             ggr_ibkr_accruals_clear_last_error();
@@ -1391,6 +1397,7 @@ function ggr_render_dividend_accrual_page() {
                         <th>Gross value</th>
                         <th>Tax</th>
                         <th>Net amount</th>
+                        <th>Flex statement</th>
                         <th>Aangemaakt</th>
                         <th>Bijgewerkt</th>
                         <th>Acties</th>
@@ -1423,6 +1430,7 @@ function ggr_render_dividend_accrual_page() {
                         $history_gross_disp = '$ ' . number_format( (float) $history_row['gross_value'], 2, ',', '.' );
                         $history_tax_disp   = '$ ' . number_format( (float) $history_row['tax_value'], 2, ',', '.' );
                         $history_net_disp   = '$ ' . number_format( (float) $history_row['net_amount'], 2, ',', '.' );
+                        $history_statement_url = isset( $history_row['statement_url'] ) ? trim( (string) $history_row['statement_url'] ) : '';
                         $history_created    = $history_row['created_at'] ? date_i18n( 'd-m-Y H:i', strtotime( $history_row['created_at'] ) ) : '';
                         $history_updated    = $history_row['updated_at'] ? date_i18n( 'd-m-Y H:i', strtotime( $history_row['updated_at'] ) ) : '';
                         ?>
@@ -1432,6 +1440,15 @@ function ggr_render_dividend_accrual_page() {
                             <td><?php echo esc_html( $history_gross_disp ); ?></td>
                             <td><?php echo esc_html( $history_tax_disp ); ?></td>
                             <td><?php echo esc_html( $history_net_disp ); ?></td>
+                            <td>
+                                <?php if ( $history_statement_url ) : ?>
+                                    <a href="<?php echo esc_url( $history_statement_url ); ?>" target="_blank" rel="noopener noreferrer">
+                                        Flex statement downloaden
+                                    </a>
+                                <?php else : ?>
+                                    -
+                                <?php endif; ?>
+                            </td>
                             <td><?php echo esc_html( $history_created ); ?></td>
                             <td><?php echo esc_html( $history_updated ); ?></td>
                             <td>
