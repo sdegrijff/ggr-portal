@@ -123,8 +123,26 @@ function ggr_dividend_accruals_parse_float( $raw_value ) {
         return 0.0;
     }
 
-    $value = str_replace( array( '.', ' ', ',' ), array( '', '', '.' ), (string) $raw_value );
+    $value = trim( (string) $raw_value );
+    if ( $value === '' ) {
+        return 0.0;
+    }
 
+    $value     = str_replace( ' ', '', $value );
+    $has_dot   = strpos( $value, '.' ) !== false;
+    $has_comma = strpos( $value, ',' ) !== false;
+
+    if ( $has_dot && $has_comma ) {
+        if ( strrpos( $value, '.' ) > strrpos( $value, ',' ) ) {
+            $value = str_replace( ',', '', $value );
+        } else {
+            $value = str_replace( '.', '', $value );
+            $value = str_replace( ',', '.', $value );
+        }
+    } elseif ( $has_comma ) {
+        $value = str_replace( ',', '.', $value );
+    }
+    
     return (float) $value;
 }
 
