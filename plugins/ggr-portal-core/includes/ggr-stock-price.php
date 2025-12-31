@@ -636,7 +636,10 @@ function ggr_render_stock_price_page() {
     $ibkr_base_url = function_exists( 'ggr_ibkr_nav_get_base_url' ) ? ggr_ibkr_nav_get_base_url() : '';
     $ibkr_status   = function_exists( 'ggr_ibkr_nav_get_status' ) ? ggr_ibkr_nav_get_status() : array();
     $show_ibkr_sections = ! ( function_exists( 'ggr_admin_shell_is_allowed' ) && ggr_admin_shell_is_allowed() );
-    
+    $show_ibkr_manual_fetch = function_exists( 'ggr_ibkr_nav_has_credentials' )
+        ? ggr_ibkr_nav_has_credentials()
+        : ( $ibkr_token && $ibkr_query_id );
+        
     $total_participations_today = function_exists( 'ggr_portal_get_total_participations_all_users' )
         ? ggr_portal_get_total_participations_all_users()
         : null;
@@ -715,7 +718,7 @@ function ggr_render_stock_price_page() {
     /* -----------------------------------------------------------
      * IBKR FLEX API – handmatig ophalen
      * --------------------------------------------------------- */
-    if ( $show_ibkr_sections && isset( $_POST['ggr_ibkr_manual_fetch_submit'] ) ) {
+    if ( $show_ibkr_manual_fetch && isset( $_POST['ggr_ibkr_manual_fetch_submit'] ) ) {
         check_admin_referer( 'ggr_ibkr_manual_fetch' );
 
         if ( function_exists( 'ggr_ibkr_nav_fetch_and_store' ) ) {
@@ -1239,8 +1242,8 @@ function ggr_render_stock_price_page() {
             <?php wp_nonce_field( 'ggr_ibkr_manual_fetch' ); ?>
             <p class="submit">
                 <?php submit_button( $is_edit ? 'GGR-waarde bijwerken' : 'GGR-waarde opslaan', 'primary', 'ggr_price_submit', false ); ?>
-                <?php if ( $show_ibkr_sections ) : ?>
-                    <?php submit_button( 'Laatste waarde ophalen via IBKR API', 'secondary', 'ggr_ibkr_manual_fetch_submit', false ); ?>
+                <?php if ( $show_ibkr_manual_fetch ) : ?>
+                    <?php submit_button( 'Laatste Flex statement ophalen', 'secondary', 'ggr_ibkr_manual_fetch_submit', false ); ?>
                 <?php endif; ?>
             </p>
         </form>
@@ -1333,7 +1336,7 @@ function ggr_render_stock_price_page() {
                             <td>
                                 <?php if ( $statement_url ) : ?>
                                     <a href="<?php echo esc_url( $statement_url ); ?>" target="_blank" rel="noopener noreferrer">
-                                        Flex statement downloaden
+                                        FS downloaden
                                     </a>
                                 <?php else : ?>
                                     -
