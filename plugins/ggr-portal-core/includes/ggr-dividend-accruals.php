@@ -703,7 +703,82 @@ function ggr_ibkr_accruals_parse_statement_dom( $body, $statement_date ) {
     );
 }
 
+function ggr_ibkr_accruals_parse_statement_regex( $body, $statement_date ) {
+    $matches = array();
+    $pattern = '/<ChangeInDividendAccrual\b([^>]*?)(?:\/>|>)/i';
+    preg_match_all( $pattern, $body, $matches );
+
+    if ( empty( $matches[1] ) ) {
+        return array(
+            'entries'         => array(),
+            'total_count'     => 0,
+            'duplicate_count' => 0,
+        );
+    }
+
+    $entries = array();
+    $total_count = 0;
+    $duplicate_count = 0;
+
+    foreach ( $matches[1] as $attribute_block ) {
+        $attr_matches = array();
+        preg_match_all( '/([a-zA-Z0-9_:-]+)\s*=\s*"([^"]*)"/', $attribute_block, $attr_matches, PREG_SET_ORDER );
+
+        if ( empty( $attr_matches ) ) {
+            continue;
+        }
+
+        $attributes = array();
+        foreach ( $attr_matches as $attr_match ) {
+            $attributes[ strtolower( $attr_match[1] ) ] = $attr_match[2];
+        }
+
+        $action_id_raw = $attributes['actionid'] ?? $attributes['action_id'] ?? $attributes['id'] ?? '';
+        $report_raw    = $attributes['reportdate'] ?? $attributes['report_date'] ?? $attributes['date'] ?? '';
+        $gross_raw     = $attributes['grossvalue'] ?? $attributes['grossamount'] ?? $attributes['gross'] ?? $attributes['amount'] ?? '';
+        $tax_raw       = $attributes['tax'] ?? $attributes['taxamount'] ?? $attributes['withholdingtax'] ?? '';
+        $net_raw       = $attributes['netamount'] ?? $attributes['net'] ?? $attributes['netvalue'] ?? '';
+
+        $action_id = $action_id_raw ? trim( $action_id_raw ) : '';
+        $report_date = $report_raw ? ggr_dividend_accruals_parse_date( $report_raw ) : $statement_date;
+        $gross_value = ggr_dividend_accruals_parse_float( $gross_raw );
+        $tax_value   = ggr_dividend_accruals_parse_float( $tax_raw );
+        $net_amount  = ggr_dividend_accruals_parse_float( $net_raw );
+
+        if ( ! $action_id || ! $report_date ) {
+            continue;
+        }
+
+        $total_count++;
+
+        if ( isset( $entries[ $action_id ] ) ) {
+            $duplicate_count++;
+            continue;
+        }
+
+        $entries[ $action_id ] = array(
+            'action_id'   => $action_id,
+            'report_date' => $report_date,
+            'gross_value' => $gross_value,
+            'tax_value'   => $tax_value,
+            'net_amount'  => $net_amount,
+        );
+    }
+
+    return array(
+        'entries'         => array_values( $entries ),
+        'total_count'     => $total_count,
+        'duplicate_count' => $duplicate_count,
+    );
+}
+
 function ggr_ibkr_accruals_parse_statement( $body ) {
+    $body = (string) $body;
+    $start_pos = strpos( $body, '<' );
+    if ( $start_pos !== false ) {
+        $body = substr( $body, $start_pos );
+    }
+
     $xml = simplexml_load_string( $body );
 
     if ( false === $xml ) {
@@ -784,6 +859,12 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
             return $dom_parsed;
         }
 
+        $regex_parsed = ggr_ibkr_accruals_parse_statement_regex( $body, $statement_date );
+
+        if ( $regex_parsed['total_count'] > 0 ) {
+            return $regex_parsed;
+        }
+        
         return new WP_Error( 'ggr_ibkr_missing_rows', 'Geen accruals gevonden in Flex statement.' );
     }
 
