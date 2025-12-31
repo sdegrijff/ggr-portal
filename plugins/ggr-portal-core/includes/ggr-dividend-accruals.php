@@ -613,6 +613,96 @@ function ggr_ibkr_accruals_get_value( SimpleXMLElement $node, array $keys ) {
     return ggr_ibkr_accruals_get_child_value( $node, $keys );
 }
 
+function ggr_ibkr_accruals_dom_get_attribute( DOMElement $node, array $keys ) {
+    $lower_keys = array_map( 'strtolower', $keys );
+
+    if ( ! $node->hasAttributes() ) {
+        return '';
+    }
+
+    foreach ( $node->attributes as $attribute ) {
+        if ( in_array( strtolower( $attribute->name ), $lower_keys, true ) ) {
+            return trim( (string) $attribute->value );
+        }
+    }
+
+    return '';
+}
+
+function ggr_ibkr_accruals_parse_statement_dom( $body, $statement_date ) {
+    $dom = new DOMDocument();
+    $previous = libxml_use_internal_errors( true );
+    $loaded = $dom->loadXML( $body );
+    libxml_clear_errors();
+    libxml_use_internal_errors( $previous );
+
+    if ( ! $loaded ) {
+        return array(
+            'entries'         => array(),
+            'total_count'     => 0,
+            'duplicate_count' => 0,
+        );
+    }
+
+    $xpath = new DOMXPath( $dom );
+    $nodes = $xpath->query( '//*[local-name()="ChangeInDividendAccrual"]' );
+
+    if ( ! $nodes || 0 === $nodes->length ) {
+        return array(
+            'entries'         => array(),
+            'total_count'     => 0,
+            'duplicate_count' => 0,
+        );
+    }
+
+    $entries = array();
+    $total_count = 0;
+    $duplicate_count = 0;
+
+    foreach ( $nodes as $node ) {
+        if ( ! $node instanceof DOMElement ) {
+            continue;
+        }
+
+        $action_id_raw = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'actionID', 'actionId', 'action_id', 'id' ) );
+        $report_raw    = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'reportDate', 'report_date', 'date' ) );
+        $gross_raw     = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'grossValue', 'grossAmount', 'gross', 'amount' ) );
+        $tax_raw       = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'tax', 'taxAmount', 'withholdingTax' ) );
+        $net_raw       = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'netAmount', 'netamount', 'net', 'netValue' ) );
+
+        $action_id = $action_id_raw ? trim( $action_id_raw ) : '';
+        $report_date = $report_raw ? ggr_dividend_accruals_parse_date( $report_raw ) : $statement_date;
+        $gross_value = ggr_dividend_accruals_parse_float( $gross_raw );
+        $tax_value   = ggr_dividend_accruals_parse_float( $tax_raw );
+        $net_amount  = ggr_dividend_accruals_parse_float( $net_raw );
+
+        if ( ! $action_id || ! $report_date ) {
+            continue;
+        }
+
+        $total_count++;
+
+        if ( isset( $entries[ $action_id ] ) ) {
+            $duplicate_count++;
+            continue;
+        }
+
+        $entries[ $action_id ] = array(
+            'action_id'   => $action_id,
+            'report_date' => $report_date,
+            'gross_value' => $gross_value,
+            'tax_value'   => $tax_value,
+            'net_amount'  => $net_amount,
+        );
+    }
+
+    return array(
+        'entries'         => array_values( $entries ),
+        'total_count'     => $total_count,
+        'duplicate_count' => $duplicate_count,
+    );
+}
+
 function ggr_ibkr_accruals_parse_statement( $body ) {
     $xml = simplexml_load_string( $body );
 
@@ -688,6 +778,12 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
     }
 
     if ( $total_count === 0 ) {
+        $dom_parsed = ggr_ibkr_accruals_parse_statement_dom( $body, $statement_date );
+
+        if ( $dom_parsed['total_count'] > 0 ) {
+            return $dom_parsed;
+        }
+
         return new WP_Error( 'ggr_ibkr_missing_rows', 'Geen accruals gevonden in Flex statement.' );
     }
 
