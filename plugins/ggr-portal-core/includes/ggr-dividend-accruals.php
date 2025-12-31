@@ -318,6 +318,50 @@ function ggr_ibkr_accruals_get_query_id() {
     return is_string( $query_id ) ? trim( $query_id ) : '';
 }
 
+function ggr_ibkr_accruals_has_credentials() {
+    return ggr_ibkr_accruals_get_token() && ggr_ibkr_accruals_get_query_id();
+}
+
+function ggr_ibkr_accruals_clear_cron() {
+    while ( ( $timestamp = wp_next_scheduled( 'ggr_ibkr_accruals_fetch_event' ) ) !== false ) {
+        wp_unschedule_event( $timestamp, 'ggr_ibkr_accruals_fetch_event' );
+    }
+}
+
+function ggr_ibkr_accruals_schedule_cron() {
+    if ( ! ggr_ibkr_accruals_has_credentials() ) {
+        ggr_ibkr_accruals_clear_cron();
+        return;
+    }
+
+    if ( ! wp_next_scheduled( 'ggr_ibkr_accruals_fetch_event' ) ) {
+        wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'ggr_ibkr_accruals_fetch_event' );
+    }
+}
+add_action( 'init', 'ggr_ibkr_accruals_schedule_cron' );
+
+function ggr_ibkr_accruals_set_last_run( $count, $latest_report_date = '', $statement_url = '' ) {
+    update_option(
+        'ggr_ibkr_accruals_last_run',
+        array(
+            'timestamp'     => current_time( 'timestamp' ),
+            'count'         => (int) $count,
+            'report_date'   => $latest_report_date,
+            'statement_url' => $statement_url ? esc_url_raw( $statement_url ) : '',
+        ),
+        false
+    );
+}
+
+function ggr_ibkr_accruals_get_status() {
+    return array(
+        'has_credentials' => ggr_ibkr_accruals_has_credentials(),
+        'next_run'        => wp_next_scheduled( 'ggr_ibkr_accruals_fetch_event' ),
+        'last_run'        => get_option( 'ggr_ibkr_accruals_last_run' ),
+        'last_error'      => get_option( 'ggr_ibkr_accruals_last_error' ),
+    );
+}
+
 function ggr_ibkr_accruals_get_base_url() {
     if ( function_exists( 'ggr_ibkr_nav_get_base_url' ) ) {
         return ggr_ibkr_nav_get_base_url();
@@ -428,7 +472,7 @@ function ggr_ibkr_accruals_set_last_error( WP_Error $error, $context_message = '
     $statement_url = '';
 
     if ( is_array( $data ) && ! empty( $data['statement_url'] ) ) {
-        $statement_url = $data['statement_url'];
+        $statement_url = esc_url_raw( $data['statement_url'] );
     }
 
     update_option(
@@ -553,9 +597,9 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
     return array_values( $entries );
 }
 
-function ggr_ibkr_accruals_fetch_entries() {
-    $token    = ggr_ibkr_accruals_get_token();
-    $query_id = ggr_ibkr_accruals_get_query_id();
+function ggr_ibkr_accruals_fetch_entries( $token = null, $query_id = null ) {
+    $token    = $token ?: ggr_ibkr_accruals_get_token();
+    $query_id = $query_id ?: ggr_ibkr_accruals_get_query_id();
 
     if ( ! $token || ! $query_id ) {
         return new WP_Error( 'ggr_ibkr_missing_credentials', 'Flex token of Accruals Query ID ontbreekt.' );
@@ -582,8 +626,62 @@ function ggr_ibkr_accruals_fetch_entries() {
         return $parsed;
     }
 
-    return $parsed;
+    return array(
+        'entries'       => $parsed,
+        'statement_url' => $statement_url,
+    );
 }
+
+function ggr_ibkr_accruals_store_entries( array $entries ) {
+    $imported           = 0;
+    $latest_report_date = '';
+
+    foreach ( $entries as $entry ) {
+        if ( ! is_array( $entry ) ) {
+            continue;
+        }
+
+        $saved = ggr_dividend_accrual_history_upsert(
+            $entry['action_id'],
+            $entry['report_date'],
+            $entry['gross_value'],
+            $entry['tax_value'],
+            $entry['net_amount']
+        );
+
+        if ( $saved ) {
+            $imported++;
+        }
+
+        if ( ! empty( $entry['report_date'] ) ) {
+            $report_date = $entry['report_date'];
+            if ( ! $latest_report_date || strtotime( $report_date ) > strtotime( $latest_report_date ) ) {
+                $latest_report_date = $report_date;
+            }
+        }
+    }
+
+    return array(
+        'imported'    => $imported,
+        'report_date' => $latest_report_date,
+    );
+}
+
+function ggr_ibkr_accruals_fetch_and_store() {
+    $result = ggr_ibkr_accruals_fetch_entries();
+
+    if ( is_wp_error( $result ) ) {
+        ggr_ibkr_accruals_set_last_error( $result, 'IBKR accruals ophalen is mislukt' );
+        return $result;
+    }
+
+    $store_result = ggr_ibkr_accruals_store_entries( $result['entries'] );
+    ggr_ibkr_accruals_set_last_run( $store_result['imported'], $store_result['report_date'], $result['statement_url'] );
+    ggr_ibkr_accruals_clear_last_error();
+
+    return $store_result;
+}
+add_action( 'ggr_ibkr_accruals_fetch_event', 'ggr_ibkr_accruals_fetch_and_store' );
 
 /* ============================================================================
  * ADMIN MENU
@@ -960,37 +1058,15 @@ function ggr_render_dividend_accrual_page() {
     if ( isset( $_POST['ggr_ibkr_accruals_fetch_submit'] ) ) {
         check_admin_referer( 'ggr_ibkr_accruals_fetch' );
 
-        $entries = ggr_ibkr_accruals_fetch_entries();
+        $result = ggr_ibkr_accruals_fetch_entries();
 
-        if ( is_wp_error( $entries ) ) {
+        if ( is_wp_error( $result ) ) {
             $history_error = '';
-            ggr_ibkr_accruals_set_last_error( $entries, 'IBKR accruals ophalen is mislukt' );
+            ggr_ibkr_accruals_set_last_error( $result, 'IBKR accruals ophalen is mislukt' );
         } else {
-            $imported = 0;
-            foreach ( $entries as $entry ) {
-                $saved = ggr_dividend_accrual_history_upsert(
-                    $entry['action_id'],
-                    $entry['report_date'],
-                    $entry['gross_value'],
-                    $entry['tax_value'],
-                    $entry['net_amount']
-                );
-
-                if ( ! is_wp_error( $saved ) ) {
-                    $imported++;
-                }
-            }
-
-            update_option(
-                'ggr_ibkr_accruals_last_run',
-                array(
-                    'timestamp' => current_time( 'timestamp' ),
-                    'count'     => $imported,
-                ),
-                false
-            );
-
-            $history_notice = sprintf( 'IBKR accruals historie geïmporteerd: %d items opgeslagen.', $imported );
+            $store_result = ggr_ibkr_accruals_store_entries( $result['entries'] );
+            ggr_ibkr_accruals_set_last_run( $store_result['imported'], $store_result['report_date'], $result['statement_url'] );
+            $history_notice = sprintf( 'IBKR accruals historie geïmporteerd: %d items opgeslagen.', $store_result['imported'] );
             ggr_ibkr_accruals_clear_last_error();
         }
     }
@@ -1007,8 +1083,7 @@ function ggr_render_dividend_accrual_page() {
 
     $ibkr_accruals_token = ggr_ibkr_accruals_get_token();
     $ibkr_accruals_query_id = ggr_ibkr_accruals_get_query_id();
-    $ibkr_accruals_last_run = get_option( 'ggr_ibkr_accruals_last_run' );
-    $ibkr_accruals_last_error = get_option( 'ggr_ibkr_accruals_last_error' );
+    $ibkr_accruals_status = ggr_ibkr_accruals_get_status();
     
     $totals = array(
         'gross' => 0.0,
@@ -1171,25 +1246,43 @@ function ggr_render_dividend_accrual_page() {
         <h3>IBKR Flex API (accruals historie)</h3>
         <p>Gebruik de aparte Flex Query ID voor accruals historie. Het token is hetzelfde als bij NAV.</p>
 
-        <?php if ( ! empty( $ibkr_accruals_last_run ) && is_array( $ibkr_accruals_last_run ) ) : ?>
+        <?php if ( ! empty( $ibkr_accruals_status ) ) : ?>
             <div class="notice notice-info is-dismissible">
                 <p>
-                    Laatste import: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_accruals_last_run['timestamp'] ) ); ?></strong>
-                    (<?php echo esc_html( (int) $ibkr_accruals_last_run['count'] ); ?> items).
-                </p>
-            </div>
-        <?php endif; ?>
-        <?php if ( ! empty( $ibkr_accruals_last_error ) && is_array( $ibkr_accruals_last_error ) ) : ?>
-            <div class="notice notice-warning is-dismissible">
-                <p>
-                    Laatste fout: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_accruals_last_error['timestamp'] ) ); ?></strong>
-                    (<?php echo esc_html( $ibkr_accruals_last_error['message'] ); ?>).
-                    <?php if ( ! empty( $ibkr_accruals_last_error['statement_url'] ) ) : ?>
-                        <a href="<?php echo esc_url( $ibkr_accruals_last_error['statement_url'] ); ?>" target="_blank" rel="noopener noreferrer">
-                            Flex statement openen
-                        </a>
+                    <strong>Cron status:</strong>
+                    <?php if ( ! empty( $ibkr_accruals_status['has_credentials'] ) && ! empty( $ibkr_accruals_status['next_run'] ) ) : ?>
+                        Dagelijkse IBKR import staat ingepland.
+                        Volgende run: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', $ibkr_accruals_status['next_run'] ) ); ?></strong>.
+                    <?php else : ?>
+                        Automatische import staat nog niet ingepland. Vul token en Query ID in en sla op.
                     <?php endif; ?>
                 </p>
+                <?php if ( ! empty( $ibkr_accruals_status['last_run'] ) && is_array( $ibkr_accruals_status['last_run'] ) ) : ?>
+                    <p>
+                        Laatste succesvolle import: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_accruals_status['last_run']['timestamp'] ) ); ?></strong>
+                        (<?php echo esc_html( (int) $ibkr_accruals_status['last_run']['count'] ); ?> items
+                        <?php if ( ! empty( $ibkr_accruals_status['last_run']['report_date'] ) ) : ?>
+                            , reportdatum: <?php echo esc_html( wp_date( 'd-m-Y', strtotime( $ibkr_accruals_status['last_run']['report_date'] ) ) ); ?>
+                        <?php endif; ?>
+                        ).
+                        <?php if ( ! empty( $ibkr_accruals_status['last_run']['statement_url'] ) ) : ?>
+                            <a href="<?php echo esc_url( $ibkr_accruals_status['last_run']['statement_url'] ); ?>" target="_blank" rel="noopener noreferrer">
+                                Flex statement openen
+                            </a>
+                        <?php endif; ?>
+                    </p>
+                <?php endif; ?>
+                <?php if ( ! empty( $ibkr_accruals_status['last_error'] ) && is_array( $ibkr_accruals_status['last_error'] ) ) : ?>
+                    <p>
+                        Laatste fout: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_accruals_status['last_error']['timestamp'] ) ); ?></strong>
+                        (<?php echo esc_html( $ibkr_accruals_status['last_error']['message'] ); ?>).
+                        <?php if ( ! empty( $ibkr_accruals_status['last_error']['statement_url'] ) ) : ?>
+                            <a href="<?php echo esc_url( $ibkr_accruals_status['last_error']['statement_url'] ); ?>" target="_blank" rel="noopener noreferrer">
+                                Flex statement openen
+                            </a>
+                        <?php endif; ?>
+                    </p>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
         <form method="post">
