@@ -577,7 +577,11 @@ function ggr_ibkr_accruals_get_attribute( SimpleXMLElement $node, array $keys ) 
     $lower_keys = array_map( 'strtolower', $keys );
 
     foreach ( $attributes as $key => $value ) {
-        if ( in_array( strtolower( (string) $key ), $lower_keys, true ) ) {
+        $normalized_key = strtolower( (string) $key );
+        if ( strpos( $normalized_key, ':' ) !== false ) {
+            $normalized_key = substr( $normalized_key, strrpos( $normalized_key, ':' ) + 1 );
+        }
+        if ( in_array( $normalized_key, $lower_keys, true ) ) {
             return trim( (string) $value );
         }
     }
@@ -595,7 +599,11 @@ function ggr_ibkr_accruals_get_child_value( SimpleXMLElement $node, array $keys 
     $lower_keys = array_map( 'strtolower', $keys );
 
     foreach ( $children as $key => $value ) {
-        if ( in_array( strtolower( (string) $key ), $lower_keys, true ) ) {
+        $normalized_key = strtolower( (string) $key );
+        if ( strpos( $normalized_key, ':' ) !== false ) {
+            $normalized_key = substr( $normalized_key, strrpos( $normalized_key, ':' ) + 1 );
+        }
+        if ( in_array( $normalized_key, $lower_keys, true ) ) {
             return trim( (string) $value );
         }
     }
@@ -621,7 +629,8 @@ function ggr_ibkr_accruals_dom_get_attribute( DOMElement $node, array $keys ) {
     }
 
     foreach ( $node->attributes as $attribute ) {
-        if ( in_array( strtolower( $attribute->name ), $lower_keys, true ) ) {
+        $attribute_name = strtolower( $attribute->localName ? $attribute->localName : $attribute->name );
+        if ( in_array( $attribute_name, $lower_keys, true ) ) {
             return trim( (string) $attribute->value );
         }
     }
@@ -705,7 +714,7 @@ function ggr_ibkr_accruals_parse_statement_dom( $body, $statement_date ) {
 
 function ggr_ibkr_accruals_parse_statement_regex( $body, $statement_date ) {
     $matches = array();
-    $pattern = '/<ChangeInDividendAccrual\b([^>]*?)(?:\/>|>)/i';
+    $pattern = '/<(?:[a-zA-Z0-9_:-]+:)?ChangeInDividendAccrual\b([^>]*?)(?:\/>|>)/i';
     preg_match_all( $pattern, $body, $matches );
 
     if ( empty( $matches[1] ) ) {
@@ -730,7 +739,11 @@ function ggr_ibkr_accruals_parse_statement_regex( $body, $statement_date ) {
 
         $attributes = array();
         foreach ( $attr_matches as $attr_match ) {
-            $attributes[ strtolower( $attr_match[1] ) ] = $attr_match[2];
+            $attribute_name = strtolower( $attr_match[1] );
+            $attributes[ $attribute_name ] = $attr_match[2];
+            if ( strpos( $attribute_name, ':' ) !== false ) {
+                $attributes[ substr( $attribute_name, strrpos( $attribute_name, ':' ) + 1 ) ] = $attr_match[2];
+            }
         }
 
         $action_id_raw = $attributes['actionid'] ?? $attributes['action_id'] ?? $attributes['id'] ?? '';
@@ -797,10 +810,6 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
 
     if ( empty( $nodes ) ) {
         $nodes = $xml->xpath( '//*[local-name()!=""]' );
-    }
-
-    if ( empty( $nodes ) ) {
-        return new WP_Error( 'ggr_ibkr_missing_rows', 'Geen accruals gevonden in Flex statement.' );
     }
 
     $accrual_nodes = $xml->xpath( '//ChangeInDividendAccrual' );
