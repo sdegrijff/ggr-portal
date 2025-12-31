@@ -551,6 +551,14 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
     $nodes = $xml->xpath( '//*[@actionID or @actionId or @action_id or @grossValue or @grossAmount or @tax or @netAmount or @netamount or actionID or actionId or action_id or reportDate or report_date or grossValue or grossAmount or tax or netAmount or netamount]' );
 
     if ( empty( $nodes ) ) {
+        $nodes = $xml->xpath(
+            '//*[local-name() and (@actionID or @actionId or @action_id or @grossValue or @grossAmount or @tax or @netAmount or @netamount'
+            . ' or *[local-name()="actionID" or local-name()="actionId" or local-name()="action_id" or local-name()="reportDate" or local-name()="report_date"'
+            . ' or local-name()="grossValue" or local-name()="grossAmount" or local-name()="tax" or local-name()="netAmount" or local-name()="netamount"])]'
+        );
+    }
+
+    if ( empty( $nodes ) ) {
         return new WP_Error( 'ggr_ibkr_missing_rows', 'Geen accruals gevonden in Flex statement.' );
     }
 
