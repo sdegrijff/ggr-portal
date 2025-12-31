@@ -492,7 +492,7 @@ function ggr_ibkr_accruals_clear_last_error() {
 }
 
 function ggr_ibkr_accruals_get_attribute( SimpleXMLElement $node, array $keys ) {
-    $attributes = $node->attributes();
+    $attributes = $node->attributes( null, true );
 
     if ( ! $attributes ) {
         return '';
@@ -510,7 +510,7 @@ function ggr_ibkr_accruals_get_attribute( SimpleXMLElement $node, array $keys ) 
 }
 
 function ggr_ibkr_accruals_get_child_value( SimpleXMLElement $node, array $keys ) {
-    $children = $node->children();
+    $children = $node->children( null, true );
 
     if ( ! $children ) {
         return '';
@@ -551,11 +551,7 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
     $nodes = $xml->xpath( '//*[@actionID or @actionId or @action_id or @grossValue or @grossAmount or @tax or @netAmount or @netamount or actionID or actionId or action_id or reportDate or report_date or grossValue or grossAmount or tax or netAmount or netamount]' );
 
     if ( empty( $nodes ) ) {
-        $nodes = $xml->xpath(
-            '//*[local-name() and (@actionID or @actionId or @action_id or @grossValue or @grossAmount or @tax or @netAmount or @netamount'
-            . ' or *[local-name()="actionID" or local-name()="actionId" or local-name()="action_id" or local-name()="reportDate" or local-name()="report_date"'
-            . ' or local-name()="grossValue" or local-name()="grossAmount" or local-name()="tax" or local-name()="netAmount" or local-name()="netamount"])]'
-        );
+        $nodes = $xml->xpath( '//*' );
     }
 
     if ( empty( $nodes ) ) {
