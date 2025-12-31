@@ -90,13 +90,14 @@ add_action( 'init', 'ggr_ibkr_nav_schedule_cron' );
  * @param float|null $fund_total
  * @param float|null $total_participations
  */
-function ggr_ibkr_nav_set_last_run( $date, $nav, $fund_total = null, $total_participations = null ) {
+function ggr_ibkr_nav_set_last_run( $date, $nav, $fund_total = null, $total_participations = null, $statement_url = '' ) {
     $payload = array(
         'date'                 => $date,
         'nav'                  => (float) $nav,
         'fund_total'           => ( null !== $fund_total ) ? (float) $fund_total : null,
         'total_participations' => ( null !== $total_participations ) ? (float) $total_participations : null,
         'timestamp'            => current_time( 'timestamp' ),
+        'statement_url'        => $statement_url ? esc_url_raw( $statement_url ) : '',
     );
 
     update_option( 'ggr_ibkr_nav_last_run', $payload, false );
@@ -147,9 +148,11 @@ function ggr_ibkr_nav_fetch( $token = null, $query_id = null ) {
         return $reference_code;
     }
 
+    $statement_url = ggr_ibkr_nav_get_statement_url( $token, $reference_code );
     $statement_body = ggr_ibkr_nav_request_statement( $token, $reference_code );
 
     if ( is_wp_error( $statement_body ) ) {
+        $statement_body->add_data( array( 'statement_url' => $statement_url ) );
         ggr_ibkr_nav_log_error( 'IBKR GetStatement mislukt.', $statement_body );
         return $statement_body;
     }
@@ -157,6 +160,7 @@ function ggr_ibkr_nav_fetch( $token = null, $query_id = null ) {
     $parsed = ggr_ibkr_nav_parse_statement( $statement_body );
 
     if ( is_wp_error( $parsed ) ) {
+        $parsed->add_data( array( 'statement_url' => $statement_url ) );
         ggr_ibkr_nav_log_error( 'IBKR NAV parse mislukt.', $parsed );
         return $parsed;
     }
@@ -166,6 +170,7 @@ function ggr_ibkr_nav_fetch( $token = null, $query_id = null ) {
         array(
             'statement'      => $statement_body,
             'reference_code' => $reference_code,
+            'statement_url'  => $statement_url,
         )
     );
 }
@@ -220,7 +225,8 @@ function ggr_ibkr_nav_fetch_and_store( $token = null, $query_id = null ) {
     $result['value']                = $nav_per_participation; // backwards compat: value = NAV per participatie
     $result['total_participations'] = $total_parts;
 
-    ggr_ibkr_nav_set_last_run( $result['date'], $nav_per_participation, $result['total'], $total_parts );
+    $statement_url = isset( $result['statement_url'] ) ? $result['statement_url'] : '';
+    ggr_ibkr_nav_set_last_run( $result['date'], $nav_per_participation, $result['total'], $total_parts, $statement_url );
     ggr_ibkr_nav_clear_last_error();
     
     do_action(
@@ -281,6 +287,10 @@ function ggr_ibkr_nav_request_statement( $token, $reference_code ) {
     }
 
     return $response;
+}
+
+function ggr_ibkr_nav_get_statement_url( $token, $reference_code ) {
+    return ggr_ibkr_nav_get_base_url() . '.GetStatement?t=' . rawurlencode( $token ) . '&q=' . rawurlencode( $reference_code ) . '&v=3';
 }
 
 /**
@@ -587,12 +597,20 @@ function ggr_ibkr_nav_format_error_message( WP_Error $error ) {
 }
 
 function ggr_ibkr_nav_set_last_error( WP_Error $error ) {
+    $data          = $error->get_error_data();
+    $statement_url = '';
+
+    if ( is_array( $data ) && ! empty( $data['statement_url'] ) ) {
+        $statement_url = esc_url_raw( $data['statement_url'] );
+    }
+
     update_option(
         'ggr_ibkr_nav_last_error',
         array(
             'timestamp' => time(),
             'code'      => $error->get_error_code(),
             'message'   => ggr_ibkr_nav_format_error_message( $error ),
+            'statement_url' => $statement_url,
         ),
         false
     );
