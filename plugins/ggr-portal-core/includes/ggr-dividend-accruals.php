@@ -631,10 +631,19 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
     }
 
     if ( empty( $nodes ) ) {
+        $nodes = $xml->xpath( '//*[local-name()!=""]' );
+    }
+
+    if ( empty( $nodes ) ) {
         return new WP_Error( 'ggr_ibkr_missing_rows', 'Geen accruals gevonden in Flex statement.' );
     }
 
     $accrual_nodes = $xml->xpath( '//ChangeInDividendAccrual' );
+
+
+    if ( empty( $accrual_nodes ) ) {
+        $accrual_nodes = $xml->xpath( '//*[local-name()="ChangeInDividendAccrual"]' );
+    }
     $nodes_to_parse = ! empty( $accrual_nodes ) ? $accrual_nodes : $nodes;
 
     $entries = array();
@@ -1356,17 +1365,16 @@ function ggr_render_dividend_accrual_page() {
         <?php if ( ! empty( $ibkr_accruals_status ) ) : ?>
             <div class="notice notice-info is-dismissible">
                 <p>
-                    <strong>Cron status:</strong>
+                    <strong>Volgende Dividend Accruals:</strong>
                     <?php if ( ! empty( $ibkr_accruals_status['has_credentials'] ) && ! empty( $ibkr_accruals_status['next_run'] ) ) : ?>
-                        Dagelijkse IBKR import staat ingepland.
-                        Volgende run: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', $ibkr_accruals_status['next_run'] ) ); ?></strong>.
+                        <?php echo esc_html( wp_date( 'd-m-Y H:i', $ibkr_accruals_status['next_run'] ) ); ?>
                     <?php else : ?>
                         Automatische import staat nog niet ingepland. Vul token en Query ID in en sla op.
                     <?php endif; ?>
                 </p>
                 <?php if ( ! empty( $ibkr_accruals_status['last_run'] ) && is_array( $ibkr_accruals_status['last_run'] ) ) : ?>
                     <p>
-                        Laatste succesvolle import: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_accruals_status['last_run']['timestamp'] ) ); ?></strong>
+                        <strong>Laatste Dividend Accruals: </strong><?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_accruals_status['last_run']['timestamp'] ) ); ?>
                         (<?php echo esc_html( (int) $ibkr_accruals_status['last_run']['count'] ); ?> items gevonden
                         <?php if ( isset( $ibkr_accruals_status['last_run']['duplicates'] ) ) : ?>
                             , <?php echo esc_html( (int) $ibkr_accruals_status['last_run']['duplicates'] ); ?> duplicates
