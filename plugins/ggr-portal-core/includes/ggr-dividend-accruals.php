@@ -18,7 +18,7 @@ if ( ! defined( 'GGR_DIVIDEND_ACCRUAL_DB_VERSION' ) ) {
 add_action( 'plugins_loaded', 'ggr_maybe_create_dividend_accrual_table' );
 
 if ( ! defined( 'GGR_DIVIDEND_ACCRUAL_HISTORY_DB_VERSION' ) ) {
-    define( 'GGR_DIVIDEND_ACCRUAL_HISTORY_DB_VERSION', '1.1' );
+    define( 'GGR_DIVIDEND_ACCRUAL_HISTORY_DB_VERSION', '1.2' );
 }
 
 add_action( 'plugins_loaded', 'ggr_maybe_create_dividend_accrual_history_table' );
