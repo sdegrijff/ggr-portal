@@ -99,8 +99,52 @@ function ggr_maybe_create_dividend_accrual_history_table() {
         return;
     }
 
+    ggr_upgrade_dividend_accrual_history_table( $installed );
     ggr_create_dividend_accrual_history_table();
 }
+
+function ggr_upgrade_dividend_accrual_history_table( $installed_version ) {
+    if ( version_compare( $installed_version, '1.1', '>=' ) ) {
+        return;
+    }
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'ggr_dividend_accrual_history';
+
+    $table_exists = $wpdb->get_var(
+        $wpdb->prepare( "SHOW TABLES LIKE %s", $table_name )
+    );
+
+    if ( ! $table_exists ) {
+        return;
+    }
+
+    $duplicates = $wpdb->get_results(
+        "SELECT action_id, MAX(id) AS keep_id, COUNT(*) AS total
+         FROM {$table_name}
+         GROUP BY action_id
+         HAVING COUNT(*) > 1",
+        ARRAY_A
+    );
+
+    if ( empty( $duplicates ) ) {
+        return;
+    }
+
+    foreach ( $duplicates as $duplicate ) {
+        $action_id = $duplicate['action_id'];
+        $keep_id   = (int) $duplicate['keep_id'];
+
+        $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM {$table_name} WHERE action_id = %s AND id <> %d",
+                $action_id,
+                $keep_id
+            )
+        );
+    }
+}
+
 
 function ggr_dividend_accrual_user_can_access() {
     if ( function_exists( 'ggr_admin_shell_user_can_access' ) ) {
@@ -1443,7 +1487,7 @@ function ggr_render_dividend_accrual_page() {
                             <td>
                                 <?php if ( $history_statement_url ) : ?>
                                     <a href="<?php echo esc_url( $history_statement_url ); ?>" target="_blank" rel="noopener noreferrer">
-                                        Flex statement downloaden
+                                        FS downloaden
                                     </a>
                                 <?php else : ?>
                                     -
@@ -1480,6 +1524,16 @@ function ggr_register_dividend_accrual_endpoint() {
         array(
             'methods'             => 'POST',
             'callback'            => 'ggr_api_update_dividend_accrual',
+            'permission_callback' => 'ggr_api_authenticate_google_sheet',
+        )
+    );
+
+    register_rest_route(
+        'ggr/v1',
+        '/dividend-accrual-history',
+        array(
+            'methods'             => 'GET',
+            'callback'            => 'ggr_api_get_dividend_accrual_history',
             'permission_callback' => 'ggr_api_authenticate_google_sheet',
         )
     );
@@ -1544,5 +1598,47 @@ function ggr_api_update_dividend_accrual( WP_REST_Request $request ) {
         'net'                  => $net_value,
         'total_participations' => $total_parts,
         'per_participation'    => round( $net_value / $total_parts, 6 ),
+    );
+}
+
+function ggr_api_get_dividend_accrual_history( WP_REST_Request $request ) {
+    $report_date_raw = $request->get_param( 'report_date' );
+
+    if ( empty( $report_date_raw ) ) {
+        return new WP_Error(
+            'missing_params',
+            'Parameter "report_date" is verplicht.',
+            array( 'status' => 400 )
+        );
+    }
+
+    $report_date = ggr_dividend_accruals_parse_date( $report_date_raw );
+
+    if ( ! $report_date ) {
+        return new WP_Error(
+            'invalid_date',
+            'Ongeldige reportdate.',
+            array( 'status' => 400 )
+        );
+    }
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'ggr_dividend_accrual_history';
+
+    $rows = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT action_id, report_date, gross_value, tax_value, net_amount
+             FROM {$table_name}
+             WHERE report_date = %s
+             ORDER BY action_id ASC, id ASC",
+            $report_date
+        ),
+        ARRAY_A
+    );
+
+    return array(
+        'report_date' => $report_date,
+        'items'       => $rows ? $rows : array(),
+        'count'       => $rows ? count( $rows ) : 0,
     );
 }
