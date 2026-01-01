@@ -204,13 +204,25 @@ function ggr_ibkr_nav_fetch_and_store( $token = null, $query_id = null ) {
         return $error;
     }
 
-    $nav_per_participation = round( $result['total'] / $total_parts, 6 );
+    $gross_per_participation = round( $result['total'] / $total_parts, 6 );
+    $fee_percent             = function_exists( 'ggr_stock_price_get_default_management_fee_percent' )
+        ? ggr_stock_price_get_default_management_fee_percent()
+        : 0.0;
+    $nav_per_participation = function_exists( 'ggr_stock_price_calculate_net_from_gross' )
+        ? ggr_stock_price_calculate_net_from_gross( $gross_per_participation, $fee_percent )
+        : $gross_per_participation;
+
+    if ( null === $nav_per_participation ) {
+        $nav_per_participation = $gross_per_participation;
+    }
     $statement_url = isset( $result['statement_url'] ) ? $result['statement_url'] : '';    
 
     $stored = ggr_upsert_stock_price(
         $result['date'],
         $nav_per_participation,
         array(
+            'gross_price_value'      => $gross_per_participation,
+            'management_fee_percent' => $fee_percent,
             'fund_total'           => $result['total'],
             'total_participations' => $total_parts,
             'statement_url'        => $statement_url,            
