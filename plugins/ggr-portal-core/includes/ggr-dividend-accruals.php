@@ -575,6 +575,67 @@ function ggr_dividend_accruals_backfill_history( $fx_rate = null ) {
     update_option( 'ggr_dividend_accruals_history_backfill_until', $end_month, false );
 }
 
+function ggr_dividend_accruals_backfill_history_all( $fx_rate = null ) {
+    global $wpdb;
+
+    $table_name = $wpdb->prefix . 'ggr_dividend_accrual_history';
+    $range = $wpdb->get_row(
+        "SELECT MIN(report_date) AS min_date, MAX(report_date) AS max_date FROM {$table_name}",
+        ARRAY_A
+    );
+
+    if ( ! $range || empty( $range['min_date'] ) || empty( $range['max_date'] ) ) {
+        return new WP_Error( 'missing_history', 'Geen accruals historie gevonden om te verwerken.' );
+    }
+
+    $start_month = ggr_dividend_accruals_get_month_start( $range['min_date'] );
+    $end_month = ggr_dividend_accruals_get_month_start( $range['max_date'] );
+
+    if ( ! $start_month || ! $end_month ) {
+        return new WP_Error( 'invalid_range', 'Ongeldige maand-range voor backfill.' );
+    }
+
+    $last_complete_month = wp_date( 'Y-m-01', strtotime( 'first day of previous month', current_time( 'timestamp' ) ) );
+    if ( strtotime( $end_month ) > strtotime( $last_complete_month ) ) {
+        $end_month = $last_complete_month;
+    }
+
+    if ( strtotime( $end_month ) < strtotime( $start_month ) ) {
+        return new WP_Error( 'invalid_range', 'Geen complete maanden gevonden om te verwerken.' );
+    }
+
+    $result = array(
+        'start_month' => $start_month,
+        'end_month'   => $end_month,
+        'created'     => 0,
+        'skipped'     => 0,
+        'missing'     => 0,
+    );
+
+    $cursor = $start_month;
+    while ( $cursor && strtotime( $cursor ) <= strtotime( $end_month ) ) {
+        $existing = ggr_dividend_accruals_get_by_date( $cursor );
+        if ( $existing ) {
+            $result['skipped']++;
+            $cursor = ggr_dividend_accruals_get_next_month_start( $cursor );
+            continue;
+        }
+
+        $computed = ggr_dividend_accruals_generate_month_from_history( $cursor, $fx_rate );
+        if ( is_wp_error( $computed ) ) {
+            $result['missing']++;
+        } else {
+            $result['created']++;
+        }
+
+        $cursor = ggr_dividend_accruals_get_next_month_start( $cursor );
+    }
+
+    update_option( 'ggr_dividend_accruals_history_backfill_until', $end_month, false );
+
+    return $result;
+}
+
 function ggr_dividend_accruals_run_monthly_rollup() {
     $today = current_time( 'timestamp' );
     if ( wp_date( 'd', $today ) !== '01' ) {
@@ -1386,6 +1447,8 @@ function ggr_render_dividend_accrual_page() {
 
     $notice = '';
     $error  = '';
+    $rollup_notice = '';
+    $rollup_error = '';
     $history_notice = '';
     $history_error  = '';
 
@@ -1727,6 +1790,23 @@ function ggr_render_dividend_accrual_page() {
         }
     }
 
+    if ( isset( $_POST['ggr_dividend_accruals_backfill_submit'] ) ) {
+        check_admin_referer( 'ggr_dividend_accruals_backfill' );
+
+        $backfill = ggr_dividend_accruals_backfill_history_all();
+
+        if ( is_wp_error( $backfill ) ) {
+            $rollup_error = $backfill->get_error_message();
+        } else {
+            $rollup_notice = sprintf(
+                'Backfill afgerond: %d nieuwe maanden opgeslagen, %d overgeslagen (bestond al), %d zonder historie.',
+                (int) $backfill['created'],
+                (int) $backfill['skipped'],
+                (int) $backfill['missing']
+            );
+        }
+    }
+
     $rows = $wpdb->get_results(
         "SELECT * FROM {$table_name} ORDER BY accrual_date DESC, id DESC",
         ARRAY_A
@@ -1778,6 +1858,14 @@ function ggr_render_dividend_accrual_page() {
 
         <?php if ( $error ) : ?>
             <div class="notice notice-error"><p><?php echo esc_html( $error ); ?></p></div>
+        <?php endif; ?>
+
+        <?php if ( $rollup_notice ) : ?>
+            <div class="notice notice-success"><p><?php echo esc_html( $rollup_notice ); ?></p></div>
+        <?php endif; ?>
+
+        <?php if ( $rollup_error ) : ?>
+            <div class="notice notice-error"><p><?php echo esc_html( $rollup_error ); ?></p></div>
         <?php endif; ?>
 
         <h2><?php echo $is_edit ? 'Dividend accrual bewerken' : 'Nieuwe dividend accrual'; ?></h2>
@@ -1835,6 +1923,12 @@ function ggr_render_dividend_accrual_page() {
                     Je kunt deze bedragen altijd aanpassen. Voor USD-bedragen kun je optioneel een USD/EUR koers opslaan
                     zodat de conversie later handmatig of via API kan worden bijgewerkt.
                 </p>
+                <form method="post" style="margin:10px 0 0;">
+                    <?php wp_nonce_field( 'ggr_dividend_accruals_backfill' ); ?>
+                    <button type="submit" class="button button-secondary" name="ggr_dividend_accruals_backfill_submit">
+                        Alle ontbrekende maanden bijwerken
+                    </button>
+                </form>
             </div>
             <div style="min-width:240px;max-width:320px;">
                 <h3 style="margin-top:0;">Financieel overzicht</h3>
@@ -1963,7 +2057,7 @@ function ggr_render_dividend_accrual_page() {
         <p>Gebruik de aparte Flex Query ID voor accruals historie. Het token is hetzelfde als bij NAV.</p>
 
         <?php if ( ! empty( $ibkr_accruals_status ) ) : ?>
-            <div class="notice notice-info is-dismissible">
+            <div class="notice notice-info">
                 <p>
                     <strong>Volgende Dividend Accruals:</strong>
                     <?php if ( ! empty( $ibkr_accruals_status['has_credentials'] ) && ! empty( $ibkr_accruals_status['next_run'] ) ) : ?>
@@ -1972,7 +2066,9 @@ function ggr_render_dividend_accrual_page() {
                         Automatische import staat nog niet ingepland. Vul token en Query ID in en sla op.
                     <?php endif; ?>
                 </p>
-                <?php if ( ! empty( $ibkr_accruals_status['last_run'] ) && is_array( $ibkr_accruals_status['last_run'] ) ) : ?>
+            </div>
+            <?php if ( ! empty( $ibkr_accruals_status['last_run'] ) && is_array( $ibkr_accruals_status['last_run'] ) ) : ?>
+                <div class="notice notice-info is-dismissible">
                     <p>
                         <strong>Laatste Dividend Accruals: </strong><?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_accruals_status['last_run']['timestamp'] ) ); ?>
                         (<?php echo esc_html( (int) $ibkr_accruals_status['last_run']['count'] ); ?> items gevonden
@@ -1992,8 +2088,10 @@ function ggr_render_dividend_accrual_page() {
                             </a>
                         <?php endif; ?>
                     </p>
-                <?php endif; ?>
-                <?php if ( ! empty( $ibkr_accruals_status['last_error'] ) && is_array( $ibkr_accruals_status['last_error'] ) ) : ?>
+                </div>
+            <?php endif; ?>
+            <?php if ( ! empty( $ibkr_accruals_status['last_error'] ) && is_array( $ibkr_accruals_status['last_error'] ) ) : ?>
+                <div class="notice notice-error">
                     <p>
                         Laatste fout: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_accruals_status['last_error']['timestamp'] ) ); ?></strong>
                         (<?php echo esc_html( $ibkr_accruals_status['last_error']['message'] ); ?>).
@@ -2003,8 +2101,8 @@ function ggr_render_dividend_accrual_page() {
                             </a>
                         <?php endif; ?>
                     </p>
-                <?php endif; ?>
-            </div>
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
         <form method="post">
             <?php wp_nonce_field( 'ggr_ibkr_accruals_credentials' ); ?>
