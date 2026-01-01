@@ -212,6 +212,24 @@ function ggr_dividend_accruals_get_month_start( $date ) {
     return wp_date( 'Y-m-01', $timestamp );
 }
 
+function ggr_dividend_accruals_get_month_end( $date ) {
+    $timestamp = strtotime( (string) $date );
+    if ( ! $timestamp ) {
+        return '';
+    }
+
+    return wp_date( 'Y-m-t', $timestamp );
+}
+
+function ggr_dividend_accruals_get_previous_month_end( $date ) {
+    $timestamp = strtotime( (string) $date );
+    if ( ! $timestamp ) {
+        return '';
+    }
+
+    return wp_date( 'Y-m-t', strtotime( 'last day of previous month', $timestamp ) );
+}
+
 function ggr_dividend_accruals_get_next_month_start( $month_start ) {
     $timestamp = strtotime( (string) $month_start );
     if ( ! $timestamp ) {
@@ -221,11 +239,21 @@ function ggr_dividend_accruals_get_next_month_start( $month_start ) {
     return wp_date( 'Y-m-01', strtotime( 'first day of next month', $timestamp ) );
 }
 
+function ggr_dividend_accruals_normalize_accrual_date( $date ) {
+    $date_mysql = ggr_dividend_accruals_parse_date( $date );
+
+    if ( ! $date_mysql ) {
+        return '';
+    }
+
+    return ggr_dividend_accruals_get_month_end( $date_mysql );
+}
+
 function ggr_dividend_accruals_get_by_date( $date ) {
     global $wpdb;
 
     $table_name = $wpdb->prefix . 'ggr_dividend_accruals';
-    $date_mysql = ggr_dividend_accruals_parse_date( $date );
+    $date_mysql = ggr_dividend_accruals_normalize_accrual_date( $date );
 
     if ( ! $date_mysql ) {
         return null;
@@ -262,7 +290,7 @@ function ggr_dividend_accruals_upsert( $date, $gross_total, $total_participation
     global $wpdb;
 
     $table_name = $wpdb->prefix . 'ggr_dividend_accruals';
-    $date_mysql = ggr_dividend_accruals_parse_date( $date );
+    $date_mysql = ggr_dividend_accruals_normalize_accrual_date( $date );
 
     if ( ! $date_mysql ) {
         return new WP_Error( 'invalid_date', 'Ongeldige datum.' );
@@ -1522,7 +1550,7 @@ function ggr_render_dividend_accrual_page() {
         $form_source_net = $source_net_raw;
         $form_fx_rate = $fx_rate_raw;
 
-        $date_mysql = ggr_dividend_accruals_parse_date( $date_raw );
+        $date_mysql = ggr_dividend_accruals_normalize_accrual_date( $date_raw );
         $source_currency = ggr_dividend_accruals_normalize_currency( $source_currency_raw );
         $source_net = $source_net_raw !== '' ? ggr_dividend_accruals_parse_float( $source_net_raw ) : null;
         $fx_rate = $fx_rate_raw !== '' ? ggr_dividend_accruals_parse_float( $fx_rate_raw ) : null;
@@ -1850,7 +1878,7 @@ function ggr_render_dividend_accrual_page() {
     ?>
     <div class="wrap">
         <h1>Dividend accruals</h1>
-        <p>Leg de bruto dividendpot vast per maand (datum = eerste dag van de maand).</p>
+        <p>Leg de bruto dividendpot vast per maand (datum = laatste dag van de maand).</p>
 
         <?php if ( $notice ) : ?>
             <div class="notice notice-success"><p><?php echo esc_html( $notice ); ?></p></div>
@@ -1917,7 +1945,7 @@ function ggr_render_dividend_accrual_page() {
                 <h3 style="margin-top:0;">Maandelijkse run</h3>
                 <p style="margin:0 0 8px;">
                     Op elke eerste dag van de maand wordt automatisch de vorige maand uit de IBKR accruals historie
-                    opgeteld en als Dividend Accrual vastgelegd (met datum = eerste dag van die maand).
+                    opgeteld en als Dividend Accrual vastgelegd (met datum = laatste dag van de vorige maand).
                 </p>
                 <p style="margin:0;">
                     Je kunt deze bedragen altijd aanpassen. Voor USD-bedragen kun je optioneel een USD/EUR koers opslaan
