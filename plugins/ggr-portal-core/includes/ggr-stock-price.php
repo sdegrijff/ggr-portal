@@ -1563,14 +1563,19 @@ function ggr_render_stock_price_page() {
                 </tbody>
             </table>
 
-            <?php wp_nonce_field( 'ggr_ibkr_manual_fetch' ); ?>
             <p class="submit">
                 <?php submit_button( $is_edit ? 'GGR-waarde bijwerken' : 'GGR-waarde opslaan', 'primary', 'ggr_price_submit', false ); ?>
-                <?php if ( $show_ibkr_manual_fetch ) : ?>
-                    <?php submit_button( 'Laatste Flex statement ophalen', 'secondary', 'ggr_ibkr_manual_fetch_submit', false ); ?>
-                <?php endif; ?>
             </p>
         </form>
+
+        <?php if ( $show_ibkr_manual_fetch ) : ?>
+            <form method="post">
+                <?php wp_nonce_field( 'ggr_ibkr_manual_fetch' ); ?>
+                <p class="submit">
+                    <?php submit_button( 'Laatste Flex statement ophalen', 'secondary', 'ggr_ibkr_manual_fetch_submit', false ); ?>
+                </p>
+            </form>
+        <?php endif; ?>
 
         <hr />
 
