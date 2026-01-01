@@ -118,7 +118,18 @@ function ggr_mutaties_get_dividend_per_participation( $planned_date ) {
         return null;
     }
 
-    return ggr_dividend_accruals_get_per_participation( $planned_date );
+    $lookup_date = $planned_date;
+    if ( function_exists( 'ggr_dividend_accruals_get_previous_month_end' ) ) {
+        $lookup_date = ggr_dividend_accruals_get_previous_month_end( $planned_date );
+    } else {
+        $dt = DateTime::createFromFormat( 'Y-m-d', $planned_date );
+        if ( $dt ) {
+            $dt->modify( 'last day of previous month' );
+            $lookup_date = $dt->format( 'Y-m-d' );
+        }
+    }
+
+    return ggr_dividend_accruals_get_per_participation( $lookup_date );
 }
 
 function ggr_mutaties_get_user_participations_at_date( $user_id, $planned_date ) {
