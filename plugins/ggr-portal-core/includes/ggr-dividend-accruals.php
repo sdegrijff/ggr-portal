@@ -1462,6 +1462,28 @@ function ggr_handle_dividend_accrual_actions() {
         wp_safe_redirect( $target_url );
         exit;
     }
+
+    if ( isset( $_POST['ggr_dividend_accrual_history_delete_all'] ) ) {
+        check_admin_referer( 'ggr_delete_dividend_accrual_history_all' );
+
+        $deleted = $wpdb->query( "DELETE FROM {$history_table_name}" );
+
+        if ( $deleted !== false ) {
+            ggr_ibkr_accruals_refresh_last_run_from_history();
+        }
+
+        $msg = ( $deleted !== false ) ? 'deleted_all' : 'delete_all_failed';
+
+        $target_url = add_query_arg(
+            array(
+                'page'        => 'ggr-dividend-accruals',
+                'history_msg' => $msg,
+            ),
+            admin_url( 'admin.php' )
+        );
+        wp_safe_redirect( $target_url );
+        exit;
+    }
 }
 
 /* ============================================================================
@@ -1495,8 +1517,12 @@ function ggr_render_dividend_accrual_page() {
     if ( isset( $_GET['history_msg'] ) ) {
         if ( $_GET['history_msg'] === 'deleted' ) {
             $history_notice = 'Transactie historie verwijderd.';
+        } elseif ( $_GET['history_msg'] === 'deleted_all' ) {
+            $history_notice = 'Alle transactie historie is verwijderd.';
         } elseif ( $_GET['history_msg'] === 'delete_failed' ) {
             $history_error = 'Verwijderen is mislukt of record bestond niet meer.';
+        } elseif ( $_GET['history_msg'] === 'delete_all_failed' ) {
+            $history_error = 'Alle historie verwijderen is mislukt.';
         }
     }
 
@@ -2194,6 +2220,17 @@ function ggr_render_dividend_accrual_page() {
         <?php if ( empty( $history_rows ) ) : ?>
             <p>Nog geen dividend transactie historie opgeslagen.</p>
         <?php else : ?>
+            <form method="post" style="margin: 0 0 12px;">
+                <?php wp_nonce_field( 'ggr_delete_dividend_accrual_history_all' ); ?>
+                <button
+                    type="submit"
+                    class="button button-secondary"
+                    name="ggr_dividend_accrual_history_delete_all"
+                    onclick="return confirm('Weet je zeker dat je alle transactie historie wilt verwijderen?');"
+                >
+                    Alle historie verwijderen
+                </button>
+            </form>
             <table class="widefat striped">
                 <thead>
                     <tr>
