@@ -1033,6 +1033,106 @@ function ggr_render_stock_price_page() {
     }
 
     /* -----------------------------------------------------------
+     * BULK UPDATE MANAGEMENT FEE
+     * --------------------------------------------------------- */
+    if ( isset( $_POST['ggr_bulk_fee_update_submit'] ) ) {
+        check_admin_referer( 'ggr_bulk_fee_update' );
+
+        $selected_ids = isset( $_POST['ggr_bulk_fee_ids'] ) ? (array) $_POST['ggr_bulk_fee_ids'] : array();
+        $selected_ids = array_values(
+            array_filter(
+                array_map( 'intval', $selected_ids )
+            )
+        );
+
+        $fee_percent_raw   = isset( $_POST['bulk_management_fee_percent'] ) ? sanitize_text_field( $_POST['bulk_management_fee_percent'] ) : '';
+        $fee_percent_value = ggr_stock_price_normalize_management_fee_percent( $fee_percent_raw, ggr_stock_price_get_default_management_fee_percent() );
+
+        if ( empty( $selected_ids ) ) {
+            $error = 'Selecteer minimaal één koersdatum om te wijzigen.';
+        } elseif ( $fee_percent_value === null || $fee_percent_value >= 100 ) {
+            $error = 'Management fee moet tussen 0 en 100% liggen.';
+        } else {
+            $updated = 0;
+            $skipped = 0;
+
+            foreach ( $selected_ids as $row_id ) {
+                $row = $wpdb->get_row(
+                    $wpdb->prepare(
+                        "SELECT * FROM {$table_name} WHERE id = %d LIMIT 1",
+                        $row_id
+                    ),
+                    ARRAY_A
+                );
+
+                if ( ! $row ) {
+                    $skipped++;
+                    continue;
+                }
+
+                $gross_value = null;
+                if ( isset( $row['gross_price_value'] ) && $row['gross_price_value'] !== '' && $row['gross_price_value'] !== null ) {
+                    $gross_value = (float) $row['gross_price_value'];
+                } else {
+                    $fund_total  = isset( $row['fund_total'] ) && $row['fund_total'] !== '' ? (float) $row['fund_total'] : null;
+                    $total_parts = isset( $row['total_participations'] ) && $row['total_participations'] !== '' ? (float) $row['total_participations'] : null;
+
+                    if ( $fund_total !== null && $total_parts > 0 ) {
+                        $gross_value = round( $fund_total / $total_parts, 6 );
+                    } else {
+                        $old_fee_percent = isset( $row['management_fee_percent'] ) && $row['management_fee_percent'] !== '' && $row['management_fee_percent'] !== null
+                            ? (float) $row['management_fee_percent']
+                            : ggr_stock_price_get_default_management_fee_percent();
+                        $gross_value = ggr_stock_price_calculate_gross_from_net( (float) $row['price_value'], $old_fee_percent );
+                    }
+                }
+
+                if ( null === $gross_value ) {
+                    $skipped++;
+                    continue;
+                }
+
+                $calculated_price = ggr_stock_price_calculate_net_from_gross( $gross_value, $fee_percent_value );
+
+                if ( null === $calculated_price ) {
+                    $skipped++;
+                    continue;
+                }
+
+                $saved = ggr_upsert_stock_price(
+                    $row['price_date'],
+                    $calculated_price,
+                    array(
+                        'gross_price_value'      => $gross_value,
+                        'management_fee_percent' => $fee_percent_value,
+                        'fund_total'             => isset( $row['fund_total'] ) ? $row['fund_total'] : null,
+                        'total_participations'   => isset( $row['total_participations'] ) ? $row['total_participations'] : null,
+                        'statement_url'          => isset( $row['statement_url'] ) ? $row['statement_url'] : null,
+                    )
+                );
+
+                if ( $saved ) {
+                    $updated++;
+                } else {
+                    $skipped++;
+                }
+            }
+
+            if ( $updated > 0 ) {
+                $notice = sprintf(
+                    'Management fee aangepast voor %d koersdatum(s).',
+                    $updated
+                );
+                if ( $skipped > 0 ) {
+                    $notice .= sprintf( ' %d regel(s) overgeslagen.', $skipped );
+                }
+            } else {
+                $error = 'Bulk update is mislukt. Er zijn geen regels aangepast.';
+            }
+        }
+    }
+
+    /* -----------------------------------------------------------
      * IMPORT (CSV)
      * --------------------------------------------------------- */
     if ( isset( $_POST['ggr_price_import_submit'] ) ) {
@@ -1487,118 +1587,159 @@ function ggr_render_stock_price_page() {
         <?php if ( empty( $rows ) ) : ?>
             <p>Er zijn nog geen GGR-waardes opgeslagen.</p>
         <?php else : ?>
-            <table class="widefat fixed striped">
-                <thead>
-                    <tr>
-                        <th scope="col">Datum</th>
-                        <th scope="col">Netto waarde per 1 GGR-participatie</th>
-                        <th scope="col">Bruto waarde per 1 GGR-participatie</th>
-                        <th scope="col">Totaal uit IBKR</th>
-                        <th scope="col">Totaal participaties</th>      
-                        <th scope="col">Flex statement</th>                        
-                        <th scope="col">Management fee (%)</th>
-                        <th scope="col">Management fee (€)</th>                      
-                        <th scope="col">Δ t.o.v. vorige (%)</th>
-                        <th scope="col">Aangemaakt</th>
-                        <th scope="col">Laatst bijgewerkt</th>
-                        <th scope="col">Acties</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    $count = count( $rows );
-                    for ( $i = 0; $i < $count; $i++ ) :
-                        $row       = $rows[ $i ];
-                        $date_raw  = $row['price_date'];
-                        $date_disp = date_i18n( 'd-m-Y', strtotime( $date_raw ) );
+            <form method="post">
+                <?php wp_nonce_field( 'ggr_bulk_fee_update' ); ?>
+                <p>
+                    <label for="bulk_management_fee_percent"><strong>Management fee aanpassen (%)</strong></label>
+                    <input
+                        type="number"
+                        step="0.0001"
+                        min="0"
+                        id="bulk_management_fee_percent"
+                        name="bulk_management_fee_percent"
+                        value=""
+                        placeholder="Bijv: 0.004"
+                    />
+                    <?php submit_button( 'Geselecteerde waardes bijwerken', 'secondary', 'ggr_bulk_fee_update_submit', false ); ?>
+                </p>
 
-                        $value           = (float) $row['price_value'];
-                        $value_disp      = number_format( $value, 4, ',', '.' );
-                        $gross_value     = isset( $row['gross_price_value'] ) ? (float) $row['gross_price_value'] : null;
-                        $fee_percent     = isset( $row['management_fee_percent'] ) ? (float) $row['management_fee_percent'] : ggr_stock_price_get_default_management_fee_percent();                        
-                        $fund_total      = isset( $row['fund_total'] ) ? (float) $row['fund_total'] : null;
-                        $total_parts     = isset( $row['total_participations'] ) ? (float) $row['total_participations'] : null;
-                        $statement_url   = isset( $row['statement_url'] ) ? trim( (string) $row['statement_url'] ) : '';
-                        $fund_total_disp  = $fund_total !== null ? number_format( $fund_total, 2, ',', '.' ) : '-';
-                        $total_parts_disp = $total_parts !== null ? number_format( $total_parts, 4, ',', '.' ) : '-';
+                <table class="widefat fixed striped">
+                    <thead>
+                        <tr>
+                            <td class="check-column">
+                                <input type="checkbox" id="ggr-bulk-fee-select-all" />
+                            </td>
+                            <th scope="col">Datum</th>
+                            <th scope="col">Netto waarde per 1 GGR-participatie</th>
+                            <th scope="col">Bruto waarde per 1 GGR-participatie</th>
+                            <th scope="col">Totaal uit IBKR</th>
+                            <th scope="col">Totaal participaties</th>
+                            <th scope="col">Flex statement</th>
+                            <th scope="col">Management fee (%)</th>
+                            <th scope="col">Management fee (€)</th>
+                            <th scope="col">Δ t.o.v. vorige (%)</th>
+                            <th scope="col">Aangemaakt</th>
+                            <th scope="col">Laatst bijgewerkt</th>
+                            <th scope="col">Acties</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        $count = count( $rows );
+                        for ( $i = 0; $i < $count; $i++ ) :
+                            $row       = $rows[ $i ];
+                            $date_raw  = $row['price_date'];
+                            $date_disp = date_i18n( 'd-m-Y', strtotime( $date_raw ) );
 
-                        if ( null === $gross_value ) {
-                            $gross_value = ggr_stock_price_calculate_gross_from_net( $value, $fee_percent );
-                        }
+                            $value           = (float) $row['price_value'];
+                            $value_disp      = number_format( $value, 4, ',', '.' );
+                            $gross_value     = isset( $row['gross_price_value'] ) ? (float) $row['gross_price_value'] : null;
+                            $fee_percent     = isset( $row['management_fee_percent'] ) ? (float) $row['management_fee_percent'] : ggr_stock_price_get_default_management_fee_percent();
+                            $fund_total      = isset( $row['fund_total'] ) ? (float) $row['fund_total'] : null;
+                            $total_parts     = isset( $row['total_participations'] ) ? (float) $row['total_participations'] : null;
+                            $statement_url   = isset( $row['statement_url'] ) ? trim( (string) $row['statement_url'] ) : '';
+                            $fund_total_disp  = $fund_total !== null ? number_format( $fund_total, 2, ',', '.' ) : '-';
+                            $total_parts_disp = $total_parts !== null ? number_format( $total_parts, 4, ',', '.' ) : '-';
 
-                        $gross_value_disp = $gross_value !== null ? number_format( $gross_value, 4, ',', '.' ) : '-';
-                        $fee_value = ( null !== $gross_value )
-                            ? round( $gross_value - $value, 6 )
-                            : null;
-                        $fee_value_disp = $fee_value !== null ? number_format( $fee_value, 4, ',', '.' ) : '-';
-                        $fee_percent_disp = number_format( $fee_percent, 4, ',', '.' );
-
-                        // Vorige waarde in de reeks (DESC → volgende index)
-                        $diff_disp = '-';
-                        if ( $i + 1 < $count ) {
-                            $prev_row   = $rows[ $i + 1 ];
-                            $prev_value = (float) $prev_row['price_value'];
-
-                            if ( $prev_value > 0 ) {
-                                $diff = ( ( $value - $prev_value ) / $prev_value ) * 100;
-                                $diff_disp = number_format( $diff, 2, ',', '.' ) . ' %';
+                            if ( null === $gross_value ) {
+                                $gross_value = ggr_stock_price_calculate_gross_from_net( $value, $fee_percent );
                             }
-                        }
 
-                        $created_disp = $row['created_at'] ? date_i18n( 'd-m-Y H:i', strtotime( $row['created_at'] ) ) : '';
-                        $updated_disp = $row['updated_at'] ? date_i18n( 'd-m-Y H:i', strtotime( $row['updated_at'] ) ) : '';
+                            $gross_value_disp = $gross_value !== null ? number_format( $gross_value, 4, ',', '.' ) : '-';
+                            $fee_value = ( null !== $gross_value )
+                                ? round( $gross_value - $value, 6 )
+                                : null;
+                            $fee_total_value = ( null !== $fee_value && $total_parts !== null )
+                                ? round( $fee_value * $total_parts, 6 )
+                                : null;
+                            $fee_value_disp = $fee_total_value !== null ? number_format( $fee_total_value, 2, ',', '.' ) : '-';
+                            $fee_percent_disp = number_format( $fee_percent, 4, ',', '.' );
 
-                        $edit_url = add_query_arg(
-                            array(
-                                'page'    => 'ggr-stock-price',
-                                'edit_id' => (int) $row['id'],
-                            ),
-                            admin_url( 'admin.php' )
-                        );
+                            // Vorige waarde in de reeks (DESC → volgende index)
+                            $diff_disp = '-';
+                            if ( $i + 1 < $count ) {
+                                $prev_row   = $rows[ $i + 1 ];
+                                $prev_value = (float) $prev_row['price_value'];
 
-                        $delete_url = wp_nonce_url(
-                            add_query_arg(
+                                if ( $prev_value > 0 ) {
+                                    $diff = ( ( $value - $prev_value ) / $prev_value ) * 100;
+                                    $diff_disp = number_format( $diff, 2, ',', '.' ) . ' %';
+                                }
+                            }
+
+                            $created_disp = $row['created_at'] ? date_i18n( 'd-m-Y H:i', strtotime( $row['created_at'] ) ) : '';
+                            $updated_disp = $row['updated_at'] ? date_i18n( 'd-m-Y H:i', strtotime( $row['updated_at'] ) ) : '';
+                            
+                            $edit_url = add_query_arg(
                                 array(
-                                    'page'   => 'ggr-stock-price',
-                                    'action' => 'delete',
-                                    'id'     => (int) $row['id'],
+                                    'page'    => 'ggr-stock-price',
+                                    'edit_id' => (int) $row['id'],
                                 ),
                                 admin_url( 'admin.php' )
-                            ),
-                            'ggr_delete_price_' . (int) $row['id']
-                        );
-                        ?>
-                        <tr>
-                            <td><?php echo esc_html( $date_disp ); ?></td>
-                            <td><?php echo esc_html( $value_disp ); ?></td>
-                            <td><?php echo esc_html( $gross_value_disp ); ?></td>                            
-                            <td><?php echo esc_html( $fund_total_disp ); ?></td>
-                            <td><?php echo esc_html( $total_parts_disp ); ?></td>
-                            <td>
-                                <?php if ( $statement_url ) : ?>
-                                    <a href="<?php echo esc_url( $statement_url ); ?>" target="_blank" rel="noopener noreferrer">
-                                        FS downloaden
+                            );
+
+                            $delete_url = wp_nonce_url(
+                                add_query_arg(
+                                    array(
+                                        'page'   => 'ggr-stock-price',
+                                        'action' => 'delete',
+                                        'id'     => (int) $row['id'],
+                                    ),
+                                    admin_url( 'admin.php' )
+                                ),
+                                'ggr_delete_price_' . (int) $row['id']
+                            );
+                            ?>
+                            <tr>
+                                <th scope="row" class="check-column">
+                                    <input type="checkbox" name="ggr_bulk_fee_ids[]" value="<?php echo esc_attr( $row['id'] ); ?>" />
+                                </th>
+                                <td><?php echo esc_html( $date_disp ); ?></td>
+                                <td><?php echo esc_html( $value_disp ); ?></td>
+                                <td><?php echo esc_html( $gross_value_disp ); ?></td>
+                                <td><?php echo esc_html( $fund_total_disp ); ?></td>
+                                <td><?php echo esc_html( $total_parts_disp ); ?></td>
+                                <td>
+                                    <?php if ( $statement_url ) : ?>
+                                        <a href="<?php echo esc_url( $statement_url ); ?>" target="_blank" rel="noopener noreferrer">
+                                            FS downloaden
+                                        </a>
+                                    <?php else : ?>
+                                        -
+                                    <?php endif; ?>
+                                </td>
+                                <td><?php echo esc_html( $fee_percent_disp ); ?></td>
+                                <td><?php echo esc_html( $fee_value_disp ); ?></td>
+                                <td><?php echo esc_html( $diff_disp ); ?></td>
+                                <td><?php echo esc_html( $created_disp ); ?></td>
+                                <td><?php echo esc_html( $updated_disp ); ?></td>
+                                <td>
+                                    <a href="<?php echo esc_url( $edit_url ); ?>">Bewerken</a> |
+                                    <a href="<?php echo esc_url( $delete_url ); ?>"
+                                       onclick="return confirm('Weet je zeker dat je deze snapshot wilt verwijderen?');">
+                                        Verwijderen
                                     </a>
-                                <?php else : ?>
-                                    -
-                                <?php endif; ?>
-                            </td>                            
-                            <td><?php echo esc_html( $fee_percent_disp ); ?></td>
-                            <td><?php echo esc_html( $fee_value_disp ); ?></td>                            
-                            <td><?php echo esc_html( $diff_disp ); ?></td>
-                            <td><?php echo esc_html( $created_disp ); ?></td>
-                            <td><?php echo esc_html( $updated_disp ); ?></td>
-                            <td>
-                                <a href="<?php echo esc_url( $edit_url ); ?>">Bewerken</a> |
-                                <a href="<?php echo esc_url( $delete_url ); ?>"
-                                   onclick="return confirm('Weet je zeker dat je deze snapshot wilt verwijderen?');">
-                                    Verwijderen
-                                </a>
-                            </td>
-                        </tr>
-                    <?php endfor; ?>
-                </tbody>
-            </table>
+                                </td>
+                            </tr>
+                        <?php endfor; ?>
+                    </tbody>
+                </table>
+            </form>
+
+            <script>
+                (function() {
+                    var selectAll = document.getElementById('ggr-bulk-fee-select-all');
+                    if (!selectAll) {
+                        return;
+                    }
+                    selectAll.addEventListener('change', function(event) {
+                        var checkboxes = document.querySelectorAll('input[name="ggr_bulk_fee_ids[]"]');
+                        checkboxes.forEach(function(box) {
+                            box.checked = event.target.checked;
+                        });
+                    });
+                })();
+            </script>
         <?php endif; ?>
     </div>
     <?php
