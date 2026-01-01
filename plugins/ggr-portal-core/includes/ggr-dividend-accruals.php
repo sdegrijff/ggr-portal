@@ -1484,6 +1484,24 @@ function ggr_handle_dividend_accrual_actions() {
         wp_safe_redirect( $target_url );
         exit;
     }
+
+    if ( isset( $_POST['ggr_dividend_accruals_delete_all'] ) ) {
+        check_admin_referer( 'ggr_delete_dividend_accruals_all' );
+
+        $deleted = $wpdb->query( "DELETE FROM {$table_name}" );
+
+        $msg = ( $deleted !== false ) ? 'deleted_all' : 'delete_all_failed';
+
+        $target_url = add_query_arg(
+            array(
+                'page' => 'ggr-dividend-accruals',
+                'msg'  => $msg,
+            ),
+            admin_url( 'admin.php' )
+        );
+        wp_safe_redirect( $target_url );
+        exit;
+    }
 }
 
 /* ============================================================================
@@ -1509,8 +1527,12 @@ function ggr_render_dividend_accrual_page() {
     if ( isset( $_GET['msg'] ) ) {
         if ( $_GET['msg'] === 'deleted' ) {
             $notice = 'Dividend accrual verwijderd.';
+        } elseif ( $_GET['msg'] === 'deleted_all' ) {
+            $notice = 'Alle dividend accruals zijn verwijderd.';            
         } elseif ( $_GET['msg'] === 'delete_failed' ) {
             $error = 'Verwijderen is mislukt of record bestond niet meer.';
+        } elseif ( $_GET['msg'] === 'delete_all_failed' ) {
+            $error = 'Alle dividend accruals verwijderen is mislukt.';            
         }
     }
 
@@ -1988,7 +2010,18 @@ function ggr_render_dividend_accrual_page() {
             </div>
         </div>
 
-        <h2>Overzicht</h2>
+        <h2>Totaal Overzicht Dividends</h2>
+        <form method="post" style="margin:0 0 12px;">
+            <?php wp_nonce_field( 'ggr_delete_dividend_accruals_all' ); ?>
+            <button
+                type="submit"
+                class="button button-secondary"
+                name="ggr_dividend_accruals_delete_all"
+                onclick="return confirm('Weet je zeker dat je alle dividend accruals wilt verwijderen?');"
+            >
+                Verwijder overzicht
+            </button>
+        </form>
         <?php if ( empty( $rows ) ) : ?>
             <p>Nog geen dividend accruals opgeslagen.</p>
         <?php else : ?>
