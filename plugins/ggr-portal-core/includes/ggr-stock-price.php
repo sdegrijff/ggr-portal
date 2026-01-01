@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'GGR_STOCK_PRICE_DB_VERSION' ) ) {
-    define( 'GGR_STOCK_PRICE_DB_VERSION', '2.1' );
+    define( 'GGR_STOCK_PRICE_DB_VERSION', '2.2' );
 }
 
 add_action( 'plugins_loaded', 'ggr_maybe_upgrade_stock_price_table' );
@@ -39,6 +39,8 @@ function ggr_create_ggr_stock_price_table() {
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             price_date DATE NOT NULL,
             price_value DECIMAL(15,6) NOT NULL,
+            gross_price_value DECIMAL(15,6) DEFAULT NULL,
+            management_fee_percent DECIMAL(7,4) NOT NULL DEFAULT 0.0040,            
             fund_total DECIMAL(20,4) DEFAULT NULL,
             total_participations DECIMAL(20,4) DEFAULT NULL,
             statement_url TEXT DEFAULT NULL,            
@@ -91,8 +93,16 @@ function ggr_maybe_upgrade_stock_price_table() {
 
     $existing_columns = wp_list_pluck( $columns, 'COLUMN_NAME' );
 
+    if ( ! in_array( 'gross_price_value', $existing_columns, true ) ) {
+        $wpdb->query( "ALTER TABLE {$table_name} ADD gross_price_value DECIMAL(15,6) DEFAULT NULL AFTER price_value" );
+    }
+
+    if ( ! in_array( 'management_fee_percent', $existing_columns, true ) ) {
+        $wpdb->query( "ALTER TABLE {$table_name} ADD management_fee_percent DECIMAL(7,4) NOT NULL DEFAULT 0.0040 AFTER gross_price_value" );
+    }
+
     if ( ! in_array( 'fund_total', $existing_columns, true ) ) {
-        $wpdb->query( "ALTER TABLE {$table_name} ADD fund_total DECIMAL(20,4) DEFAULT NULL AFTER price_value" );
+        $wpdb->query( "ALTER TABLE {$table_name} ADD fund_total DECIMAL(20,4) DEFAULT NULL AFTER management_fee_percent" );
     }
 
     if ( ! in_array( 'total_participations', $existing_columns, true ) ) {
@@ -243,6 +253,93 @@ function ggr_handle_stock_price_actions() {
  * ========================================================================= */
 
 /**
+ * Default management fee percentage (1/250ste %).
+ *
+ * @return float
+ */
+function ggr_stock_price_get_default_management_fee_percent() {
+    $default = 0.004;
+
+    return (float) apply_filters( 'ggr_stock_price_default_management_fee_percent', $default );
+}
+
+/**
+ * Normalize management fee percentage input.
+ *
+ * @param mixed      $raw
+ * @param float|null $default
+ * @return float|null
+ */
+function ggr_stock_price_normalize_management_fee_percent( $raw, $default = null ) {
+    if ( $raw === null || $raw === '' ) {
+        return $default;
+    }
+
+    if ( is_string( $raw ) ) {
+        $raw = str_replace( array( '%', ' ' ), '', $raw );
+        $raw = str_replace( ',', '.', $raw );
+    }
+
+    if ( ! is_numeric( $raw ) ) {
+        return $default;
+    }
+
+    $value = (float) $raw;
+
+    if ( $value < 0 ) {
+        return $default;
+    }
+
+    return $value;
+}
+
+/**
+ * Bereken netto prijs op basis van bruto en fee percentage.
+ *
+ * @param float|null $gross
+ * @param float      $fee_percent
+ * @return float|null
+ */
+function ggr_stock_price_calculate_net_from_gross( $gross, $fee_percent ) {
+    if ( null === $gross ) {
+        return null;
+    }
+
+    $fee_rate = (float) $fee_percent / 100;
+
+    if ( $fee_rate < 0 || $fee_rate >= 1 ) {
+        return null;
+    }
+
+    return round( (float) $gross * ( 1 - $fee_rate ), 6 );
+}
+
+/**
+ * Bereken bruto prijs op basis van netto en fee percentage.
+ *
+ * @param float|null $net
+ * @param float      $fee_percent
+ * @return float|null
+ */
+function ggr_stock_price_calculate_gross_from_net( $net, $fee_percent ) {
+    if ( null === $net ) {
+        return null;
+    }
+
+    $fee_rate = (float) $fee_percent / 100;
+
+    if ( $fee_rate < 0 || $fee_rate >= 1 ) {
+        return null;
+    }
+
+    if ( $fee_rate === 0.0 ) {
+        return round( (float) $net, 6 );
+    }
+
+    return round( (float) $net / ( 1 - $fee_rate ), 6 );
+}
+
+/**
  * Sla een GGR stock price op voor een datum (upsert op basis van price_date).
  *
  * @param string $date_mysql  Datum in Y-m-d formaat.
@@ -255,6 +352,19 @@ function ggr_upsert_stock_price( $date_mysql, $price, $extra = array() ) {
 
     $table_name = $wpdb->prefix . 'ggr_stock_prices';
     $now        = current_time( 'mysql' );
+
+    $default_fee_percent   = ggr_stock_price_get_default_management_fee_percent();
+    $has_fee_percent       = array_key_exists( 'management_fee_percent', $extra );
+    $management_fee_percent = $has_fee_percent
+        ? ggr_stock_price_normalize_management_fee_percent( $extra['management_fee_percent'], $default_fee_percent )
+        : null;
+
+    $has_gross_price   = array_key_exists( 'gross_price_value', $extra );
+    $gross_price_value = ( $has_gross_price && $extra['gross_price_value'] !== null ) ? (float) $extra['gross_price_value'] : null;
+
+    if ( null === $gross_price_value && $has_fee_percent ) {
+        $gross_price_value = ggr_stock_price_calculate_gross_from_net( (float) $price, $management_fee_percent );
+    }
 
     $fund_total          = array_key_exists( 'fund_total', $extra ) && $extra['fund_total'] !== null ? (float) $extra['fund_total'] : null;
     $total_participation = array_key_exists( 'total_participations', $extra ) && $extra['total_participations'] !== null ? (float) $extra['total_participations'] : null;
@@ -286,6 +396,20 @@ function ggr_upsert_stock_price( $date_mysql, $price, $extra = array() ) {
             $now,
         );
 
+        if ( $has_fee_percent ) {
+            $set_parts[] = 'management_fee_percent = %f';
+            $params[]    = $management_fee_percent;
+        }
+
+        if ( $has_gross_price || $has_fee_percent ) {
+            if ( null !== $gross_price_value ) {
+            $set_parts[] = 'gross_price_value = %f';
+            $params[]    = $gross_price_value;
+            } else {
+                $set_parts[] = 'gross_price_value = NULL';
+            }
+        }
+        
         if ( null !== $fund_total ) {
             $set_parts[] = 'fund_total = %f';
             $params[]    = $fund_total;
@@ -334,7 +458,16 @@ function ggr_upsert_stock_price( $date_mysql, $price, $extra = array() ) {
     };
 
     $add_field( 'price_date', '%s', $date_mysql );
+    $insert_fee_percent = $has_fee_percent ? $management_fee_percent : $default_fee_percent;
+    $insert_gross_price = $gross_price_value;
+
+    if ( null === $insert_gross_price ) {
+        $insert_gross_price = ggr_stock_price_calculate_gross_from_net( (float) $price, $insert_fee_percent );
+    }
+
     $add_field( 'price_value', '%f', (float) $price );
+    $add_field( 'gross_price_value', null !== $insert_gross_price ? '%f' : 'NULL', $insert_gross_price );
+    $add_field( 'management_fee_percent', '%f', $insert_fee_percent );
     $add_field( 'fund_total', null !== $fund_total ? '%f' : 'NULL', $fund_total );
     $add_field( 'total_participations', null !== $total_participation ? '%f' : 'NULL', $total_participation );
     $add_field( 'statement_url', $statement_url !== '' ? '%s' : 'NULL', $statement_url );    
@@ -659,10 +792,11 @@ function ggr_render_stock_price_page() {
         }
     }
 
-    $today      = current_time( 'Y-m-d' );
-    $form_date  = $today;
-    $form_total = '';
-    $is_edit    = false;
+    $today            = current_time( 'Y-m-d' );
+    $form_date        = $today;
+    $form_total       = '';
+    $form_fee_percent = ggr_stock_price_get_default_management_fee_percent();
+    $is_edit          = false;
 
     /* -----------------------------------------------------------
      * BEWERKEN (FORM PREFILL)
@@ -679,9 +813,12 @@ function ggr_render_stock_price_page() {
         );
 
         if ( $row ) {
-            $form_date  = $row['price_date'];
-            $form_total = isset( $row['fund_total'] ) ? number_format( (float) $row['fund_total'], 2, ',', '' ) : '';
-            $is_edit    = true;
+            $form_date        = $row['price_date'];
+            $form_total       = isset( $row['fund_total'] ) ? number_format( (float) $row['fund_total'], 2, ',', '' ) : '';
+            $form_fee_percent = isset( $row['management_fee_percent'] )
+                ? (float) $row['management_fee_percent']
+                : ggr_stock_price_get_default_management_fee_percent();
+            $is_edit          = true;
         }
     }
 
@@ -769,12 +906,16 @@ function ggr_render_stock_price_page() {
             if ( $total_parts <= 0 ) {
                 $error = 'Geen participaties gevonden om de stock price mee te berekenen.';
             } else {
-                $calculated_price = round( $fund_total / $total_parts, 6 );
+                $gross_price      = round( $fund_total / $total_parts, 6 );
+                $fee_percent      = ggr_stock_price_get_default_management_fee_percent();
+                $calculated_price = ggr_stock_price_calculate_net_from_gross( $gross_price, $fee_percent );
 
                 $saved = ggr_upsert_stock_price(
                     $report_date,
                     $calculated_price,
                     array(
+                        'gross_price_value'    => $gross_price,
+                        'management_fee_percent' => $fee_percent,
                         'fund_total'           => $fund_total,
                         'total_participations' => $total_parts,
                     )
@@ -786,8 +927,8 @@ function ggr_render_stock_price_page() {
                         $report_date,
                         number_format( $fund_total, 2, ',', '.' ),
                         number_format( $total_parts, 4, ',', '.' ),
-                        number_format( $calculated_price, 6, ',', '.' )
-                    );
+                    number_format( $calculated_price, 6, ',', '.' )
+                );
 
                     $form_date      = $report_date;
                     $form_total     = '';
@@ -806,20 +947,25 @@ function ggr_render_stock_price_page() {
     if ( isset( $_POST['ggr_price_submit'] ) ) {
         check_admin_referer( 'ggr_save_price' );
 
-        $price_date_raw  = isset( $_POST['price_date'] ) ? sanitize_text_field( $_POST['price_date'] ) : '';
-        $fund_total_raw  = isset( $_POST['fund_total'] ) ? sanitize_text_field( $_POST['fund_total'] ) : '';
+        $price_date_raw       = isset( $_POST['price_date'] ) ? sanitize_text_field( $_POST['price_date'] ) : '';
+        $fund_total_raw       = isset( $_POST['fund_total'] ) ? sanitize_text_field( $_POST['fund_total'] ) : '';
+        $fee_percent_raw      = isset( $_POST['management_fee_percent'] ) ? sanitize_text_field( $_POST['management_fee_percent'] ) : '';
 
-        $price_date  = $price_date_raw ? date( 'Y-m-d', strtotime( $price_date_raw ) ) : '';
-        $fund_total  = $fund_total_raw !== '' ? (float) str_replace( array( '.', ' ', ',' ), array( '', '', '.' ), $fund_total_raw ) : 0;
+        $price_date        = $price_date_raw ? date( 'Y-m-d', strtotime( $price_date_raw ) ) : '';
+        $fund_total        = $fund_total_raw !== '' ? (float) str_replace( array( '.', ' ', ',' ), array( '', '', '.' ), $fund_total_raw ) : 0;
+        $fee_percent_value = ggr_stock_price_normalize_management_fee_percent( $fee_percent_raw, ggr_stock_price_get_default_management_fee_percent() );
 
         // Form-velden terugvullen bij fout
-        $form_date  = $price_date_raw;
-        $form_total = $fund_total_raw;
+        $form_date        = $price_date_raw;
+        $form_total       = $fund_total_raw;
+        $form_fee_percent = $fee_percent_value;
 
         if ( ! $price_date || $fund_total_raw === '' ) {
             $error = 'Datum en totaalwaarde uit IBKR zijn verplicht.';
         } elseif ( $fund_total <= 0 ) {
             $error = 'Totaalwaarde moet groter zijn dan 0.';
+        } elseif ( $fee_percent_value === null || $fee_percent_value >= 100 ) {
+            $error = 'Management fee moet tussen 0 en 100% liggen.';
         } else {
             // Bestaat er al een record voor deze datum?
             $existing_id = $wpdb->get_var(
@@ -847,18 +993,25 @@ function ggr_render_stock_price_page() {
             if ( null === $total_parts || $total_parts <= 0 ) {
                 $error = 'Geen participaties gevonden om de NAV mee te berekenen.';
             } else {
-                $calculated_price = round( $fund_total / $total_parts, 6 );
+                $gross_price      = round( $fund_total / $total_parts, 6 );
+                $calculated_price = ggr_stock_price_calculate_net_from_gross( $gross_price, $fee_percent_value );
 
-                $saved = ggr_upsert_stock_price(
-                    $price_date,
-                    $calculated_price,
-                    array(
-                        'fund_total'           => $fund_total,
-                        'total_participations' => $total_parts,
-                    )
-                );
+                if ( null === $calculated_price ) {
+                    $error = 'Kon de netto waarde niet berekenen met deze management fee.';
+                } else {
+                    $saved = ggr_upsert_stock_price(
+                        $price_date,
+                        $calculated_price,
+                        array(
+                            'gross_price_value'      => $gross_price,
+                            'management_fee_percent' => $fee_percent_value,
+                            'fund_total'           => $fund_total,
+                            'total_participations' => $total_parts,
+                        )
+                    );
+                }
 
-                if ( $saved ) {
+                if ( ! $error && $saved ) {
                     $notice = sprintf(
                         'Totaal uit IBKR voor %s is %s. NAV per participatie berekend op %s (participaties: %s).',
                         esc_html( $price_date ),
@@ -939,12 +1092,16 @@ function ggr_render_stock_price_page() {
                     continue;
                 }
 
-                $calculated_price = round( $fund_total / $total_parts, 6 );
+                $gross_price      = round( $fund_total / $total_parts, 6 );
+                $fee_percent      = ggr_stock_price_get_default_management_fee_percent();
+                $calculated_price = ggr_stock_price_calculate_net_from_gross( $gross_price, $fee_percent );
 
                 $saved = ggr_upsert_stock_price(
                     $date,
                     $calculated_price,
                     array(
+                        'gross_price_value'      => $gross_price,
+                        'management_fee_percent' => $fee_percent,
                         'fund_total'           => $fund_total,
                         'total_participations' => $total_parts,
                     )
@@ -1002,6 +1159,54 @@ function ggr_render_stock_price_page() {
         unset( $row );
     }
 
+    if ( ! empty( $rows ) ) {
+        $default_fee_percent = ggr_stock_price_get_default_management_fee_percent();
+
+        foreach ( $rows as &$row ) {
+            $needs_fee_backfill = ! array_key_exists( 'management_fee_percent', $row )
+                || $row['management_fee_percent'] === null
+                || $row['management_fee_percent'] === '';
+
+            $fee_percent = $needs_fee_backfill
+                ? $default_fee_percent
+                : (float) $row['management_fee_percent'];
+
+            if ( $needs_fee_backfill ) {
+                $row['management_fee_percent'] = $fee_percent;
+
+                $wpdb->update(
+                    $table_name,
+                    array( 'management_fee_percent' => $fee_percent ),
+                    array( 'id' => (int) $row['id'] ),
+                    array( '%f' ),
+                    array( '%d' )
+                );
+            }
+
+            $gross_missing = ! array_key_exists( 'gross_price_value', $row )
+                || $row['gross_price_value'] === null
+                || $row['gross_price_value'] === '';
+
+            if ( $gross_missing && isset( $row['price_value'] ) ) {
+                $gross_price = ggr_stock_price_calculate_gross_from_net( (float) $row['price_value'], $fee_percent );
+
+                if ( null !== $gross_price ) {
+                    $row['gross_price_value'] = $gross_price;
+
+                    $wpdb->update(
+                        $table_name,
+                        array( 'gross_price_value' => $gross_price ),
+                        array( 'id' => (int) $row['id'] ),
+                        array( '%f' ),
+                        array( '%d' )
+                    );
+                }
+            }
+        }
+
+        unset( $row );
+    }
+
     // URLs voor export en delete all
     $export_url = wp_nonce_url(
         add_query_arg(
@@ -1027,9 +1232,11 @@ function ggr_render_stock_price_page() {
 
     ?>
     <div class="wrap">
-        <h1>NAV Per Participatie</h1>
+        <h1>NAV Per Participatie (netto)</h1>
         <p>
-            Beheer hier de dagelijkse waarde per 1 GGR-participatie. Deze reeks kun je koppelen
+            Beheer hier de dagelijkse netto waarde per 1 GGR-participatie. De bruto waarde wordt
+            berekend op basis van de management fee per koersdatum.
+            Deze reeks kun je koppelen
             aan de participanten-historie voor echte marktwerking in het portaal.
         </p>
 
@@ -1220,7 +1427,7 @@ function ggr_render_stock_price_page() {
                     </tr>
 
                     <tr>
-                        <th scope="row"><label for="fund_total">Totaal uit IBKR</label></th>
+                        <th scope="row"><label for="fund_total">Totaal uit IBKR (bruto)</label></th>
                         <td>
                             <input
                                 type="number"
@@ -1232,7 +1439,24 @@ function ggr_render_stock_price_page() {
                                 placeholder="Bijv: 1000000"
                             />
                             <p class="description">
-                                We berekenen automatisch de NAV per participatie aan de hand van het totaal en het aantal participaties op deze datum.
+                                We berekenen automatisch de bruto en netto NAV per participatie aan de hand van het totaal en het aantal participaties op deze datum.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="management_fee_percent">Management fee (%)</label></th>
+                        <td>
+                            <input
+                                type="number"
+                                step="0.0001"
+                                min="0"
+                                id="management_fee_percent"
+                                name="management_fee_percent"
+                                value="<?php echo esc_attr( $form_fee_percent ); ?>"
+                                placeholder="Bijv: 0.004"
+                            />
+                            <p class="description">
+                                Percentage van de bruto waarde dat als management fee wordt ingehouden (standaard 0,004%).
                             </p>
                         </td>
                     </tr>
@@ -1253,7 +1477,7 @@ function ggr_render_stock_price_page() {
         <h2>Recente GGR-waardes</h2>
 
         <h3>Importeer waardes (CSV)</h3>
-        <p>Verwacht formaat: <code>date,total</code> (bijvoorbeeld: <code>2025-01-31,1000000</code>). We berekenen automatisch de NAV per participatie op basis van het aantal participaties op die datum. Eerste regel mag een header zijn.</p>
+        <p>Verwacht formaat: <code>date,total</code> (bijvoorbeeld: <code>2025-01-31,1000000</code>). We berekenen automatisch de bruto en netto NAV per participatie op basis van het aantal participaties op die datum. Eerste regel mag een header zijn.</p>
         <form method="post" enctype="multipart/form-data">
             <?php wp_nonce_field( 'ggr_import_price' ); ?>
             <input type="file" name="ggr_price_import_file" accept=".csv,text/csv" />
@@ -1267,10 +1491,13 @@ function ggr_render_stock_price_page() {
                 <thead>
                     <tr>
                         <th scope="col">Datum</th>
-                        <th scope="col">Waarde per 1 GGR-participatie</th>
+                        <th scope="col">Netto waarde per 1 GGR-participatie</th>
+                        <th scope="col">Bruto waarde per 1 GGR-participatie</th>
                         <th scope="col">Totaal uit IBKR</th>
                         <th scope="col">Totaal participaties</th>      
                         <th scope="col">Flex statement</th>                        
+                        <th scope="col">Management fee (%)</th>
+                        <th scope="col">Management fee (€)</th>                      
                         <th scope="col">Δ t.o.v. vorige (%)</th>
                         <th scope="col">Aangemaakt</th>
                         <th scope="col">Laatst bijgewerkt</th>
@@ -1287,11 +1514,24 @@ function ggr_render_stock_price_page() {
 
                         $value           = (float) $row['price_value'];
                         $value_disp      = number_format( $value, 4, ',', '.' );
+                        $gross_value     = isset( $row['gross_price_value'] ) ? (float) $row['gross_price_value'] : null;
+                        $fee_percent     = isset( $row['management_fee_percent'] ) ? (float) $row['management_fee_percent'] : ggr_stock_price_get_default_management_fee_percent();                        
                         $fund_total      = isset( $row['fund_total'] ) ? (float) $row['fund_total'] : null;
                         $total_parts     = isset( $row['total_participations'] ) ? (float) $row['total_participations'] : null;
-                        $statement_url   = isset( $row['statement_url'] ) ? trim( (string) $row['statement_url'] ) : '';                        
-                        $fund_total_disp = $fund_total !== null ? number_format( $fund_total, 2, ',', '.' ) : '-';
+                        $statement_url   = isset( $row['statement_url'] ) ? trim( (string) $row['statement_url'] ) : '';
+                        $fund_total_disp  = $fund_total !== null ? number_format( $fund_total, 2, ',', '.' ) : '-';
                         $total_parts_disp = $total_parts !== null ? number_format( $total_parts, 4, ',', '.' ) : '-';
+
+                        if ( null === $gross_value ) {
+                            $gross_value = ggr_stock_price_calculate_gross_from_net( $value, $fee_percent );
+                        }
+
+                        $gross_value_disp = $gross_value !== null ? number_format( $gross_value, 4, ',', '.' ) : '-';
+                        $fee_value = ( null !== $gross_value )
+                            ? round( $gross_value - $value, 6 )
+                            : null;
+                        $fee_value_disp = $fee_value !== null ? number_format( $fee_value, 4, ',', '.' ) : '-';
+                        $fee_percent_disp = number_format( $fee_percent, 4, ',', '.' );
 
                         // Vorige waarde in de reeks (DESC → volgende index)
                         $diff_disp = '-';
@@ -1331,6 +1571,7 @@ function ggr_render_stock_price_page() {
                         <tr>
                             <td><?php echo esc_html( $date_disp ); ?></td>
                             <td><?php echo esc_html( $value_disp ); ?></td>
+                            <td><?php echo esc_html( $gross_value_disp ); ?></td>                            
                             <td><?php echo esc_html( $fund_total_disp ); ?></td>
                             <td><?php echo esc_html( $total_parts_disp ); ?></td>
                             <td>
@@ -1342,6 +1583,8 @@ function ggr_render_stock_price_page() {
                                     -
                                 <?php endif; ?>
                             </td>                            
+                            <td><?php echo esc_html( $fee_percent_disp ); ?></td>
+                            <td><?php echo esc_html( $fee_value_disp ); ?></td>                            
                             <td><?php echo esc_html( $diff_disp ); ?></td>
                             <td><?php echo esc_html( $created_disp ); ?></td>
                             <td><?php echo esc_html( $updated_disp ); ?></td>
@@ -1418,13 +1661,17 @@ function ggr_api_authenticate_google_sheet( WP_REST_Request $request ) {
  * Verwacht JSON body:
  * {
  *   "date": "2025-11-29",
- *   "price": 99.38
+ *   "price": 99.38,
+ *   "management_fee_percent": 0.004,
+ *   "gross_price_value": 99.42
  * }
  */
 function ggr_api_update_stock_price( WP_REST_Request $request ) {
 
     $date_raw  = $request->get_param( 'date' );
     $price_raw = $request->get_param( 'price' );
+    $fee_raw   = $request->get_param( 'management_fee_percent' );
+    $gross_raw = $request->get_param( 'gross_price_value' );
 
     // -----------------------------------------
     // 1. Basisvalidatie
@@ -1494,8 +1741,32 @@ function ggr_api_update_stock_price( WP_REST_Request $request ) {
     // -----------------------------------------
     // 4. Opslaan in database (upsert)
     // -----------------------------------------
-    $ok = ggr_upsert_stock_price( $date_mysql, $price_float );
+    $fee_percent = ggr_stock_price_normalize_management_fee_percent( $fee_raw, ggr_stock_price_get_default_management_fee_percent() );
 
+    if ( null === $fee_percent || $fee_percent >= 100 ) {
+        return new WP_Error(
+            'invalid_fee',
+            'Management fee moet tussen 0 en 100% liggen.',
+            array( 'status' => 400 )
+        );
+    }
+    $gross_value = null;
+
+    if ( $gross_raw !== null && $gross_raw !== '' ) {
+        $gross_candidate = is_numeric( $gross_raw ) ? (float) $gross_raw : null;
+        if ( null !== $gross_candidate ) {
+            $gross_value = $gross_candidate;
+        }
+    }
+
+    $ok = ggr_upsert_stock_price(
+        $date_mysql,
+        $price_float,
+        array(
+            'management_fee_percent' => $fee_percent,
+            'gross_price_value'      => $gross_value,
+        )
+    );
     if ( ! $ok ) {
         return new WP_Error(
             'db_error',
