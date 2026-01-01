@@ -513,6 +513,12 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 			'icon'  => 'ri-exchange-funds-line',
 			'url'   => admin_url( 'admin.php?page=ggr-dividend-accruals' ),
 		],
+		[
+			'slug'  => 'ggr-management-fee',
+			'label' => 'Management Fee',
+			'icon'  => 'ri-money-euro-box-line',
+			'url'   => admin_url( 'admin.php?page=ggr-management-fee' ),
+		],
 	];
 
 	// Aanvullende acties/tabbladen voor beheer & systeem
