@@ -1530,9 +1530,9 @@ function ggr_render_stock_price_page() {
                         <th scope="row"><label for="fund_total">Totaal uit IBKR (bruto)</label></th>
                         <td>
                             <input
-                                type="number"
-                                step="0.01"
-                                min="0"
+                                type="text"
+                                inputmode="decimal"
+                                pattern="[0-9.,\s]+"
                                 id="fund_total"
                                 name="fund_total"
                                 value="<?php echo esc_attr( $form_total ); ?>"
