@@ -238,6 +238,13 @@ if ( ! function_exists( 'ggr_portal_truncate_participaties' ) ) {
     }
 }
 
+if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
+    function ggr_portal_format_participaties( $value, $decimals = 4 ) {
+        $value = ggr_portal_truncate_participaties( (float) $value, $decimals );
+        return number_format( $value, $decimals, ',', '.' );
+    }
+}
+
 /**
  * Totale participaties (alle users) t/m een datum.
  *
@@ -822,8 +829,8 @@ function ggr_portal_render_history_page() {
                         Datum: <?php echo esc_html( $delete_entry->datum ); ?><br>
                         Inleg (BIJ): € <?php echo number_format( $delete_entry->inlegbedrag, 2, ',', '.' ); ?><br>
                         Opname (AF): € <?php echo number_format( $delete_entry->opnamebedrag, 2, ',', '.' ); ?><br>
-                        Nieuwe participaties (BIJ): <?php echo number_format( $delete_entry->nieuwe_participaties, 4, ',', '.' ); ?><br>
-                        Verkochte participaties (AF): <?php echo number_format( $delete_entry->verkochte_participaties, 4, ',', '.' ); ?><br>
+                        Nieuwe participaties (BIJ): <?php echo esc_html( ggr_portal_format_participaties( $delete_entry->nieuwe_participaties, 4 ) ); ?><br>
+                        Verkochte participaties (AF): <?php echo esc_html( ggr_portal_format_participaties( $delete_entry->verkochte_participaties, 4 ) ); ?><br>
                         Distributievergoeding: € <?php echo number_format( $delete_entry->distributievergoeding, 2, ',', '.' ); ?>
                     </p>
                     <form method="post" style="display:inline-block; margin-right:10px;">
@@ -916,7 +923,7 @@ function ggr_portal_render_history_page() {
                                 id="nieuwe_participaties"
                                 placeholder="bijv. 0,3916"
                                 inputmode="decimal"
-                                value="<?php echo $is_edit ? esc_attr( number_format( (float) $entry->nieuwe_participaties, 4, ',', '.' ) ) : ''; ?>"
+                                value="<?php echo $is_edit ? esc_attr( ggr_portal_format_participaties( $entry->nieuwe_participaties, 4 ) ) : ''; ?>"
                             />
                         </td>
                     </tr>
@@ -929,7 +936,7 @@ function ggr_portal_render_history_page() {
                                 id="verkochte_participaties"
                                 placeholder="bijv. 0,0000"
                                 inputmode="decimal"
-                                value="<?php echo $is_edit ? esc_attr( number_format( (float) $entry->verkochte_participaties, 4, ',', '.' ) ) : ''; ?>"
+                                value="<?php echo $is_edit ? esc_attr( ggr_portal_format_participaties( $entry->verkochte_participaties, 4 ) ) : ''; ?>"
                             />
                         </td>
                     </tr>
@@ -973,7 +980,7 @@ function ggr_portal_render_history_page() {
                     $cumul_opname        += (float) $row->opnamebedrag;
                     $cumul_distributie   += (float) $row->distributievergoeding;
                     $cumul_participaties += (float) $row->nieuwe_participaties - (float) $row->verkochte_participaties;
-                    $cumul_participaties = ggr_portal_truncate_participaties( $cumul_participaties, 4 );                  
+                    $cumul_participaties = ggr_portal_truncate_participaties( $cumul_participaties, 4 );               
 
                     $netto_inleg  = $cumul_inleg - $cumul_opname;
                     $units_totaal = $cumul_participaties;
@@ -1128,9 +1135,9 @@ function ggr_portal_render_history_page() {
                                 <td><?php echo number_format( $row->inlegbedrag, 2, ',', '.' ); ?></td>
                                 <td><?php echo number_format( $row->opnamebedrag, 2, ',', '.' ); ?></td>
                                 <td><?php echo number_format( $positiewaarde, 2, ',', '.' ); ?></td>
-                                <td><?php echo number_format( $row->nieuwe_participaties, 4, ',', '.' ); ?></td>
-                                <td><?php echo number_format( $row->verkochte_participaties, 4, ',', '.' ); ?></td>
-                                <td><?php echo number_format( $totaal_participaties, 4, ',', '.' ); ?></td>
+                                <td><?php echo esc_html( ggr_portal_format_participaties( $row->nieuwe_participaties, 4 ) ); ?></td>
+                                <td><?php echo esc_html( ggr_portal_format_participaties( $row->verkochte_participaties, 4 ) ); ?></td>
+                                <td><?php echo esc_html( ggr_portal_format_participaties( $totaal_participaties, 4 ) ); ?></td>
                                 <td><?php echo number_format( $row->distributievergoeding, 2, ',', '.' ); ?></td>
 
                                 <td>
@@ -3510,8 +3517,8 @@ function ggr_portal_render_participant_profile_page() {
                                     <td><?php echo '€ ' . number_format( (float) $first_transaction->inlegbedrag, 2, ',', '.' ); ?></td>
                                     <td><?php echo '€ ' . number_format( (float) $first_transaction->opnamebedrag, 2, ',', '.' ); ?></td>
                                     <td><?php echo '€ ' . number_format( (float) $first_transaction->distributievergoeding, 2, ',', '.' ); ?></td>
-                                    <td><?php echo number_format( (float) $first_transaction->nieuwe_participaties, 4, ',', '.' ); ?></td>
-                                    <td><?php echo number_format( (float) $first_transaction->verkochte_participaties, 4, ',', '.' ); ?></td>
+                                    <td><?php echo esc_html( ggr_portal_format_participaties( $first_transaction->nieuwe_participaties, 4 ) ); ?></td>
+                                    <td><?php echo esc_html( ggr_portal_format_participaties( $first_transaction->verkochte_participaties, 4 ) ); ?></td>
                                 </tr>
                                 </tbody>
                             </table>
