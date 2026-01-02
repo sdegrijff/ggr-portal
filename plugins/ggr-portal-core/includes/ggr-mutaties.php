@@ -44,6 +44,15 @@ function ggr_mutaties_get_next_run_date( $base_date = null ) {
     return wp_date( 'Y-m-01', strtotime( 'first day of next month', $timestamp ) );
 }
 
+/**
+ * Bepaal mutatiedatum voor huidige maand: eerste dag van deze maand.
+ */
+function ggr_mutaties_get_current_run_date( $base_date = null ) {
+    $timestamp = $base_date ? strtotime( $base_date ) : current_time( 'timestamp' );
+
+    return wp_date( 'Y-m-01', strtotime( 'first day of this month', $timestamp ) );
+}
+
 function ggr_mutaties_normalize_planned_date( $raw_date, $allow_any_date = false ) {
     $raw_date = trim( (string) $raw_date );
     if ( $raw_date === '' ) {
@@ -757,7 +766,10 @@ function ggr_mutaties_render_admin_page() {
     }
 
     if ( 'dividend_run' === $action ) {
-        $planned_date  = ggr_mutaties_get_next_run_date();
+        $run_month    = isset( $_POST['ggr_dividend_run_month'] ) ? sanitize_key( wp_unslash( $_POST['ggr_dividend_run_month'] ) ) : 'next';
+        $planned_date = 'previous' === $run_month
+            ? ggr_mutaties_get_current_run_date()
+            : ggr_mutaties_get_next_run_date();
         $dividend_rate = ggr_mutaties_get_dividend_per_participation( $planned_date );
 
         if ( null === $dividend_rate ) {
@@ -803,7 +815,11 @@ function ggr_mutaties_render_admin_page() {
             }
 
             if ( $created > 0 ) {
-                $message = sprintf( 'Dividend run aangemaakt voor %d participanten.', $created );
+                if ( 'previous' === $run_month ) {
+                    $message = sprintf( 'Dividend run vorige maand aangemaakt voor %d participanten.', $created );
+                } else {
+                    $message = sprintf( 'Dividend run aangemaakt voor %d participanten.', $created );
+                }
             }
         }
     } elseif ( $action && $action_ids ) {
@@ -875,7 +891,8 @@ function ggr_mutaties_render_admin_page() {
         </p>
         <form method="post" style="margin: 0 0 16px;">
             <?php wp_nonce_field( 'ggr_mutaties_dividend_run', 'ggr_mutaties_dividend_run_nonce' ); ?>
-            <button type="submit" class="button">Dividend run</button>
+            <button type="submit" class="button" name="ggr_dividend_run_month" value="next">Dividend run</button>
+            <button type="submit" class="button" name="ggr_dividend_run_month" value="previous">Dividend run vorige maand</button>
         </form>
 
         <?php if ( $message ) : ?>
