@@ -877,14 +877,16 @@ function ggr_portal_render_history_page() {
             $users = get_users( [
                 'orderby' => 'display_name',
                 'order'   => 'ASC',
-                'fields'  => [ 'ID', 'display_name', 'user_login', 'first_name', 'last_name' ],
+                'fields'  => 'all_with_meta',
             ] );
             ?>
             <select name="user_id" id="user_id">
                 <option value=""><?php echo esc_html( '— selecteer een gebruiker —' ); ?></option>
                 <?php foreach ( $users as $user ) : ?>
                     <?php
-                    $user_label = trim( $user->first_name . ' ' . $user->last_name );
+                    $first_name = $user->first_name ?: get_user_meta( $user->ID, 'first_name', true );
+                    $last_name  = $user->last_name ?: get_user_meta( $user->ID, 'last_name', true );
+                    $user_label = trim( $first_name . ' ' . $last_name );
                     if ( '' === $user_label ) {
                         $user_label = $user->display_name ?: $user->user_login;
                     }
