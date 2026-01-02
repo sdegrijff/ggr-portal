@@ -38,6 +38,7 @@ function ggrp_fe_format_signed_number( $value, $decimals = 4 ) {
     $value = (float) $value;
     $sign  = $value > 0 ? '+' : ( $value < 0 ? '-' : '' );
     $abs   = abs( $value );
+    $abs   = ggr_portal_truncate_participaties( $abs, $decimals );
     return $sign . number_format( $abs, $decimals, ',', '.' );
 }
 
@@ -987,7 +988,7 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
                 <h2 class="ggrp-fe-card-title">Participaties</h2>
                 <div class="ggrp-fe-card-value">
                     <?php echo esc_html(
-                        number_format( (float) $parts_total, 4, ',', '.' )
+                        ggr_portal_format_participaties( $parts_total, 4 )
                     ); ?>
                 </div>
                 <div class="ggrp-fe-card-meta">
@@ -1578,6 +1579,13 @@ if ( ! function_exists( 'ggr_portal_truncate_participaties' ) ) {
     }
 }
 
+if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
+    function ggr_portal_format_participaties( $value, $decimals = 4 ) {
+        $value = ggr_portal_truncate_participaties( (float) $value, $decimals );
+        return ggr_portal_format_participaties( $value, $decimals );
+    }
+}
+
     $user_id = get_current_user_id();
 
     if ( ! function_exists( 'ggr_portal_get_history_for_user' ) ) {
@@ -1842,10 +1850,10 @@ if ( ! function_exists( 'ggr_portal_truncate_participaties' ) ) {
                                     <div class="ggrp-fe-trans-extra-value">
                                         <?php if ( $old_parts !== null && $new_parts !== null ) : ?>
                                             <div>Oorspronkelijk:
-                                                <?php echo esc_html( number_format( $old_parts, 4, ',', '.' ) ); ?>
+                                                <?php echo esc_html( ggr_portal_format_participaties( $old_parts, 4 ) ); ?>
                                             </div>
                                             <div>Na transactie:
-                                                <?php echo esc_html( number_format( $new_parts, 4, ',', '.' ) ); ?>
+                                                <?php echo esc_html( ggr_portal_format_participaties( $new_parts, 4 ) ); ?>
                                             </div>
                                             <?php if ( $delta_parts !== 0.0 ) : ?>
                                                 <div style="margin-top:0.3rem;font-size:0.8rem;color:#9ca3af;">
