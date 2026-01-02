@@ -2541,7 +2541,10 @@ function ggr_onboarding_handle_registration_submit() {
     /**
      * Gebruiker aanmaken
      */
-    $username_base = sanitize_user( current( explode( '@', $email ) ), true );
+    $username_base = sanitize_user( $email, true );
+    if ( ! $username_base ) {
+        $username_base = sanitize_user( current( explode( '@', $email ) ), true );
+    }
     if ( ! $username_base ) {
         $username_base = 'user';
     }
