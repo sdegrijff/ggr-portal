@@ -943,6 +943,16 @@ function ggr_portal_render_history_page() {
                     $price       = null;
                     $stock_price = null;
 
+                    $lookup_date = $row->datum;
+                    $row_date    = DateTime::createFromFormat( 'Y-m-d', $row->datum );
+                    if ( $row_date && '01' === $row_date->format( 'd' ) ) {
+                        if ( function_exists( 'ggr_dividend_accruals_get_previous_month_end' ) ) {
+                            $lookup_date = ggr_dividend_accruals_get_previous_month_end( $row->datum );
+                        } else {
+                            $lookup_date = $row_date->modify( 'last day of previous month' )->format( 'Y-m-d' );
+                        }
+                    }
+
                     if ( function_exists( 'ggr_get_stock_price_for_date' ) ) {
                         // true = gebruik dichtstbijzijnde eerdere koers als er die dag geen snapshot is
                         $price = ggr_get_stock_price_for_date( $row->datum, true );
@@ -3707,6 +3717,7 @@ function ggr_portal_render_participant_overview_page() {
                     <th>Totaal participaties</th>
                     <th>Positiewaarde (&euro;)</th>
                     <th>Totaal dividend (&euro;)</th>
+                    <th>Dividendstrategie</th>                    
                     <th>Investeringsrendement %</th>
                     <th>Acties</th>
                 </tr>
@@ -3748,6 +3759,7 @@ function ggr_portal_render_participant_overview_page() {
                 $totaal_part_label    = '–';
                 $positiewaarde_label  = '–';
                 $dividend_label       = '–';
+                $dividend_strategy    = '–';
                 $inv_rend_label       = '–';
 
                 // Samenvatting obv bestaande helper
@@ -3797,6 +3809,13 @@ function ggr_portal_render_participant_overview_page() {
                     }
                 }
 
+                $distribution_strategy = get_user_meta( $uid, 'ggr_distribution_strategy', true );
+                if ( 'herbeleggen' === $distribution_strategy ) {
+                    $dividend_strategy = 'Herbeleggen';
+                } elseif ( 'uitkeren' === $distribution_strategy ) {
+                    $dividend_strategy = 'Uitkeren';
+                }
+
                 // Link naar participant-profiel
                 $profile_url = add_query_arg(
                     [
@@ -3832,6 +3851,7 @@ function ggr_portal_render_participant_overview_page() {
                     <td><?php echo esc_html( $totaal_part_label ); ?></td>
                     <td><?php echo esc_html( $positiewaarde_label ); ?></td>
                     <td><?php echo esc_html( $dividend_label ); ?></td>
+                    <td><?php echo esc_html( $dividend_strategy ); ?></td>        
                     <td><?php echo esc_html( $inv_rend_label ); ?></td>
                     <td>
                         <a href="<?php echo esc_url( $profile_url ); ?>">Bekijk profiel</a> |
