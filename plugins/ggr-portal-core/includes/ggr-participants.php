@@ -116,6 +116,25 @@ function ggr_portal_parse_date_to_mysql( $raw ) {
 }
 
 /**
+ * Helper: numerieke input met komma of punt naar float.
+ */
+function ggr_portal_parse_decimal_input( $raw ) {
+    $raw = trim( (string) $raw );
+    if ( $raw === '' ) {
+        return 0.0;
+    }
+
+    $raw = str_replace( ' ', '', $raw );
+
+    if ( strpos( $raw, ',' ) !== false ) {
+        $raw = str_replace( '.', '', $raw );
+        $raw = str_replace( ',', '.', $raw );
+    }
+
+    return (float) $raw;
+}
+
+/**
  * 2. HISTORIE CRUD HELPERS
  */
 
@@ -138,11 +157,14 @@ function ggr_portal_add_history_entry( $user_id, $datum, $inlegbedrag, $opnamebe
     }
 
     $user_id      = (int) $user_id;
-    $inlegbedrag  = (float) str_replace( ',', '.', $inlegbedrag );
-    $opnamebedrag = (float) str_replace( ',', '.', $opnamebedrag );
-    $nieuwe       = (float) str_replace( ',', '.', $nieuwe );
-    $verkochte    = (float) str_replace( ',', '.', $verkochte );
-    $distributie  = (float) str_replace( ',', '.', $distributie );
+    $inlegbedrag  = ggr_portal_parse_decimal_input( $inlegbedrag );
+    $opnamebedrag = ggr_portal_parse_decimal_input( $opnamebedrag );
+    $nieuwe       = ggr_portal_parse_decimal_input( $nieuwe );
+    $verkochte    = ggr_portal_parse_decimal_input( $verkochte );
+    $distributie  = ggr_portal_parse_decimal_input( $distributie );
+
+    $nieuwe    = round( $nieuwe, 4 );
+    $verkochte = round( $verkochte, 4 );
 
     $transactie_code = ggr_portal_generate_transactie_code( $user_id );
 
@@ -273,12 +295,14 @@ function ggr_portal_update_history_entry( $id, $datum, $inlegbedrag, $opnamebedr
         return false;
     }
 
-    $inlegbedrag  = (float) str_replace( ',', '.', $inlegbedrag );
-    $opnamebedrag = (float) str_replace( ',', '.', $opnamebedrag );
-    $nieuwe       = (float) str_replace( ',', '.', $nieuwe );
-    $verkochte    = (float) str_replace( ',', '.', $verkochte );
-    $distributie  = (float) str_replace( ',', '.', $distributie );
+    $inlegbedrag  = ggr_portal_parse_decimal_input( $inlegbedrag );
+    $opnamebedrag = ggr_portal_parse_decimal_input( $opnamebedrag );
+    $nieuwe       = ggr_portal_parse_decimal_input( $nieuwe );
+    $verkochte    = ggr_portal_parse_decimal_input( $verkochte );
+    $distributie  = ggr_portal_parse_decimal_input( $distributie );
 
+    $nieuwe    = round( $nieuwe, 4 );
+    $verkochte = round( $verkochte, 4 );
     $data = array(
         'datum'                   => $datum_mysql,
         'inlegbedrag'             => $inlegbedrag,
@@ -878,8 +902,10 @@ function ggr_portal_render_history_page() {
                                 type="text"
                                 name="nieuwe_participaties"
                                 id="nieuwe_participaties"
-                                placeholder="bijv. 1.4131"
-                                value="<?php echo $is_edit ? esc_attr( $entry->nieuwe_participaties ) : ''; ?>"
+                                placeholder="bijv. 0,3916"
+                                inputmode="decimal"
+                                pattern="^\\d+(?:[\\.,]\\d{0,4})?$"
+                                value="<?php echo $is_edit ? esc_attr( number_format( (float) $entry->nieuwe_participaties, 4, ',', '.' ) ) : ''; ?>"
                             />
                         </td>
                     </tr>
@@ -890,8 +916,10 @@ function ggr_portal_render_history_page() {
                                 type="text"
                                 name="verkochte_participaties"
                                 id="verkochte_participaties"
-                                placeholder="bijv. 0.0000"
-                                value="<?php echo $is_edit ? esc_attr( $entry->verkochte_participaties ) : ''; ?>"
+                                placeholder="bijv. 0,0000"
+                                inputmode="decimal"
+                                pattern="^\\d+(?:[\\.,]\\d{0,4})?$"
+                                value="<?php echo $is_edit ? esc_attr( number_format( (float) $entry->verkochte_participaties, 4, ',', '.' ) ) : ''; ?>"
                             />
                         </td>
                     </tr>
@@ -955,7 +983,7 @@ function ggr_portal_render_history_page() {
 
                     if ( function_exists( 'ggr_get_stock_price_for_date' ) ) {
                         // true = gebruik dichtstbijzijnde eerdere koers als er die dag geen snapshot is
-                        $price = ggr_get_stock_price_for_date( $row->datum, true );
+                        $price = ggr_get_stock_price_for_date( $lookup_date, true );
                     }
 
                     if ( $price !== null ) {
