@@ -961,6 +961,7 @@ function ggr_portal_render_history_page() {
                     $cumul_opname        += (float) $row->opnamebedrag;
                     $cumul_distributie   += (float) $row->distributievergoeding;
                     $cumul_participaties += (float) $row->nieuwe_participaties - (float) $row->verkochte_participaties;
+                    $cumul_participaties = round( $cumul_participaties, 4 );                    
 
                     $netto_inleg  = $cumul_inleg - $cumul_opname;
                     $units_totaal = $cumul_participaties;
