@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Verwerken van updates (POST) nog v贸贸r de pagina rendert
+ * Verwerken van updates (POST) nog vóór de pagina rendert
  */
 add_action( 'init', 'ggrp_fe_handle_account_update' );
 
