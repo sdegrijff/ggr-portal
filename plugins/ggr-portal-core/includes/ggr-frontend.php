@@ -577,6 +577,7 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
             $cumul_opname        += (float) $row->opnamebedrag;
             $cumul_distributie   += (float) $row->distributievergoeding;
             $cumul_participaties += (float) $row->nieuwe_participaties - (float) $row->verkochte_participaties;
+            $cumul_participaties = round( $cumul_participaties, 4 );            
 
             $netto_inleg   = $cumul_inleg - $cumul_opname;
             $positiewaarde = $netto_inleg + $cumul_distributie;
@@ -1619,7 +1620,7 @@ function ggrp_fe_transacties_shortcode( $atts ) {
 
         $row->old_positiewaarde = $old_pos;
         $row->new_positiewaarde = $current_pos;
-        $row->old_participaties = $old_parts;
+        $row->old_participaties = round( $old_parts, 4 );
         $row->new_participaties = $cumul_participaties;
     }
 
