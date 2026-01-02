@@ -1564,7 +1564,19 @@ function ggrp_fe_transacties_shortcode( $atts ) {
     $maybe_error = ggrp_fe_require_login();
     if ( $maybe_error !== null ) {
         return $maybe_error;
+}
+
+if ( ! function_exists( 'ggr_portal_truncate_participaties' ) ) {
+    function ggr_portal_truncate_participaties( $value, $decimals = 4 ) {
+        $factor = pow( 10, $decimals );
+        $epsilon = 1 / ( $factor * 100 );
+        if ( $value >= 0 ) {
+            return floor( ( $value + $epsilon ) * $factor ) / $factor;
+        }
+
+        return ceil( ( $value - $epsilon ) * $factor ) / $factor;
     }
+}
 
     $user_id = get_current_user_id();
 
@@ -1614,13 +1626,14 @@ function ggrp_fe_transacties_shortcode( $atts ) {
         $cumul_opname        += (float) $row->opnamebedrag;
         $cumul_distributie   += (float) $row->distributievergoeding;
         $cumul_participaties += (float) $row->nieuwe_participaties - (float) $row->verkochte_participaties;
+        $cumul_participaties = ggr_portal_truncate_participaties( $cumul_participaties, 4 );
 
         $netto_inleg = $cumul_inleg - $cumul_opname;
         $current_pos = $netto_inleg + $cumul_distributie;
 
         $row->old_positiewaarde = $old_pos;
         $row->new_positiewaarde = $current_pos;
-        $row->old_participaties = round( $old_parts, 4 );
+        $row->old_participaties = ggr_portal_truncate_participaties( $old_parts, 4 );
         $row->new_participaties = $cumul_participaties;
     }
 
