@@ -71,6 +71,7 @@ function ggrp_fe_handle_account_update() {
             $first_name = isset( $_POST['first_name'] ) ? sanitize_text_field( wp_unslash( $_POST['first_name'] ) ) : '';
             $last_name  = isset( $_POST['last_name'] )  ? sanitize_text_field( wp_unslash( $_POST['last_name'] ) )  : '';
             $greeting_name = isset( $_POST['ggr_greeting_name'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_greeting_name'] ) ) : '';
+            $username   = isset( $_POST['username'] )   ? sanitize_user( wp_unslash( $_POST['username'] ), true )    : '';
             $email      = isset( $_POST['email'] )      ? sanitize_email( wp_unslash( $_POST['email'] ) )           : '';
             $phone      = isset( $_POST['phone'] )      ? sanitize_text_field( wp_unslash( $_POST['phone'] ) )      : '';
 
@@ -78,6 +79,13 @@ function ggrp_fe_handle_account_update() {
             update_user_meta( $user_id, 'last_name',  $last_name );
             update_user_meta( $user_id, 'phone',      $phone );
             update_user_meta( $user_id, 'ggr_greeting_name', $greeting_name );
+ 
+            if ( $username && $username !== $user->user_login && ! username_exists( $username ) ) {
+                wp_update_user( [
+                    'ID'         => $user_id,
+                    'user_login' => $username,
+                ] );
+            }
             
             if ( $email && is_email( $email ) ) {
                 wp_update_user( [
@@ -273,7 +281,7 @@ function ggrp_fe_get_account_data( $user_id ) {
         'first_name'  => $first_name,
         'last_name'   => $last_name,
         'greeting_name' => $greeting_name,
-        'full_name'   => $full_name,
+        'username'    => $user->user_login,
         'email'       => $user->user_email,
         'phone'       => $phone,
 
@@ -639,7 +647,7 @@ function ggrp_fe_account_shortcode( $atts ) {
                 <!-- 4. BEDRIJFSGEGEVENS -->
                 <article class="ggrp-fe-account-card">
                     <div class="ggrp-fe-account-card-header">
-                        <h2>Bedrijfsgegevens (optioneel)</h2>
+                        <h2>Bedrijfsgegevens</h2>
                     </div>
 
                     <div class="ggrp-fe-account-card-body">
