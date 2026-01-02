@@ -874,13 +874,26 @@ function ggr_portal_render_history_page() {
             <input type="hidden" name="page" value="ggr-participatie-historie" />
             <label for="user_id">Kies gebruiker:</label>
             <?php
-            wp_dropdown_users( [
-                'name'              => 'user_id',
-                'selected'          => $user_id,
-                'show_option_none'  => '— selecteer een gebruiker —',
-                'show'              => 'display_name',
+            $users = get_users( [
+                'orderby' => 'display_name',
+                'order'   => 'ASC',
+                'fields'  => [ 'ID', 'display_name', 'user_login', 'first_name', 'last_name' ],
             ] );
             ?>
+            <select name="user_id" id="user_id">
+                <option value=""><?php echo esc_html( '— selecteer een gebruiker —' ); ?></option>
+                <?php foreach ( $users as $user ) : ?>
+                    <?php
+                    $user_label = trim( $user->first_name . ' ' . $user->last_name );
+                    if ( '' === $user_label ) {
+                        $user_label = $user->display_name ?: $user->user_login;
+                    }
+                    ?>
+                    <option value="<?php echo esc_attr( $user->ID ); ?>" <?php selected( $user_id, $user->ID ); ?>>
+                        <?php echo esc_html( $user_label ); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
             <button class="button button-primary" type="submit">Laden</button>
         </form>
 
@@ -1197,7 +1210,7 @@ function ggr_portal_render_history_page() {
                                 <td>
                                     <?php
                                     if ( $stock_price !== null ) {
-                                        echo '€ ' . number_format( $stock_price, 2, ',', '.' );
+                                        echo '€ ' . number_format( $stock_price, 4, ',', '.' );
                                     } else {
                                         echo '–';
                                     }
