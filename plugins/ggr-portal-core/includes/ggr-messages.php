@@ -315,7 +315,10 @@ function ggr_portal_get_transactions_for_message_month( $user_id, $message_id ) 
         $cumul_opname        += (float) $row->opnamebedrag;
         $cumul_distributie   += (float) $row->distributievergoeding;
         $cumul_participaties += (float) $row->nieuwe_participaties - (float) $row->verkochte_participaties;
-
+        if ( function_exists( 'ggr_portal_truncate_participaties' ) ) {
+            $cumul_participaties = ggr_portal_truncate_participaties( $cumul_participaties, 4 );
+        }
+        
         $netto_inleg  = $cumul_inleg - $cumul_opname;
         $current_pos  = $netto_inleg + $cumul_distributie;
 
@@ -460,8 +463,28 @@ function ggr_portal_get_month_overview_for_message( $user_id, $message_id ) {
     // Netto aangekochte participaties t.o.v. einde vorige maand
     $new_parts = $start_parts - $prev_parts;
 
-    // Totale waarde bij start nieuwe maand = positie op berichtdatum
+    // Totale waarde bij start nieuwe maand = NAV einde vorige maand x participaties bij start nieuwe maand
     $total_value = $start_pos;
+    $prev_nav    = null;
+    $lookup_date = $prev_end->format( 'Y-m-d' );
+
+    if ( '01' === $dt_msg->format( 'd' ) ) {
+        if ( function_exists( 'ggr_dividend_accruals_get_previous_month_end' ) ) {
+            $lookup_date = ggr_dividend_accruals_get_previous_month_end( $dt_msg->format( 'Y-m-d' ) );
+        }
+    }
+
+    if ( function_exists( 'ggr_get_stock_price_for_date' ) ) {
+        $prev_nav = ggr_get_stock_price_for_date( $lookup_date, true );
+    }
+
+    if ( $prev_nav !== null && $prev_nav > 0 ) {
+        $start_parts_value = $start_parts;
+        if ( function_exists( 'ggr_portal_truncate_participaties' ) ) {
+            $start_parts_value = ggr_portal_truncate_participaties( $start_parts_value, 4 );
+        }
+        $total_value = $start_parts_value * (float) $prev_nav;
+    }
 
     return array(
         'prev_end_date'  => $prev_end,
