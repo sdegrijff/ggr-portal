@@ -394,26 +394,28 @@ function portal_redirect_wp_login_to_custom() {
         exit;
     }
 
-    // Als je admins nooit wilt forceren:
-    if ( current_user_can( 'manage_options' ) ) {
-        return;
-    }
-
     $action = isset( $_REQUEST['action'] ) ? $_REQUEST['action'] : 'login';
 
-    // Acties die we wél via wp-login zelf toestaan
-    $allowed_actions = array( 'lostpassword', 'rp', 'resetpass', 'logout' );
-    if ( in_array( $action, $allowed_actions, true ) ) {
-        return;
+    // Resetlink uit mail: direct naar het front-end resetformulier.
+    if ( in_array( $action, array( 'rp', 'resetpass' ), true ) ) {
+        if ( ! empty( $_GET['key'] ) && ! empty( $_GET['login'] ) ) {
+            $key   = sanitize_text_field( wp_unslash( $_GET['key'] ) );
+            $login = sanitize_text_field( wp_unslash( $_GET['login'] ) );
+
+            $url = add_query_arg(
+                array(
+                    'key'   => rawurlencode( $key ),
+                    'login' => rawurlencode( $login ),
+                ),
+                home_url( '/nieuw-wachtwoord/' )
+            );
+
+            wp_safe_redirect( $url );
+            exit;
+        }
     }
 
-    // Als iemand via redirect_to naar wp-admin komt, laat het dan door WP afhandelen
-    $redirect_to = isset( $_REQUEST['redirect_to'] ) ? $_REQUEST['redirect_to'] : '';
-    if ( strpos( $redirect_to, 'wp-admin' ) !== false ) {
-        return;
-    }
-
-    // Alles anders: naar de front-end loginpagina
+    // Alle andere wp-login.php requests gaan naar de front-end loginpagina.
     wp_safe_redirect( home_url( '/login/' ) );
     exit;
 }
