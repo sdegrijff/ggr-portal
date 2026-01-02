@@ -396,6 +396,11 @@ function portal_redirect_wp_login_to_custom() {
 
     $action = isset( $_REQUEST['action'] ) ? $_REQUEST['action'] : 'login';
 
+    // Logout requests must be handled by WordPress (needs wp-login.php?action=logout).
+    if ( 'logout' === $action ) {
+        return;
+    }
+
     // Resetlink uit mail: direct naar het front-end resetformulier.
     if ( in_array( $action, array( 'rp', 'resetpass' ), true ) ) {
         if ( ! empty( $_GET['key'] ) && ! empty( $_GET['login'] ) ) {
