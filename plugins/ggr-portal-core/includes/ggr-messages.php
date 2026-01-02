@@ -1030,9 +1030,17 @@ function ggr_portal_render_message_pdf_html( WP_Post $post, $user_id ) {
     $city     = get_user_meta( $user_id, 'address_city', true );
     $country  = get_user_meta( $user_id, 'address_country', true ) ?: 'Nederland';
 
-    $full_name = trim( $user->first_name . ' ' . $user->last_name );
-    if ( $full_name === '' ) {
-        $full_name = $user->display_name;
+    $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
+        ? ggr_portal_get_greeting_name( $user )
+        : trim( (string) $user->first_name );
+    if ( $greeting_name === '' ) {
+        $greeting_name = $user->display_name;
+    }
+
+    if ( $greeting_name !== '' && $user->last_name && $greeting_name !== $user->display_name ) {
+        $full_name = trim( $greeting_name . ' ' . $user->last_name );
+    } else {
+        $full_name = $greeting_name ?: $user->display_name;
     }
 
     ob_start();
@@ -1410,12 +1418,14 @@ function ggr_portal_message_user_firstname_shortcode( $atts ) {
         return esc_html( $atts['fallback'] );
     }
 
-    $first_name = trim( (string) $user->first_name );
-    if ( $first_name === '' ) {
-        $first_name = $user->display_name ? $user->display_name : $atts['fallback'];
+    $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
+        ? ggr_portal_get_greeting_name( $user )
+        : trim( (string) $user->first_name );
+    if ( $greeting_name === '' ) {
+        $greeting_name = $user->display_name ? $user->display_name : $atts['fallback']; $atts['fallback'];
     }
 
-    return esc_html( $first_name );
+    return esc_html( $greeting_name );
 }
 add_shortcode( 'ggr_user_firstname', 'ggr_portal_message_user_firstname_shortcode' );
 
