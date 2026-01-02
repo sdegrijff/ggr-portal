@@ -1512,11 +1512,9 @@ function ggr_transacties_overzicht_shortcode( $atts ) {
 
     $prev_parts          = 0.0; // stand per laatste dag vorige maand
     $start_parts         = 0.0; // stand per 1e dag nieuwe maand
-    $monthly_distrib     = 0.0; // OPGEBOUWDE kapitaalsuitkering = distributie uit laatste transactiedag vorige maand
+    $monthly_distrib     = 0.0; // OPGEBOUWDE kapitaalsuitkering = distributie op settlement (1e dag nieuwe maand)
     $new_parts           = 0.0; // nieuwe participaties uit transacties op 1e dag nieuwe maand
     $new_parts_found     = false;
-    $last_distrib_date   = null;
-
     $new_start_ymd = $dt_new_start->format( 'Y-m-d' );
 
     foreach ( $history as $row ) {
@@ -1547,16 +1545,9 @@ function ggr_transacties_overzicht_shortcode( $atts ) {
             $start_parts = $cumul_participaties;
         }
 
-        // Kapitaalsuitkering: laatste transactiedag in de afrekenmaand (<= $dt_prev_end)
-        if ( $row_dt <= $dt_prev_end ) {
-            if ( $last_distrib_date === null || $row_ymd > $last_distrib_date ) {
-                $last_distrib_date = $row_ymd;
-                $monthly_distrib   = 0.0;
-            }
-
-            if ( $last_distrib_date === $row_ymd ) {
-                $monthly_distrib += (float) $row->distributievergoeding;
-            }
+        // Kapitaalsuitkering: settlement-transacties op 1e dag nieuwe maand
+        if ( $row_ymd === $new_start_ymd ) {
+            $monthly_distrib += (float) $row->distributievergoeding;
         }
 
         // Nieuwe maand: transacties op 1e dag nieuwe maand
