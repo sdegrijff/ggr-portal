@@ -226,6 +226,18 @@ function ggr_portal_get_history_for_user( $user_id ) {
     return $wpdb->get_results( $sql );
 }
 
+if ( ! function_exists( 'ggr_portal_truncate_participaties' ) ) {
+    function ggr_portal_truncate_participaties( $value, $decimals = 4 ) {
+        $factor = pow( 10, $decimals );
+        $epsilon = 1 / ( $factor * 100 );
+        if ( $value >= 0 ) {
+            return floor( ( $value + $epsilon ) * $factor ) / $factor;
+        }
+
+        return ceil( ( $value - $epsilon ) * $factor ) / $factor;
+    }
+}
+
 /**
  * Totale participaties (alle users) t/m een datum.
  *
@@ -961,7 +973,7 @@ function ggr_portal_render_history_page() {
                     $cumul_opname        += (float) $row->opnamebedrag;
                     $cumul_distributie   += (float) $row->distributievergoeding;
                     $cumul_participaties += (float) $row->nieuwe_participaties - (float) $row->verkochte_participaties;
-                    $cumul_participaties = round( $cumul_participaties, 4 );                    
+                    $cumul_participaties = ggr_portal_truncate_participaties( $cumul_participaties, 4 );                  
 
                     $netto_inleg  = $cumul_inleg - $cumul_opname;
                     $units_totaal = $cumul_participaties;
