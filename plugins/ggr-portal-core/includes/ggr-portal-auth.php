@@ -116,7 +116,7 @@ function ggr_portal_send_2fa_code_email( $user, $code ) {
         $message .= __( 'Deze code is 10 minuten geldig.', 'ggr-portal-core' ) . "\n\n";
         $message .= __( 'Heb jij dit niet aangevraagd? Neem dan direct contact op met GGR.', 'ggr-portal-core' ) . "\n\n";
         $message .= __( 'Met vriendelijke groet,', 'ggr-portal-core' ) . "\n";
-        $message .= __( 'GGR Income Fund', 'ggr-portal-core' );
+        $message .= __( 'GGR funds', 'ggr-portal-core' );
 
         wp_mail( $user->user_email, $subject, $message );
     }
@@ -457,7 +457,7 @@ function ggr_login_form_shortcode() {
     <div class="ggr-login-header-left">
         <a href="/">
             <img src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20full%20logo%20-%20Blue%20-%20Black.png"
-                 alt="GGR Income Fund"
+                 alt="GGR funds"
                  class="ggr-login-logo">
                  <style>
 .ggr-login-header {
@@ -982,7 +982,7 @@ function ggr_portal_reset_password_title( $title, $user_login, $user_data ) {
     }
 
     // Fallback als er geen template-subject beschikbaar is
-    return 'Nieuw wachtwoord instellen | GGR Income Fund';
+    return 'Nieuw wachtwoord instellen | GGR funds';
 }
 
 /**
