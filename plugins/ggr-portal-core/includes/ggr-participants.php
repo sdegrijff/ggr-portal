@@ -135,6 +135,38 @@ function ggr_portal_parse_decimal_input( $raw ) {
 }
 
 /**
+ * Helper: participatie input normaliseren zonder afronden (vaste decimalen).
+ */
+function ggr_portal_parse_participaties_input( $raw, $decimals = 4 ) {
+    $raw = trim( (string) $raw );
+    if ( $raw === '' ) {
+        return '0.' . str_repeat( '0', $decimals );
+    }
+
+    $raw = str_replace( ' ', '', $raw );
+
+    if ( strpos( $raw, ',' ) !== false ) {
+        $raw = str_replace( '.', '', $raw );
+        $raw = str_replace( ',', '.', $raw );
+    }
+
+    $sign = '';
+    if ( 0 === strpos( $raw, '-' ) ) {
+        $sign = '-';
+        $raw  = substr( $raw, 1 );
+    }
+
+    $parts   = explode( '.', $raw, 2 );
+    $whole   = preg_replace( '/\D/', '', $parts[0] );
+    $dec     = isset( $parts[1] ) ? preg_replace( '/\D/', '', $parts[1] ) : '';
+    $whole   = $whole === '' ? '0' : $whole;
+    $dec     = substr( $dec, 0, $decimals );
+    $dec     = str_pad( $dec, $decimals, '0' );
+
+    return $sign . $whole . '.' . $dec;
+}
+
+/**
  * 2. HISTORIE CRUD HELPERS
  */
 
@@ -159,12 +191,9 @@ function ggr_portal_add_history_entry( $user_id, $datum, $inlegbedrag, $opnamebe
     $user_id      = (int) $user_id;
     $inlegbedrag  = ggr_portal_parse_decimal_input( $inlegbedrag );
     $opnamebedrag = ggr_portal_parse_decimal_input( $opnamebedrag );
-    $nieuwe       = ggr_portal_parse_decimal_input( $nieuwe );
-    $verkochte    = ggr_portal_parse_decimal_input( $verkochte );
+    $nieuwe       = ggr_portal_parse_participaties_input( $nieuwe, 4 );
+    $verkochte    = ggr_portal_parse_participaties_input( $verkochte, 4 );
     $distributie  = ggr_portal_parse_decimal_input( $distributie );
-
-    $nieuwe    = round( $nieuwe, 4 );
-    $verkochte = round( $verkochte, 4 );
 
     $transactie_code = ggr_portal_generate_transactie_code( $user_id );
 
@@ -180,7 +209,7 @@ function ggr_portal_add_history_entry( $user_id, $datum, $inlegbedrag, $opnamebe
         'created_at'              => current_time( 'mysql' ),
     );
 
-    $formats = array( '%d', '%s', '%s', '%f', '%f', '%f', '%f', '%f', '%s' );
+    $formats = array( '%d', '%s', '%s', '%f', '%f', '%s', '%s', '%f', '%s' );
 
     $inserted = $wpdb->insert( $table_name, $data, $formats );
     if ( $inserted === false ) {
@@ -316,12 +345,10 @@ function ggr_portal_update_history_entry( $id, $datum, $inlegbedrag, $opnamebedr
 
     $inlegbedrag  = ggr_portal_parse_decimal_input( $inlegbedrag );
     $opnamebedrag = ggr_portal_parse_decimal_input( $opnamebedrag );
-    $nieuwe       = ggr_portal_parse_decimal_input( $nieuwe );
-    $verkochte    = ggr_portal_parse_decimal_input( $verkochte );
+    $nieuwe       = ggr_portal_parse_participaties_input( $nieuwe, 4 );
+    $verkochte    = ggr_portal_parse_participaties_input( $verkochte, 4 );
     $distributie  = ggr_portal_parse_decimal_input( $distributie );
 
-    $nieuwe    = round( $nieuwe, 4 );
-    $verkochte = round( $verkochte, 4 );
     $data = array(
         'datum'                   => $datum_mysql,
         'inlegbedrag'             => $inlegbedrag,
@@ -331,7 +358,7 @@ function ggr_portal_update_history_entry( $id, $datum, $inlegbedrag, $opnamebedr
         'distributievergoeding'   => $distributie,
     );
 
-    $formats = array( '%s', '%f', '%f', '%f', '%f', '%f' );
+    $formats = array( '%s', '%f', '%f', '%s', '%s', '%f' );
 
     $updated = $wpdb->update(
         $table_name,
