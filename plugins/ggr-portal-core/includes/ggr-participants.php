@@ -33,6 +33,51 @@ function ggr_portal_calculate_participation_type( $amount ) {
 }
 
 /**
+ * Zorg dat de historie-tabel participaties op 4 decimalen bewaart.
+ */
+function ggr_portal_maybe_upgrade_history_table_schema() {
+    global $wpdb;
+
+    $table_name = $wpdb->prefix . 'user_participatie_history';
+    $option_key = 'ggr_portal_history_schema_v4';
+
+    if ( get_option( $option_key ) ) {
+        return;
+    }
+
+    $table_exists = $wpdb->get_var(
+        $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name )
+    );
+
+    if ( $table_exists !== $table_name ) {
+        return;
+    }
+
+    $columns = array( 'nieuwe_participaties', 'verkochte_participaties' );
+    $target  = 'decimal(15,4)';
+
+    foreach ( $columns as $column ) {
+        $column_info = $wpdb->get_row(
+            $wpdb->prepare( "SHOW COLUMNS FROM {$table_name} LIKE %s", $column )
+        );
+
+        if ( ! $column_info ) {
+            continue;
+        }
+
+        $type = strtolower( $column_info->Type );
+        if ( $type !== $target ) {
+            $wpdb->query(
+                "ALTER TABLE {$table_name} MODIFY {$column} DECIMAL(15,4) NOT NULL DEFAULT 0.0000"
+            );
+        }
+    }
+
+    update_option( $option_key, 1 );
+}
+add_action( 'admin_init', 'ggr_portal_maybe_upgrade_history_table_schema' );
+
+/**
  * 1. DATABASE-TABEL VOOR PARTICIPATIE-HISTORIE
  */
 function ggr_portal_create_history_table() {
