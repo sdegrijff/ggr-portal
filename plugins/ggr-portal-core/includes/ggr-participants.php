@@ -904,7 +904,6 @@ function ggr_portal_render_history_page() {
                                 id="nieuwe_participaties"
                                 placeholder="bijv. 0,3916"
                                 inputmode="decimal"
-                                pattern="^\\d+(?:[\\.,]\\d{0,4})?$"
                                 value="<?php echo $is_edit ? esc_attr( number_format( (float) $entry->nieuwe_participaties, 4, ',', '.' ) ) : ''; ?>"
                             />
                         </td>
@@ -918,7 +917,6 @@ function ggr_portal_render_history_page() {
                                 id="verkochte_participaties"
                                 placeholder="bijv. 0,0000"
                                 inputmode="decimal"
-                                pattern="^\\d+(?:[\\.,]\\d{0,4})?$"
                                 value="<?php echo $is_edit ? esc_attr( number_format( (float) $entry->verkochte_participaties, 4, ',', '.' ) ) : ''; ?>"
                             />
                         </td>
