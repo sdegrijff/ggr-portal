@@ -259,14 +259,15 @@ function ggr_admin_render_dashboard() {
 	if ( empty( $mutaties ) ) {
 		echo '<p class="ggrp-fe-empty-chart">Nog geen mutaties gevonden.</p>';
 	} else {
-		echo '<div class="ggr-admin-dashboard-table ggr-admin-dashboard-table--mutaties">';
-		echo '<div class="ggr-admin-dashboard-table-head">';
-		echo '<span>Datum</span>';
-		echo '<span>Type</span>';
-		echo '<span>Deelnemer</span>';
-		echo '<span>Bedrag</span>';
-		echo '<span>Status</span>';
-		echo '</div>';
+		echo '<table class="widefat striped ggr-admin-dashboard-table ggr-admin-dashboard-table--mutaties">';
+		echo '<thead><tr>';
+		echo '<th>Datum</th>';
+		echo '<th>Type</th>';
+		echo '<th>Deelnemer</th>';
+		echo '<th>Bedrag</th>';
+		echo '<th>Status</th>';
+		echo '</tr></thead>';
+		echo '<tbody>';
 		foreach ( $mutaties as $mutatie ) {
 			$type_key   = get_post_meta( $mutatie->ID, 'ggr_mutatie_type', true );
 			$status_key = get_post_meta( $mutatie->ID, 'ggr_mutatie_status', true );
@@ -285,15 +286,15 @@ function ggr_admin_render_dashboard() {
 			$status_label = isset( $mutatie_statuses[ $status_key ] ) ? $mutatie_statuses[ $status_key ] : $status_key;
 			$date_label   = $planned ? date_i18n( 'd-m-Y', strtotime( $planned ) ) : get_the_date( 'd-m-Y', $mutatie );
 
-			echo '<div class="ggr-admin-dashboard-table-row">';
-			echo '<span>' . esc_html( $date_label ) . '</span>';
-			echo '<span>' . esc_html( $type_label ) . '</span>';
-			echo '<span>' . esc_html( $user_label ) . '</span>';
-			echo '<span>' . esc_html( $format_money( $amount ) ) . '</span>';
-			echo '<span>' . esc_html( $status_label ) . '</span>';
-			echo '</div>';
+			echo '<tr>';
+			echo '<td>' . esc_html( $date_label ) . '</td>';
+			echo '<td>' . esc_html( $type_label ) . '</td>';
+			echo '<td>' . esc_html( $user_label ) . '</td>';
+			echo '<td>' . esc_html( $format_money( $amount ) ) . '</td>';
+			echo '<td>' . esc_html( $status_label ) . '</td>';
+			echo '</tr>';
 		}
-		echo '</div>';
+		echo '</tbody></table>';
 	}
 	echo '</div>';
 	echo '</section>';
@@ -308,24 +309,25 @@ function ggr_admin_render_dashboard() {
 	if ( empty( $meldingen ) ) {
 		echo '<p class="ggrp-fe-empty-chart">Nog geen meldingen gevonden.</p>';
 	} else {
-		echo '<div class="ggr-admin-dashboard-table ggr-admin-dashboard-table--meldingen">';
-		echo '<div class="ggr-admin-dashboard-table-head">';
-		echo '<span>Datum</span>';
-		echo '<span>Melding</span>';
-		echo '<span>Status</span>';
-		echo '</div>';
+		echo '<table class="widefat striped ggr-admin-dashboard-table ggr-admin-dashboard-table--meldingen">';
+		echo '<thead><tr>';
+		echo '<th>Datum</th>';
+		echo '<th>Melding</th>';
+		echo '<th>Status</th>';
+		echo '</tr></thead>';
+		echo '<tbody>';
 		foreach ( $meldingen as $melding ) {
 			$status_key   = get_post_meta( $melding->ID, 'ggr_melding_status', true );
 			$status_label = isset( $melding_statuses[ $status_key ] ) ? $melding_statuses[ $status_key ] : $status_key;
 			$date_label   = get_the_date( 'd-m-Y H:i', $melding );
 
-			echo '<div class="ggr-admin-dashboard-table-row">';
-			echo '<span>' . esc_html( $date_label ) . '</span>';
-			echo '<span>' . esc_html( $melding->post_title ) . '</span>';
-			echo '<span>' . esc_html( $status_label ) . '</span>';
-			echo '</div>';
+			echo '<tr>';
+			echo '<td>' . esc_html( $date_label ) . '</td>';
+			echo '<td>' . esc_html( $melding->post_title ) . '</td>';
+			echo '<td>' . esc_html( $status_label ) . '</td>';
+			echo '</tr>';
 		}
-		echo '</div>';
+		echo '</tbody></table>';
 	}
 
 	echo '</div>';
