@@ -1719,7 +1719,7 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
                     ?>
                     <div class="ggrp-fe-year-select-wrapper">
                         <select name="t_year" class="ggrp-fe-year-select" onchange="this.form.submit()">
-                            <option value="all" <?php selected( $selected_year, 'all' ); ?>>ALL</option>                        
+                            <option value="all" <?php selected( $selected_year, 'all' ); ?>>Alles</option>                        
                             <?php foreach ( $years as $year ) : ?>
                                 <option value="<?php echo (int) $year; ?>" <?php selected( $year, $selected_year ); ?>>
                                     <?php echo (int) $year; ?>
