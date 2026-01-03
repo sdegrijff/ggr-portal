@@ -47,6 +47,10 @@ ggr-shell-nav--secondary {
     width: 0;
 }
 
+.form-table {
+    margin-bottom: 1em;
+}
+
 input[type=checkbox], input[type=radio] {
     width: 0px!important;
 }
@@ -218,50 +222,10 @@ body.ggr-admin-shell-enabled .ggr-admin-shell__content .form-table td {
 }
 
 .ggr-admin-dashboard-table {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    border: 1px solid #dcdcde;
-    border-radius: 10px;
-    overflow: hidden;
-    background: #ffffff;
-}
-}
-
-.ggr-admin-dashboard-table-head,
-.ggr-admin-dashboard-table-row {
-    display: grid;
-    gap: 12px;
-    align-items: center;
-    padding: 10px 12px;
-}
-
-.ggr-admin-dashboard-table-head {
-    font-size: 12px;
-    font-weight: 600;
-    color: #1d2327;
-    background: #f6f7f7;
-    border-bottom: 1px solid #dcdcde;
-}
-
-.ggr-admin-dashboard-table-row {
-    background: #ffffff;
-    border-bottom: 1px solid #dcdcde;
-    color: #111827;
-}
-
-.ggr-admin-dashboard-table-row:nth-child(even) {
-    background: #f6f7f7;
-}
-
-.ggr-admin-dashboard-table--mutaties .ggr-admin-dashboard-table-head,
-.ggr-admin-dashboard-table--mutaties .ggr-admin-dashboard-table-row {
-    grid-template-columns: 90px 1.1fr 1.2fr 0.9fr 0.9fr;
-}
-
-.ggr-admin-dashboard-table--meldingen .ggr-admin-dashboard-table-head,
-.ggr-admin-dashboard-table--meldingen .ggr-admin-dashboard-table-row {
-    grid-template-columns: 120px 1.4fr 0.8fr;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 0;
 }
 
 @media (max-width: 1200px) {
