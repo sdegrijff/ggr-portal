@@ -1946,7 +1946,7 @@ function ggr_render_dividend_accrual_page() {
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row"><label for="source_net_amount">Bron netto</label></th>
+                        <th scope="row"><label for="source_net_amount">Bruto dividend ($)</label></th>
                         <td>
                             <input type="text" id="source_net_amount" name="source_net_amount" value="<?php echo esc_attr( $form_source_net ); ?>" placeholder="Bijv. 12000,00" />
                             <p class="description">Optioneel: basisbedrag in USD om later te converteren naar EUR.</p>
@@ -2017,9 +2017,9 @@ function ggr_render_dividend_accrual_page() {
                         <th>Datum</th>
                         <th>Netto dividend</th>
                         <th>Distributievergoeding</th>
-                        <th>Bruto dividend</th>                        
+                        <th>Bruto dividend (€)</th>                        
                         <th>Bron valuta</th>
-                        <th>Bron netto</th>
+                        <th>Bruto dividend ($)</th>
                         <th>USD/EUR koers</th>
                         <th>Participaties</th>
                         <th>Per participatie</th>
@@ -2117,9 +2117,6 @@ function ggr_render_dividend_accrual_page() {
             <div class="notice notice-error"><p><?php echo esc_html( $history_error ); ?></p></div>
         <?php endif; ?>
 
-        <h3>IBKR Flex API (Dividend transactie historie)</h3>
-        <p>De Flex Query ID voor dividend transactie historie wordt in de code/configuratie beheerd.</p>
-        
         <?php if ( ! empty( $ibkr_accruals_status ) ) : ?>
             <div class="notice notice-info">
                 <p>
@@ -2169,10 +2166,6 @@ function ggr_render_dividend_accrual_page() {
                 </div>
             <?php endif; ?>
         <?php endif; ?>
-        <form method="post" style="margin-top: 1rem;">
-            <?php wp_nonce_field( 'ggr_ibkr_accruals_fetch' ); ?>
-            <?php submit_button( 'Handmatig ophalen via IBKR API', 'secondary', 'ggr_ibkr_accruals_fetch_submit' ); ?>
-        </form>
 
         <h3><?php echo $history_is_edit ? 'Transactie historie bewerken' : 'Nieuwe transactie historie'; ?></h3>
         <form method="post" style="max-width: 720px;">
@@ -2201,7 +2194,10 @@ function ggr_render_dividend_accrual_page() {
                 </button>
             </p>
         </form>
-
+        <form method="post" style="margin-top: 1rem;">
+            <?php wp_nonce_field( 'ggr_ibkr_accruals_fetch' ); ?>
+            <?php submit_button( 'Handmatig ophalen via IBKR API', 'secondary', 'ggr_ibkr_accruals_fetch_submit' ); ?>
+        </form>
         <h3>Overzicht dividend transactie historie</h3>
         <?php if ( empty( $history_rows ) ) : ?>
             <p>Nog geen dividend transactie historie opgeslagen.</p>
