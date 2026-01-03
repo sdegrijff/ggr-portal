@@ -1668,19 +1668,31 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
         return '<section class="ggrp-fe"><h1>Transacties</h1><p>Nog geen geldige transacties gevonden.</p></section>';
     }
     rsort( $years );
-    $selected_year = isset( $_GET['t_year'] ) ? (int) $_GET['t_year'] : $years[0];
-    if ( ! in_array( $selected_year, $years, true ) ) {
-        $selected_year = $years[0];
+    $selected_year = 'all';
+    if ( isset( $_GET['t_year'] ) ) {
+        $selected_year_input = sanitize_text_field( wp_unslash( $_GET['t_year'] ) );
+        if ( 'all' === strtolower( $selected_year_input ) ) {
+            $selected_year = 'all';
+        } elseif ( ctype_digit( $selected_year_input ) ) {
+            $selected_year_input = (int) $selected_year_input;
+            if ( in_array( $selected_year_input, $years, true ) ) {
+                $selected_year = $selected_year_input;
+            }
+        }
     }
 
     // Filter transacties op jaar
-    $filtered = array_filter( $history, function( $row ) use ( $selected_year ) {
-        $d = DateTime::createFromFormat( 'Y-m-d', $row->datum );
-        if ( ! $d ) {
-            return false;
-        }
-        return (int) $d->format( 'Y' ) === $selected_year;
-    });
+    if ( 'all' === $selected_year ) {
+        $filtered = $history;
+    } else {
+        $filtered = array_filter( $history, function( $row ) use ( $selected_year ) {
+            $d = DateTime::createFromFormat( 'Y-m-d', $row->datum );
+            if ( ! $d ) {
+                return false;
+            }
+            return (int) $d->format( 'Y' ) === $selected_year;
+        });
+    }
 
     $laatste_datum = do_shortcode( '[ggr_latest_datum]' );
 
@@ -1707,6 +1719,7 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
                     ?>
                     <div class="ggrp-fe-year-select-wrapper">
                         <select name="t_year" class="ggrp-fe-year-select" onchange="this.form.submit()">
+                            <option value="all" <?php selected( $selected_year, 'all' ); ?>>ALL</option>                        
                             <?php foreach ( $years as $year ) : ?>
                                 <option value="<?php echo (int) $year; ?>" <?php selected( $year, $selected_year ); ?>>
                                     <?php echo (int) $year; ?>
@@ -1731,7 +1744,11 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
             <div class="ggrp-fe-panel-body ggrp-fe-panel-body--transacties">
                 <?php if ( empty( $filtered ) ) : ?>
                     <p class="ggrp-fe-empty-transactions">
-                        Geen transacties gevonden voor <?php echo esc_html( $selected_year ); ?>.
+                        <?php if ( 'all' === $selected_year ) : ?>
+                            Geen transacties gevonden.
+                        <?php else : ?>
+                            Geen transacties gevonden voor <?php echo esc_html( $selected_year ); ?>.
+                        <?php endif; ?>
                     </p>
                 <?php else : ?>
                     <?php foreach ( $filtered as $row ) : ?>
