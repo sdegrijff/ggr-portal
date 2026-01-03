@@ -50,40 +50,9 @@
 }
 
 .ggr-admin-dashboard-table {
-    display: grid;
-    gap: 12px;
-}
-
-.ggr-admin-dashboard-table-head,
-.ggr-admin-dashboard-table-row {
-    display: grid;
-    grid-template-columns: 120px minmax(0, 1.2fr) minmax(0, 1.2fr) 120px 110px;
-    gap: 12px;
-    align-items: center;
-}
-
-.ggr-admin-dashboard-table-head {
-    font-size: 12px;
-    font-weight: 600;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.ggr-admin-dashboard-table-row {
-    font-size: 13px;
-    color: #111827;
-    padding: 12px;
-    border-radius: 10px;
-    border: 1px solid #f3f4f6;
-    background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-}
-
-.ggr-admin-dashboard-table-row:last-child {
-    border-bottom: 1px solid #f3f4f6;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
 }
 
 .ggr-admin-dashboard-nav {
@@ -107,29 +76,8 @@
     margin-top: 16px;
 }
 
-.ggr-admin-dashboard-table--meldingen .ggr-admin-dashboard-table-head,
-.ggr-admin-dashboard-table--meldingen .ggr-admin-dashboard-table-row {
-    grid-template-columns: 140px minmax(0, 1.8fr) 140px;
-}
-
 @media (max-width: 1200px) {
     .ggr-admin-dashboard-grid {
         grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 900px) {
-    .ggr-admin-dashboard-table-head,
-    .ggr-admin-dashboard-table-row {
-        grid-template-columns: 1fr;
-        gap: 6px;
-    }
-
-    .ggr-admin-dashboard-table-head {
-        display: none;
-    }
-
-    .ggr-admin-dashboard-table-row {
-        padding: 12px;
     }
 }
