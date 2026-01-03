@@ -145,6 +145,43 @@ function ggr_portal_register_email_templates_cpt() {
     register_post_type( 'ggr_email_template', $args );
 }
 
+add_filter( 'manage_edit-ggr_email_template_columns', 'ggr_email_template_admin_columns' );
+add_action( 'manage_ggr_email_template_posts_custom_column', 'ggr_email_template_admin_column_render', 10, 2 );
+
+function ggr_email_template_admin_columns( $columns ) {
+    $new_columns = array();
+
+    foreach ( $columns as $key => $label ) {
+        $new_columns[ $key ] = $label;
+        if ( 'title' === $key ) {
+            $new_columns['ggr_email_template_recipient'] = 'Ontvanger';
+        }
+    }
+
+    if ( ! isset( $new_columns['ggr_email_template_recipient'] ) ) {
+        $new_columns['ggr_email_template_recipient'] = 'Ontvanger';
+    }
+
+    return $new_columns;
+}
+
+function ggr_email_template_admin_column_render( $column, $post_id ) {
+    if ( 'ggr_email_template_recipient' !== $column ) {
+        return;
+    }
+
+    $role = get_post_meta( $post_id, '_ggr_email_recipient_role', true );
+    $recipient_label = 'Participant';
+
+    if ( in_array( $role, array( 'administrator', 'admin' ), true ) ) {
+        $recipient_label = 'Admin';
+    } elseif ( 'lead' === $role ) {
+        $recipient_label = 'Lead';
+    }
+
+    echo esc_html( $recipient_label );
+}
+
 /**
  * 2. Meta-boxen voor key, subject en status
  */
@@ -163,9 +200,13 @@ function ggr_portal_add_email_template_metaboxes() {
 function ggr_portal_render_email_template_metabox( $post ) {
     wp_nonce_field( 'ggr_email_template_save', 'ggr_email_template_nonce' );
 
-    $key     = get_post_meta( $post->ID, '_ggr_email_key', true );
-    $subject = get_post_meta( $post->ID, '_ggr_email_subject', true );
-    $active  = get_post_meta( $post->ID, '_ggr_email_active', true );
+    $key            = get_post_meta( $post->ID, '_ggr_email_key', true );
+    $subject        = get_post_meta( $post->ID, '_ggr_email_subject', true );
+    $active         = get_post_meta( $post->ID, '_ggr_email_active', true );
+    $recipient_role = get_post_meta( $post->ID, '_ggr_email_recipient_role', true );
+    if ( ! $recipient_role ) {
+        $recipient_role = 'participant';
+    }
     $available_template_keys = array(
         'account_welcome'              => 'Account welkom',
         'account_activated'            => 'Account geactiveerd',
@@ -236,6 +277,17 @@ function ggr_portal_render_email_template_metabox( $post ) {
         </label>
     </p>
 
+    <p><strong>Doelgroep</strong></p>
+    <p class="description">Kies de ontvanger voor deze e-mailtemplate.</p>
+    <p>
+        <label for="ggr_email_recipient_role"><strong>Ontvanger</strong></label><br/>
+        <select name="ggr_email_recipient_role" id="ggr_email_recipient_role">
+            <option value="participant" <?php selected( $recipient_role, 'participant' ); ?>>Participant</option>
+            <option value="lead" <?php selected( $recipient_role, 'lead' ); ?>>Lead</option>
+            <option value="administrator" <?php selected( $recipient_role, 'administrator' ); ?>>Admin</option>
+        </select>
+    </p>
+
     <hr>
 
     <p><strong>Shortcodes naar de mails zelf (template keys):</strong></p>
@@ -301,10 +353,15 @@ function ggr_portal_save_email_template_meta( $post_id ) {
     $key     = isset( $_POST['ggr_email_key'] ) ? sanitize_key( $_POST['ggr_email_key'] ) : '';
     $subject = isset( $_POST['ggr_email_subject'] ) ? sanitize_text_field( $_POST['ggr_email_subject'] ) : '';
     $active  = isset( $_POST['ggr_email_active'] ) ? '1' : '0';
-
+    $recipient_role = isset( $_POST['ggr_email_recipient_role'] ) ? sanitize_key( $_POST['ggr_email_recipient_role'] ) : 'participant';
+    if ( ! in_array( $recipient_role, array( 'participant', 'lead', 'administrator', 'admin' ), true ) ) {
+        $recipient_role = 'participant';
+    }
+    
     update_post_meta( $post_id, '_ggr_email_key', $key );
     update_post_meta( $post_id, '_ggr_email_subject', $subject );
     update_post_meta( $post_id, '_ggr_email_active', $active );
+    update_post_meta( $post_id, '_ggr_email_recipient_role', $recipient_role );
 
     /**
      * Test-e-mail versturen als de button is gebruikt
