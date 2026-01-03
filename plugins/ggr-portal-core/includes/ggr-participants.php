@@ -2946,11 +2946,73 @@ function ggr_portal_render_participant_profile_page() {
     }
 
 
-    // GGR details: eerste transactie tonen
     $history_rows = function_exists( 'ggr_portal_get_history_for_user' )
         ? ggr_portal_get_history_for_user( $user_id )
         : array();
-    $first_transaction = ! empty( $history_rows ) ? reset( $history_rows ) : null;
+
+    $rows_for_table = array();
+    if ( $history_rows ) {
+        $cumul_inleg         = 0.0;
+        $cumul_opname        = 0.0;
+        $cumul_distributie   = 0.0;
+        $cumul_participaties = 0.0;
+
+        foreach ( $history_rows as $row ) {
+            $cumul_inleg         += (float) $row->inlegbedrag;
+            $cumul_opname        += (float) $row->opnamebedrag;
+            $cumul_distributie   += (float) $row->distributievergoeding;
+            $cumul_participaties += (float) $row->nieuwe_participaties - (float) $row->verkochte_participaties;
+            $cumul_participaties = ggr_portal_truncate_participaties( $cumul_participaties, 4 );
+
+            $netto_inleg  = $cumul_inleg - $cumul_opname;
+            $units_totaal = $cumul_participaties;
+
+            $price       = null;
+            $stock_price = null;
+
+            $lookup_date = $row->datum;
+            $row_date    = DateTime::createFromFormat( 'Y-m-d', $row->datum );
+            if ( $row_date && '01' === $row_date->format( 'd' ) ) {
+                if ( function_exists( 'ggr_dividend_accruals_get_previous_month_end' ) ) {
+                    $lookup_date = ggr_dividend_accruals_get_previous_month_end( $row->datum );
+                } else {
+                    $lookup_date = $row_date->modify( 'last day of previous month' )->format( 'Y-m-d' );
+                }
+            }
+
+            if ( function_exists( 'ggr_get_stock_price_for_date' ) ) {
+                $price = ggr_get_stock_price_for_date( $lookup_date, true );
+            }
+
+            if ( $price !== null ) {
+                $stock_price   = (float) $price;
+                $positiewaarde = $units_totaal * $stock_price;
+            } else {
+                $positiewaarde = $netto_inleg + $cumul_distributie;
+            }
+
+            $dividend_rendement = '';
+            if ( $positiewaarde > 0 && $row->distributievergoeding > 0 ) {
+                $dividend_rendement = ( (float) $row->distributievergoeding / $positiewaarde ) * 100;
+            }
+
+            $investeringsrendement = '';
+            if ( $netto_inleg > 0 && $positiewaarde > 0 ) {
+                $investeringsrendement = ( $positiewaarde / $netto_inleg - 1 ) * 100;
+            }
+
+            $rows_for_table[] = array(
+                'row'                   => $row,
+                'stock_price'           => $stock_price,
+                'positiewaarde'         => $positiewaarde,
+                'totaal_participaties'  => $units_totaal,
+                'dividend_rendement'    => $dividend_rendement,
+                'investeringsrendement' => $investeringsrendement,
+            );
+        }
+
+        $rows_for_table = array_reverse( $rows_for_table );
+    }
 
     $all_roles     = get_editable_roles();
     $current_roles = (array) $user->roles;
@@ -2990,6 +3052,7 @@ function ggr_portal_render_participant_profile_page() {
     
     ?>
     <div class="wrap ggr-participant-wrap">
+        <a class="ggr-admin-back-link" href="<?php echo esc_url( admin_url( 'users.php' ) ); ?>">← Terug</a>        
         <h1>Profiel – <?php echo esc_html( $user->display_name ); ?> (ID: <?php echo (int) $user_id; ?>)</h1>
 
         <!-- same flex CSS als in profiel-blok -->
@@ -3043,6 +3106,19 @@ function ggr_portal_render_participant_profile_page() {
                 justify-content: flex-end;
                 margin: 0 0 12px;
             }
+            .ggr-admin-back-link {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                margin-bottom: 8px;
+                color: #c2410c;
+                text-decoration: none;
+                font-weight: 600;
+            }
+            .ggr-admin-back-link:hover {
+                text-decoration: underline;                
+            }
+            
                         .ggr-admin-summary-grid,
             .ggr-admin-crm-summary-grid {
                 display: grid;
@@ -3075,8 +3151,8 @@ function ggr_portal_render_participant_profile_page() {
                 margin: 8px 0 20px;
             }
             .ggr-admin-onboarding-bar button {
-                border: 1px solid #cbd5f5;
-                background: #f5f7ff;
+                border: 1px solid rgba(113, 154, 168, 0.2);
+                background: rgba(113, 154, 168, 0.1);
                 color: #1f2937;
                 padding: 6px 12px;
                 border-radius: 999px;
@@ -3084,8 +3160,8 @@ function ggr_portal_render_participant_profile_page() {
                 font-size: 12px;
             }
             .ggr-admin-onboarding-bar button.is-active {
-                background: #1d4ed8;
-                border-color: #1d4ed8;
+                background: #719aa8;
+                border-color: #719aa8;
                 color: #fff;
                 font-weight: 600;
             }
@@ -3255,7 +3331,7 @@ function ggr_portal_render_participant_profile_page() {
 
             <?php if ( ! $is_lead ) : ?>
                 <details class="ggr-admin-crm-section">
-                    <summary>Overzicht & voorkeuren</summary>
+                    <summary>Onboarding details</summary>
                     <div class="ggr-admin-crm-body">
             <?php endif; ?>
 
@@ -3331,18 +3407,6 @@ function ggr_portal_render_participant_profile_page() {
                     </td>
                 </tr>
             </table>
-
-            <?php if ( ! $is_lead ) : ?>
-                    </div>
-                </details>
-            <?php endif; ?>
-
-            <?php if ( ! $is_lead ) : ?>
-                <details class="ggr-admin-crm-section">
-                    <summary>Onboarding details</summary>
-                    <div class="ggr-admin-crm-body">
-            <?php endif; ?>
-
             <h2 class="title">Documentatie (stap 1 t/m 5)</h2>
             <?php if ( $is_lead ) : ?>
                 <div class="ggr-admin-onboarding-section" data-onboarding-statuses="register confirmed">
@@ -3760,17 +3824,8 @@ function ggr_portal_render_participant_profile_page() {
                 </div>
             <?php endif; ?>
 
-            <?php if ( ! $is_lead ) : ?>
-                    </div>
-                </details>
-            <?php endif; ?>
-
             <?php if ( $is_lead ) : ?>
                 <div class="ggr-admin-onboarding-section" data-onboarding-statuses="sign_contract">
-            <?php else : ?>
-                <details class="ggr-admin-crm-section">
-                    <summary>Contract ondertekend</summary>
-                    <div class="ggr-admin-crm-body">
             <?php endif; ?>
             
             <h2 class="title">Contract ondertekend</h2>
@@ -3817,18 +3872,7 @@ function ggr_portal_render_participant_profile_page() {
             </table>
 
             <?php if ( $is_lead ) : ?>
-                </div>
-            <?php else : ?>
-                    </div>
-                </details>
-            <?php endif; ?>
-            
-            <?php if ( $is_lead ) : ?>
                 <div class="ggr-admin-onboarding-section" data-onboarding-statuses="transfer_completed">
-            <?php else : ?>
-                <details class="ggr-admin-crm-section">
-                    <summary>Betaling & start</summary>
-                    <div class="ggr-admin-crm-body">
             <?php endif; ?>
             
             <h2 class="title">Betaling & start</h2>
@@ -3851,63 +3895,9 @@ function ggr_portal_render_participant_profile_page() {
 
             <?php if ( $is_lead ) : ?>
                 </div>
-            <?php else : ?>
-                    </div>
-                </details>
             <?php endif; ?>
-<!-- GGR DETAILS -->
-            <?php if ( $is_lead ) : ?>
-                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="active_participant">
-            <?php else : ?>
-                <details class="ggr-admin-crm-section">
-                    <summary>GGR details</summary>
-                    <div class="ggr-admin-crm-body">
-            <?php endif; ?>
-
-            <h2 class="title">GGR details</h2>
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row">Eerste transactie</th>
-                    <td>
-                        <?php if ( $first_transaction ) : ?>
-                            <table class="widefat striped" style="max-width:600px;">
-                                <thead>
-                                <tr>
-                                    <th>Transactie ID</th>                                    
-                                    <th>Inleg (BIJ)</th>
-                                    <th>Opname (AF)</th>
-                                    <th>Distributie</th>
-                                    <th>Nieuwe participaties</th>
-                                    <th>Verkochte participaties</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                <tr>
-                                    <td><?php echo esc_html( $first_transaction->transactie_code ); ?></td>                                    
-                                    <td>
-                                        <?php
-                                        $d = DateTime::createFromFormat( 'Y-m-d', $first_transaction->datum );
-                                        echo $d ? esc_html( $d->format( 'd-m-Y' ) ) : esc_html( $first_transaction->datum );
-                                        ?>
-                                    </td>
-                                    <td><?php echo '€ ' . number_format( (float) $first_transaction->inlegbedrag, 2, ',', '.' ); ?></td>
-                                    <td><?php echo '€ ' . number_format( (float) $first_transaction->opnamebedrag, 2, ',', '.' ); ?></td>
-                                    <td><?php echo '€ ' . number_format( (float) $first_transaction->distributievergoeding, 2, ',', '.' ); ?></td>
-                                    <td><?php echo esc_html( ggr_portal_format_participaties( $first_transaction->nieuwe_participaties, 4 ) ); ?></td>
-                                    <td><?php echo esc_html( ggr_portal_format_participaties( $first_transaction->verkochte_participaties, 4 ) ); ?></td>
-                                </tr>
-                                </tbody>
-                            </table>
-                        <?php else : ?>
-                            <p>Nog geen participatiehistorie gevonden voor deze gebruiker.</p>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-            </table>
-
-            <?php if ( $is_lead ) : ?>
-                </div>
-            <?php else : ?>
+            <?php if ( ! $is_lead ) : ?>
+            
                     </div>
                 </details>
             <?php endif; ?>
@@ -3916,34 +3906,98 @@ function ggr_portal_render_participant_profile_page() {
                 <details class="ggr-admin-crm-section">
                     <summary>Participatie historie</summary>
                     <div class="ggr-admin-crm-body">
-                        <?php
-                        $history_rows_desc = $history_rows ? array_reverse( $history_rows ) : array();
-                        ?>
+                        <?php if ( ! empty( $rows_for_table ) ) : ?>
                         <?php if ( ! empty( $history_rows_desc ) ) : ?>
                             <table class="widefat striped">
                                 <thead>
                                     <tr>
+                                        <th>Transactie ID</th>                                        
                                         <th>Datum</th>
-                                        <th>Inleg (BIJ)</th>
-                                        <th>Opname (AF)</th>
-                                        <th>Distributie</th>
-                                        <th>Nieuwe participaties</th>
-                                        <th>Verkochte participaties</th>
+                                        <th>GGR Stock Price (€)</th>
+                                        <th>Inlegbedrag (BIJ) (€)</th>
+                                        <th>Opnamebedrag (AF) (€)</th>
+                                        <th>Positiewaarde in €</th>
+                                        <th>Nieuwe participaties (BIJ)</th>
+                                        <th>Verkochte participaties (AF)</th>
+                                        <th>Totaal participaties</th>
+                                        <th>Distributievergoeding (€)</th>
+                                        <th>Dividend rendement %</th>
+                                        <th>Investeringsrendement %</th>
+                                        <th>Acties</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ( $history_rows_desc as $row ) : ?>
+                                    <?php foreach ( $rows_for_table as $item ) : ?>
                                         <?php
+                                        $row = $item['row'];
+                                        $stock_price           = $item['stock_price'];
+                                        $positiewaarde         = $item['positiewaarde'];
+                                        $totaal_participaties  = $item['totaal_participaties'];
+                                        $dividend_rendement    = $item['dividend_rendement'];
+                                        $investeringsrendement = $item['investeringsrendement'];
+
+                                        $edit_url = add_query_arg(
+                                            [
+                                                'page'    => 'ggr-participatie-historie',
+                                                'user_id' => $user_id,
+                                                'edit_id' => $row->id,
+                                            ],
+                                            admin_url( 'users.php' )
+                                        );
+
+                                        $delete_url = wp_nonce_url(
+                                            add_query_arg(
+                                                [
+                                                    'page'      => 'ggr-participatie-historie',
+                                                    'user_id'   => $user_id,
+                                                    'delete_id' => $row->id,
+                                                ],
+                                                admin_url( 'users.php' )
+                                            ),
+                                            'ggr_delete_history',
+                                            '_ggrdelnonce'
+                                        );
+                                        
                                         $d_admin     = DateTime::createFromFormat( 'Y-m-d', $row->datum );
                                         $datum_admin = $d_admin ? $d_admin->format( 'd-m-Y' ) : $row->datum;
                                         ?>
                                         <tr>
+                                            <td><?php echo esc_html( $row->transactie_code ); ?></td>                                            
                                             <td><?php echo esc_html( $datum_admin ); ?></td>
-                                            <td><?php echo '€ ' . number_format( (float) $row->inlegbedrag, 2, ',', '.' ); ?></td>
-                                            <td><?php echo '€ ' . number_format( (float) $row->opnamebedrag, 2, ',', '.' ); ?></td>
-                                            <td><?php echo '€ ' . number_format( (float) $row->distributievergoeding, 2, ',', '.' ); ?></td>
+                                            <td>
+                                                <?php
+                                                if ( $stock_price !== null ) {
+                                                    echo '€ ' . number_format( $stock_price, 4, ',', '.' );
+                                                } else {
+                                                    echo '–';
+                                                }
+                                                ?>
+                                            </td>
+                                            <td><?php echo number_format( $row->inlegbedrag, 2, ',', '.' ); ?></td>
+                                            <td><?php echo number_format( $row->opnamebedrag, 2, ',', '.' ); ?></td>
+                                            <td><?php echo number_format( $positiewaarde, 2, ',', '.' ); ?></td>
                                             <td><?php echo esc_html( ggr_portal_format_participaties( $row->nieuwe_participaties, 4 ) ); ?></td>
                                             <td><?php echo esc_html( ggr_portal_format_participaties( $row->verkochte_participaties, 4 ) ); ?></td>
+                                            <td><?php echo esc_html( ggr_portal_format_participaties( $totaal_participaties, 4 ) ); ?></td>
+                                            <td><?php echo number_format( $row->distributievergoeding, 2, ',', '.' ); ?></td>
+                                            <td>
+                                                <?php
+                                                echo $dividend_rendement !== ''
+                                                    ? number_format( $dividend_rendement, 2, ',', '.' ) . ' %'
+                                                    : '-';
+                                                ?>
+                                            </td>
+                                            <td>
+                                                <?php
+                                                echo $investeringsrendement !== ''
+                                                    ? number_format( $investeringsrendement, 2, ',', '.' ) . ' %'
+                                                    : '-';
+                                                ?>
+                                            </td>
+                                            <td>
+                                                <a href="<?php echo esc_url( $edit_url ); ?>">Bewerken</a> |
+                                                <a href="<?php echo esc_url( $delete_url ); ?>">Verwijderen</a>
+                                            </td>                                            
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>
