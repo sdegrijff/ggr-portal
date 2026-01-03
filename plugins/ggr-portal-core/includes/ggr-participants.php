@@ -2955,7 +2955,39 @@ function ggr_portal_render_participant_profile_page() {
     $all_roles     = get_editable_roles();
     $current_roles = (array) $user->roles;
     $current_role  = reset( $current_roles );
+    $is_lead       = in_array( 'lead', $current_roles, true );
 
+    $language_label = 'Nederlands';
+    if ( $locale_meta && 'nl_NL' !== $locale_meta ) {
+        $language_label = ( 'en_US' === $locale_meta ) ? 'Engels (US)' : $locale_meta;
+    }
+
+    $participation_type_label = 'Automatisch';
+    if ( $participation_type === 'mif' ) {
+        $participation_type_label = 'MIF (onder € 100.000)';
+    } elseif ( $participation_type === 'if' ) {
+        $participation_type_label = 'IF (≥ € 100.000)';
+    }
+
+    $investment_target = $participation_amount;
+    if ( $investment_target === '' ) {
+        $investment_target = $investment_amount !== '' ? $investment_amount : $investment;
+    }
+
+    $format_money = function( $value ) {
+        if ( $value === '' || $value === null ) {
+            return '—';
+        }
+
+        if ( function_exists( 'ggrp_fe_format_money' ) ) {
+            return ggrp_fe_format_money( (float) $value );
+        }
+
+        return '€ ' . number_format_i18n( (float) $value, 2 );
+    };
+
+    $created_label = $format_datetime( $user->user_registered );
+    
     ?>
     <div class="wrap ggr-participant-wrap">
         <h1>Profiel – <?php echo esc_html( $user->display_name ); ?> (ID: <?php echo (int) $user_id; ?>)</h1>
@@ -3011,6 +3043,74 @@ function ggr_portal_render_participant_profile_page() {
                 justify-content: flex-end;
                 margin: 0 0 12px;
             }
+                        .ggr-admin-summary-grid,
+            .ggr-admin-crm-summary-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 16px;
+                margin-bottom: 20px;
+            }
+            .ggr-admin-summary-item,
+            .ggr-admin-crm-summary-item {
+                background: #fff;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                padding: 12px 14px;
+            }
+            .ggr-admin-summary-item span,
+            .ggr-admin-crm-summary-item span {
+                color: #6b7280;
+                font-size: 12px;
+                display: block;
+                margin-bottom: 4px;
+            }
+            .ggr-admin-summary-item strong,
+            .ggr-admin-crm-summary-item strong {
+                font-size: 14px;
+            }
+            .ggr-admin-onboarding-bar {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin: 8px 0 20px;
+            }
+            .ggr-admin-onboarding-bar button {
+                border: 1px solid #cbd5f5;
+                background: #f5f7ff;
+                color: #1f2937;
+                padding: 6px 12px;
+                border-radius: 999px;
+                cursor: pointer;
+                font-size: 12px;
+            }
+            .ggr-admin-onboarding-bar button.is-active {
+                background: #1d4ed8;
+                border-color: #1d4ed8;
+                color: #fff;
+                font-weight: 600;
+            }
+            .ggr-admin-onboarding-section {
+                margin-top: 16px;
+            }
+            details.ggr-admin-crm-section {
+                border: 1px solid #e5e7eb;
+                border-radius: 10px;
+                padding: 0;
+                margin-bottom: 16px;
+                background: #fff;
+            }
+            details.ggr-admin-crm-section > summary {
+                cursor: pointer;
+                padding: 12px 16px;
+                font-weight: 600;
+                list-style: none;
+            }
+            details.ggr-admin-crm-section[open] > summary {
+                border-bottom: 1px solid #e5e7eb;
+            }
+            details.ggr-admin-crm-section .ggr-admin-crm-body {
+                padding: 16px;
+            }
         </style>
 
         <!-- Snel wisselen -->
@@ -3060,7 +3160,106 @@ function ggr_portal_render_participant_profile_page() {
             <div class="ggr-admin-top-actions">
                 <button type="submit" class="button button-primary">Wijzigingen opslaan</button>
             </div>
-                        <h2 class="title">Overzicht</h2>           
+            <?php
+            $stages = function_exists( 'ggr_onboarding_get_stages' ) ? ggr_onboarding_get_stages() : array();
+            if ( empty( $stages ) ) {
+                $stages = array( $onboarding_status => $onboarding_status );
+            }
+            ?>
+            <?php if ( $is_lead ) : ?>
+                <h2 class="title">Lead-overzicht</h2>
+                <div class="ggr-admin-summary-grid">
+                    <div class="ggr-admin-summary-item">
+                        <span>Account type</span>
+                        <strong><?php echo esc_html( $account_type ? $account_type : '—' ); ?></strong>
+                    </div>
+                    <div class="ggr-admin-summary-item">
+                        <span>Nationaliteit</span>
+                        <strong><?php echo esc_html( $nationality ? $nationality : '—' ); ?></strong>
+                    </div>
+                    <div class="ggr-admin-summary-item">
+                        <span>Beoogde investering</span>
+                        <strong><?php echo esc_html( $format_money( $investment_target ) ); ?></strong>
+                    </div>
+                    <div class="ggr-admin-summary-item">
+                        <span>Voornaam</span>
+                        <strong><?php echo esc_html( $kyc_first_name ? $kyc_first_name : '—' ); ?></strong>
+                    </div>
+                    <div class="ggr-admin-summary-item">
+                        <span>Achternaam</span>
+                        <strong><?php echo esc_html( $kyc_last_name ? $kyc_last_name : '—' ); ?></strong>
+                    </div>
+                    <div class="ggr-admin-summary-item">
+                        <span>E-mailadres</span>
+                        <strong><?php echo esc_html( $user->user_email ); ?></strong>
+                    </div>
+                    <div class="ggr-admin-summary-item">
+                        <span>Telefoonnummer</span>
+                        <strong><?php echo esc_html( $kyc_phone ? $kyc_phone : '—' ); ?></strong>
+                    </div>
+                    <div class="ggr-admin-summary-item">
+                        <span>Taal</span>
+                        <strong><?php echo esc_html( $language_label ); ?></strong>
+                    </div>
+                    <div class="ggr-admin-summary-item">
+                        <span>Deelname-type</span>
+                        <strong><?php echo esc_html( $participation_type_label ); ?></strong>
+                    </div>
+                    <div class="ggr-admin-summary-item">
+                        <span>Datum aanmaak</span>
+                        <strong><?php echo esc_html( $created_label ? $created_label : '—' ); ?></strong>
+                    </div>
+                    <div class="ggr-admin-summary-item">
+                        <span>Marketing consent</span>
+                        <strong><?php echo esc_html( $marketing_optin ? 'Ja' : 'Nee' ); ?></strong>
+                    </div>
+                </div>
+
+                <h3 class="title">Onboarding stappen</h3>
+                <div class="ggr-admin-onboarding-bar" data-current-status="<?php echo esc_attr( $onboarding_status ); ?>">
+                    <?php foreach ( $stages as $key => $label ) : ?>
+                        <button type="button" data-status="<?php echo esc_attr( $key ); ?>">
+                            <?php echo esc_html( $label ); ?>
+                        </button>
+                    <?php endforeach; ?>
+                </div>
+            <?php else : ?>
+                <h2 class="title">Participant CRM</h2>
+                <div class="ggr-admin-crm-summary-grid">
+                    <div class="ggr-admin-crm-summary-item">
+                        <span>Naam</span>
+                        <strong><?php echo esc_html( trim( $kyc_first_name . ' ' . $kyc_last_name ) ? trim( $kyc_first_name . ' ' . $kyc_last_name ) : $user->display_name ); ?></strong>
+                    </div>
+                    <div class="ggr-admin-crm-summary-item">
+                        <span>E-mailadres</span>
+                        <strong><?php echo esc_html( $user->user_email ); ?></strong>
+                    </div>
+                    <div class="ggr-admin-crm-summary-item">
+                        <span>Telefoonnummer</span>
+                        <strong><?php echo esc_html( $kyc_phone ? $kyc_phone : '—' ); ?></strong>
+                    </div>
+                    <div class="ggr-admin-crm-summary-item">
+                        <span>Onboarding status</span>
+                        <strong><?php echo esc_html( isset( $stages[ $onboarding_status ] ) ? $stages[ $onboarding_status ] : $onboarding_status ); ?></strong>
+                    </div>
+                    <div class="ggr-admin-crm-summary-item">
+                        <span>Deelname-type</span>
+                        <strong><?php echo esc_html( $participation_type_label ); ?></strong>
+                    </div>
+                    <div class="ggr-admin-crm-summary-item">
+                        <span>Laatste login</span>
+                        <strong><?php echo esc_html( $last_login_label ? $last_login_label : '—' ); ?></strong>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <?php if ( ! $is_lead ) : ?>
+                <details class="ggr-admin-crm-section">
+                    <summary>Overzicht & voorkeuren</summary>
+                    <div class="ggr-admin-crm-body">
+            <?php endif; ?>
+
+            <h2 class="title">Overzicht</h2>        
             <table class="form-table" role="presentation">
                 <tr>
                     <th scope="row">Status & voorkeuren</th>
@@ -3133,7 +3332,21 @@ function ggr_portal_render_participant_profile_page() {
                 </tr>
             </table>
 
-            <h2 class="title">Documentatie (stap 1 t/m 5)</h2>           
+            <?php if ( ! $is_lead ) : ?>
+                    </div>
+                </details>
+            <?php endif; ?>
+
+            <?php if ( ! $is_lead ) : ?>
+                <details class="ggr-admin-crm-section">
+                    <summary>Onboarding details</summary>
+                    <div class="ggr-admin-crm-body">
+            <?php endif; ?>
+
+            <h2 class="title">Documentatie (stap 1 t/m 5)</h2>
+            <?php if ( $is_lead ) : ?>
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="register confirmed">
+            <?php endif; ?>         
             <h4 class="title">Stap 1: Investeringsbedrag</h4>
             <table class="form-table" role="presentation">
                 <tr>
@@ -3151,7 +3364,13 @@ function ggr_portal_render_participant_profile_page() {
                     </td>
                 </tr>
             </table>
+            <?php if ( $is_lead ) : ?>
+                </div>
+            <?php endif; ?>
 
+            <?php if ( $is_lead ) : ?>
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="register confirmed">
+            <?php endif; ?>
             <h4 class="title">Stap 2: Profielkeuzes</h4>
             <table class="form-table" role="presentation">
                 <tr>
@@ -3194,7 +3413,13 @@ function ggr_portal_render_participant_profile_page() {
                     </td>
                 </tr>
             </table>
+            <?php if ( $is_lead ) : ?>
+                </div>
+            <?php endif; ?>
 
+            <?php if ( $is_lead ) : ?>
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="confirmed collecting">
+            <?php endif; ?>
             <h4 class="title">Stap 3: Persoonlijke gegevens</h4>
             <table class="form-table" role="presentation">
                 <tr>
@@ -3389,7 +3614,13 @@ function ggr_portal_render_participant_profile_page() {
                     </td>
                 </tr>
             </table>
+            <?php if ( $is_lead ) : ?>
+                </div>
+            <?php endif; ?>
 
+            <?php if ( $is_lead ) : ?>
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="collecting">
+            <?php endif; ?>
             <h4 class="title">Stap 4: Herkomst vermogen</h4>
             <table class="form-table" role="presentation">
                 <tr>
@@ -3434,7 +3665,13 @@ function ggr_portal_render_participant_profile_page() {
                     </td>
                 </tr>
             </table>
+            <?php if ( $is_lead ) : ?>
+                </div>
+            <?php endif; ?>
 
+            <?php if ( $is_lead ) : ?>
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="validating">
+            <?php endif; ?>
             <h4 class="title">Stap 5: Documenten</h4>
             <table class="form-table" role="presentation">
                 <tr>
@@ -3473,7 +3710,13 @@ function ggr_portal_render_participant_profile_page() {
                     </td>
                 </tr>
             </table>
+            <?php if ( $is_lead ) : ?>
+                </div>
+            <?php endif; ?>
 
+            <?php if ( $is_lead ) : ?>
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="collecting validating">
+            <?php endif; ?>
             <h4 class="title">Stap 6: Aanvullende informatie</h4>
             <table class="form-table" role="presentation">
                 <tr>
@@ -3513,7 +3756,23 @@ function ggr_portal_render_participant_profile_page() {
                     </td>
                 </tr>
             </table>
+            <?php if ( $is_lead ) : ?>
+                </div>
+            <?php endif; ?>
 
+            <?php if ( ! $is_lead ) : ?>
+                    </div>
+                </details>
+            <?php endif; ?>
+
+            <?php if ( $is_lead ) : ?>
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="sign_contract">
+            <?php else : ?>
+                <details class="ggr-admin-crm-section">
+                    <summary>Contract ondertekend</summary>
+                    <div class="ggr-admin-crm-body">
+            <?php endif; ?>
+            
             <h2 class="title">Contract ondertekend</h2>
             <table class="form-table" role="presentation">
                 <tr>
@@ -3556,6 +3815,21 @@ function ggr_portal_render_participant_profile_page() {
                     </td>
                 </tr>
             </table>
+
+            <?php if ( $is_lead ) : ?>
+                </div>
+            <?php else : ?>
+                    </div>
+                </details>
+            <?php endif; ?>
+            
+            <?php if ( $is_lead ) : ?>
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="transfer_completed">
+            <?php else : ?>
+                <details class="ggr-admin-crm-section">
+                    <summary>Betaling & start</summary>
+                    <div class="ggr-admin-crm-body">
+            <?php endif; ?>
             
             <h2 class="title">Betaling & start</h2>
             <table class="form-table" role="presentation">
@@ -3574,7 +3848,22 @@ function ggr_portal_render_participant_profile_page() {
                     </td>
                 </tr>
             </table>
+
+            <?php if ( $is_lead ) : ?>
+                </div>
+            <?php else : ?>
+                    </div>
+                </details>
+            <?php endif; ?>
 <!-- GGR DETAILS -->
+            <?php if ( $is_lead ) : ?>
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="active_participant">
+            <?php else : ?>
+                <details class="ggr-admin-crm-section">
+                    <summary>GGR details</summary>
+                    <div class="ggr-admin-crm-body">
+            <?php endif; ?>
+
             <h2 class="title">GGR details</h2>
             <table class="form-table" role="presentation">
                 <tr>
@@ -3616,6 +3905,62 @@ function ggr_portal_render_participant_profile_page() {
                 </tr>
             </table>
 
+            <?php if ( $is_lead ) : ?>
+                </div>
+            <?php else : ?>
+                    </div>
+                </details>
+            <?php endif; ?>
+
+            <?php if ( ! $is_lead ) : ?>
+                <details class="ggr-admin-crm-section">
+                    <summary>Participatie historie</summary>
+                    <div class="ggr-admin-crm-body">
+                        <?php
+                        $history_rows_desc = $history_rows ? array_reverse( $history_rows ) : array();
+                        ?>
+                        <?php if ( ! empty( $history_rows_desc ) ) : ?>
+                            <table class="widefat striped">
+                                <thead>
+                                    <tr>
+                                        <th>Datum</th>
+                                        <th>Inleg (BIJ)</th>
+                                        <th>Opname (AF)</th>
+                                        <th>Distributie</th>
+                                        <th>Nieuwe participaties</th>
+                                        <th>Verkochte participaties</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ( $history_rows_desc as $row ) : ?>
+                                        <?php
+                                        $d_admin     = DateTime::createFromFormat( 'Y-m-d', $row->datum );
+                                        $datum_admin = $d_admin ? $d_admin->format( 'd-m-Y' ) : $row->datum;
+                                        ?>
+                                        <tr>
+                                            <td><?php echo esc_html( $datum_admin ); ?></td>
+                                            <td><?php echo '€ ' . number_format( (float) $row->inlegbedrag, 2, ',', '.' ); ?></td>
+                                            <td><?php echo '€ ' . number_format( (float) $row->opnamebedrag, 2, ',', '.' ); ?></td>
+                                            <td><?php echo '€ ' . number_format( (float) $row->distributievergoeding, 2, ',', '.' ); ?></td>
+                                            <td><?php echo esc_html( ggr_portal_format_participaties( $row->nieuwe_participaties, 4 ) ); ?></td>
+                                            <td><?php echo esc_html( ggr_portal_format_participaties( $row->verkochte_participaties, 4 ) ); ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        <?php else : ?>
+                            <p>Nog geen participatiehistorie gevonden voor deze gebruiker.</p>
+                        <?php endif; ?>
+                    </div>
+                </details>
+            <?php endif; ?>
+
+            <?php if ( ! $is_lead ) : ?>
+                <details class="ggr-admin-crm-section">
+                    <summary>Account beheer</summary>
+                    <div class="ggr-admin-crm-body">
+            <?php endif; ?>
+
             <!-- WACHTWOORD -->
             <h2 class="title">Wachtwoord beheer</h2>
             <table class="form-table" role="presentation">
@@ -3651,7 +3996,53 @@ function ggr_portal_render_participant_profile_page() {
                 </tr>
             </table>
 
+            <?php if ( ! $is_lead ) : ?>
+                    </div>
+                </details>
+            <?php endif; ?>
+
             <?php submit_button( 'Profiel opslaan' ); ?>
+
+            <?php if ( $is_lead ) : ?>
+                <script>
+                (function() {
+                    var bar = document.querySelector('.ggr-admin-onboarding-bar');
+                    if (!bar) {
+                        return;
+                    }
+
+                    var buttons = Array.prototype.slice.call(bar.querySelectorAll('button[data-status]'));
+                    var sections = Array.prototype.slice.call(document.querySelectorAll('.ggr-admin-onboarding-section'));
+                    var statusSelect = document.getElementById('ggr_onboarding_status');
+
+                    var showStatus = function(status) {
+                        buttons.forEach(function(button) {
+                            button.classList.toggle('is-active', button.dataset.status === status);
+                        });
+
+                        sections.forEach(function(section) {
+                            var statuses = (section.dataset.onboardingStatuses || '').split(' ');
+                            var shouldShow = statuses.indexOf(status) !== -1;
+                            section.style.display = shouldShow ? '' : 'none';
+                        });
+                    };
+
+                    buttons.forEach(function(button) {
+                        button.addEventListener('click', function() {
+                            showStatus(button.dataset.status);
+                        });
+                    });
+
+                    if (statusSelect) {
+                        statusSelect.addEventListener('change', function() {
+                            showStatus(statusSelect.value);
+                        });
+                    }
+
+                    showStatus(bar.dataset.currentStatus || (buttons[0] ? buttons[0].dataset.status : ''));
+                })();
+                </script>
+            <?php endif; ?>
         </form>
     </div>
     <?php
