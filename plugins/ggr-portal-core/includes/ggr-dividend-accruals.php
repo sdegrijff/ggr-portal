@@ -1824,18 +1824,6 @@ function ggr_render_dividend_accrual_page() {
         }
     }
 
-    if ( isset( $_POST['ggr_ibkr_accruals_credentials_submit'] ) ) {
-        check_admin_referer( 'ggr_ibkr_accruals_credentials' );
-
-        $ibkr_token_input        = isset( $_POST['ggr_ibkr_flex_token'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_ibkr_flex_token'] ) ) : '';
-        $ibkr_accruals_query_id  = isset( $_POST['ggr_ibkr_flex_accruals_query_id'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_ibkr_flex_accruals_query_id'] ) ) : '';
-
-        update_option( 'ggr_ibkr_flex_token', $ibkr_token_input );
-        update_option( 'ggr_ibkr_flex_accruals_query_id', $ibkr_accruals_query_id );
-
-        $history_notice = 'IBKR Flex instellingen voor transactie historie opgeslagen.';
-    }
-
     if ( isset( $_POST['ggr_ibkr_accruals_fetch_submit'] ) ) {
         check_admin_referer( 'ggr_ibkr_accruals_fetch' );
 
@@ -1884,8 +1872,6 @@ function ggr_render_dividend_accrual_page() {
         ARRAY_A
     );
 
-    $ibkr_accruals_token = ggr_ibkr_accruals_get_token();
-    $ibkr_accruals_query_id = ggr_ibkr_accruals_get_query_id();
     $ibkr_accruals_status = ggr_ibkr_accruals_get_status();
     
     $totals = array(
@@ -2029,9 +2015,9 @@ function ggr_render_dividend_accrual_page() {
                 <thead>
                     <tr>
                         <th>Datum</th>
-                        <th>Bruto dividend</th>
-                        <th>Distributievergoeding</th>
                         <th>Netto dividend</th>
+                        <th>Distributievergoeding</th>
+                        <th>Bruto dividend</th>                        
                         <th>Bron valuta</th>
                         <th>Bron netto</th>
                         <th>USD/EUR koers</th>
@@ -2095,9 +2081,9 @@ function ggr_render_dividend_accrual_page() {
                         ?>
                         <tr>
                             <td><?php echo esc_html( $date_disp ); ?></td>
-                            <td><?php echo esc_html( $gross_disp ); ?></td>
-                            <td><?php echo esc_html( $fee_disp ); ?></td>
                             <td><?php echo esc_html( $net_disp ); ?></td>
+                            <td><?php echo esc_html( $fee_disp ); ?></td>
+                            <td><?php echo esc_html( $gross_disp ); ?></td>     
                             <td><?php echo esc_html( $source_currency ); ?></td>
                             <td><?php echo esc_html( $source_net_disp ); ?></td>
                             <td><?php echo esc_html( $fx_rate_disp ); ?></td>
@@ -2132,16 +2118,17 @@ function ggr_render_dividend_accrual_page() {
         <?php endif; ?>
 
         <h3>IBKR Flex API (Dividend transactie historie)</h3>
-        <p>Gebruik de aparte Flex Query ID voor Dividend transactie historie. Het token is hetzelfde als bij NAV.</p>
-
+        <p>De Flex Query ID voor dividend transactie historie wordt in de code/configuratie beheerd.</p>
+        
         <?php if ( ! empty( $ibkr_accruals_status ) ) : ?>
             <div class="notice notice-info">
                 <p>
                     <strong>Volgende Dividend Accruals:</strong>
                     <?php if ( ! empty( $ibkr_accruals_status['has_credentials'] ) && ! empty( $ibkr_accruals_status['next_run'] ) ) : ?>
                         <?php echo esc_html( wp_date( 'd-m-Y H:i', $ibkr_accruals_status['next_run'] ) ); ?>
+                        <span class="description"> (elke 8 uur)</span>                        
                     <?php else : ?>
-                        Automatische import staat nog niet ingepland. Vul token en Query ID in en sla op.
+                        Automatische import staat nog niet ingepland. Controleer de Flex instellingen in de configuratie.       
                     <?php endif; ?>
                 </p>
             </div>
@@ -2182,40 +2169,6 @@ function ggr_render_dividend_accrual_page() {
                 </div>
             <?php endif; ?>
         <?php endif; ?>
-        <form method="post">
-            <?php wp_nonce_field( 'ggr_ibkr_accruals_credentials' ); ?>
-            <table class="form-table" role="presentation">
-                <tbody>
-                    <tr>
-                        <th scope="row"><label for="ggr_ibkr_flex_token">Flex Web Service token</label></th>
-                        <td>
-                            <input
-                                type="text"
-                                id="ggr_ibkr_flex_token"
-                                name="ggr_ibkr_flex_token"
-                                value="<?php echo esc_attr( $ibkr_accruals_token ); ?>"
-                                class="regular-text"
-                            />
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><label for="ggr_ibkr_flex_accruals_query_id">Flex Query ID (Dividend transactie historie)</label></th>
-                        <td>
-                            <input
-                                type="text"
-                                id="ggr_ibkr_flex_accruals_query_id"
-                                name="ggr_ibkr_flex_accruals_query_id"
-                                value="<?php echo esc_attr( $ibkr_accruals_query_id ); ?>"
-                                class="regular-text"
-                            />
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <?php submit_button( 'IBKR instellingen opslaan', 'secondary', 'ggr_ibkr_accruals_credentials_submit' ); ?>
-        </form>
-
         <form method="post" style="margin-top: 1rem;">
             <?php wp_nonce_field( 'ggr_ibkr_accruals_fetch' ); ?>
             <?php submit_button( 'Handmatig ophalen via IBKR API', 'secondary', 'ggr_ibkr_accruals_fetch_submit' ); ?>
