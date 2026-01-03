@@ -766,7 +766,6 @@ function ggr_render_stock_price_page() {
 
     $ibkr_token    = function_exists( 'ggr_ibkr_nav_get_token' ) ? ggr_ibkr_nav_get_token() : '';
     $ibkr_query_id = function_exists( 'ggr_ibkr_nav_get_query_id' ) ? ggr_ibkr_nav_get_query_id() : '';
-    $ibkr_base_url = function_exists( 'ggr_ibkr_nav_get_base_url' ) ? ggr_ibkr_nav_get_base_url() : '';
     $ibkr_status   = function_exists( 'ggr_ibkr_nav_get_status' ) ? ggr_ibkr_nav_get_status() : array();
     $show_ibkr_sections = ! ( function_exists( 'ggr_admin_shell_is_allowed' ) && ggr_admin_shell_is_allowed() );
     $show_ibkr_manual_fetch = function_exists( 'ggr_ibkr_nav_has_credentials' )
@@ -823,41 +822,11 @@ function ggr_render_stock_price_page() {
     }
 
     /* -----------------------------------------------------------
-     * IBKR FLEX API – credentials opslaan
-     * --------------------------------------------------------- */
-    if ( $show_ibkr_sections && isset( $_POST['ggr_ibkr_credentials_submit'] ) ) {
-        check_admin_referer( 'ggr_ibkr_credentials' );
-
-        $ibkr_token_input    = isset( $_POST['ggr_ibkr_flex_token'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_ibkr_flex_token'] ) ) : '';
-        $ibkr_query_id_input = isset( $_POST['ggr_ibkr_flex_query_id'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_ibkr_flex_query_id'] ) ) : '';
-
-        update_option( 'ggr_ibkr_flex_token', $ibkr_token_input );
-        update_option( 'ggr_ibkr_flex_query_id', $ibkr_query_id_input );
-
-        $ibkr_token    = $ibkr_token_input;
-        $ibkr_query_id = $ibkr_query_id_input;
-
-        if ( function_exists( 'ggr_ibkr_nav_schedule_cron' ) ) {
-            if ( $ibkr_token && $ibkr_query_id ) {
-                ggr_ibkr_nav_schedule_cron();
-            } elseif ( function_exists( 'ggr_ibkr_nav_clear_cron' ) ) {
-                ggr_ibkr_nav_clear_cron();
-            }
-        }
-
-        if ( $ibkr_token && $ibkr_query_id ) {
-            $notice = 'IBKR Flex token en Query ID zijn opgeslagen. Automatische dagelijkse import staat aan.';
-        } else {
-            $notice = 'IBKR Flex instellingen bijgewerkt. Vul zowel token als Query ID in voor automatische import.';
-        }
-    }
-
-    /* -----------------------------------------------------------
      * IBKR FLEX API – handmatig ophalen
      * --------------------------------------------------------- */
     if ( $show_ibkr_manual_fetch && isset( $_POST['ggr_ibkr_manual_fetch_submit'] ) ) {
-        check_admin_referer( 'ggr_ibkr_manual_fetch' );
-
+        check_admin_referer( 'ggr_ibkr_manual_fetch', 'ggr_ibkr_manual_fetch_nonce' );
+        
         if ( function_exists( 'ggr_ibkr_nav_fetch_and_store' ) ) {
             $result = ggr_ibkr_nav_fetch_and_store();
 
@@ -1341,7 +1310,6 @@ function ggr_render_stock_price_page() {
         </p>
 
         <p>
-            <a href="<?php echo esc_url( $export_url ); ?>" class="button">Exporteren (CSV)</a>
             <?php if ( current_user_can( 'manage_options' ) ) : ?>
                 <a href="<?php echo esc_url( $delete_all_url ); ?>"
                    class="button button-secondary" style="display: none;"
@@ -1374,17 +1342,17 @@ function ggr_render_stock_price_page() {
 
          <?php if ( $show_ibkr_sections ) : ?>
             <h2>IBKR Flex API (automatisch)</h2>
-            <p>Vul je Flex Web Service token en Query ID in om dagelijks automatisch de NAV op te halen via de IBKR Flex API. Je kunt ook direct een handmatige import starten.</p>
-
+            <p>De Flex Web Service token en Query ID worden in de code/configuratie beheerd. Je kunt hieronder wel de status en laatste runs zien.</p>
+            
             <?php if ( ! empty( $ibkr_status ) ) : ?>
                 <div class="notice notice-info is-dismissible">
                     <p>
                         <strong>Cron status:</strong>
                         <?php if ( ! empty( $ibkr_status['has_credentials'] ) && ! empty( $ibkr_status['next_run'] ) ) : ?>
-                            Dagelijkse IBKR import staat ingepland.
+                            IBKR import staat elke 8 uur ingepland.
                             Volgende run: <strong><?php echo esc_html( wp_date( 'd-m-Y H:i', $ibkr_status['next_run'] ) ); ?></strong>.
                         <?php else : ?>
-                            Automatische import staat nog niet ingepland. Vul token en Query ID in en sla op.
+                            Automatische import staat nog niet ingepland. Controleer de Flex instellingen in de configuratie.
                         <?php endif; ?>
                     </p>
                     <?php if ( ! empty( $ibkr_status['last_run'] ) && is_array( $ibkr_status['last_run'] ) ) : ?>
@@ -1413,56 +1381,6 @@ function ggr_render_stock_price_page() {
                 </div>
             <?php endif; ?>
             
-            <form method="post">
-                <?php wp_nonce_field( 'ggr_ibkr_credentials' ); ?>
-
-                <table class="form-table" role="presentation">
-                    <tbody>
-                        <tr>
-                            <th scope="row"><label for="ggr_ibkr_flex_token">Flex Web Service token</label></th>
-                            <td>
-                                <input
-                                    type="text"
-                                    id="ggr_ibkr_flex_token"
-                                    name="ggr_ibkr_flex_token"
-                                    value="<?php echo esc_attr( $ibkr_token ); ?>"
-                                    class="regular-text"
-                                />
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <th scope="row"><label for="ggr_ibkr_flex_query_id">Flex Query ID</label></th>
-                            <td>
-                                <input
-                                    type="text"
-                                    id="ggr_ibkr_flex_query_id"
-                                    name="ggr_ibkr_flex_query_id"
-                                    value="<?php echo esc_attr( $ibkr_query_id ); ?>"
-                                    class="regular-text"
-                                />
-                                <p class="description">
-                                    De query moet een Flex-rapport opleveren met NAV per participatie (bijv. Equity Summary).
-                                </p>
-                            </td>
-                        </tr>
-
-                        <?php if ( $ibkr_base_url ) : ?>
-                            <tr>
-                                <th scope="row">Flex API endpoint</th>
-                                <td>
-                                    <code><?php echo esc_html( $ibkr_base_url ); ?></code>
-                                </td>
-                            </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-
-                <?php submit_button( 'IBKR instellingen opslaan', 'secondary', 'ggr_ibkr_credentials_submit' ); ?>
-            </form>
-
-            <hr />
-
             <h2>IBKR Flex XML import</h2>
             <p>Plak hier de Flex Query XML. We lezen <code>total</code> en <code>reportDate</code> uit de <code>EquitySummaryByReportDateInBase</code>-node en berekenen de NAV als <code>total / totaal participaties</code>.</p>
             
@@ -1508,7 +1426,10 @@ function ggr_render_stock_price_page() {
 
         <form method="post">
             <?php wp_nonce_field( 'ggr_save_price' ); ?>
-
+            <?php if ( $show_ibkr_manual_fetch ) : ?>
+                <?php wp_nonce_field( 'ggr_ibkr_manual_fetch', 'ggr_ibkr_manual_fetch_nonce', false ); ?>
+            <?php endif; ?>
+            
             <table class="form-table" role="presentation">
                 <tbody>
                     <tr>
@@ -1563,19 +1484,27 @@ function ggr_render_stock_price_page() {
                 </tbody>
             </table>
 
-            <p class="submit">
-                <?php submit_button( $is_edit ? 'GGR-waarde bijwerken' : 'GGR-waarde opslaan', 'primary', 'ggr_price_submit', false ); ?>
-            </p>
+            <div class="ggr-stock-price-actions">
+                <?php
+                echo get_submit_button(
+                    $is_edit ? 'GGR-waarde bijwerken' : 'GGR-waarde opslaan',
+                    'primary',
+                    'ggr_price_submit',
+                    false
+                );
+                ?>
+                <?php if ( $show_ibkr_manual_fetch ) : ?>
+                    <?php
+                    echo get_submit_button(
+                        'Laatste Flex statement ophalen',
+                        'secondary',
+                        'ggr_ibkr_manual_fetch_submit',
+                        false
+                    );
+                    ?>
+                <?php endif; ?>
+            </div>
         </form>
-
-        <?php if ( $show_ibkr_manual_fetch ) : ?>
-            <form method="post">
-                <?php wp_nonce_field( 'ggr_ibkr_manual_fetch' ); ?>
-                <p class="submit">
-                    <?php submit_button( 'Laatste Flex statement ophalen', 'secondary', 'ggr_ibkr_manual_fetch_submit', false ); ?>
-                </p>
-            </form>
-        <?php endif; ?>
 
         <hr />
 
@@ -1585,8 +1514,11 @@ function ggr_render_stock_price_page() {
         <p>Verwacht formaat: <code>date,total</code> (bijvoorbeeld: <code>2025-01-31,1000000</code>). We berekenen automatisch de bruto en netto NAV per participatie op basis van het aantal participaties op die datum. Eerste regel mag een header zijn.</p>
         <form method="post" enctype="multipart/form-data">
             <?php wp_nonce_field( 'ggr_import_price' ); ?>
-            <input type="file" name="ggr_price_import_file" accept=".csv,text/csv" />
-            <?php submit_button( 'Importeren', 'secondary', 'ggr_price_import_submit', false ); ?>
+            <div class="ggr-stock-price-import-actions">
+                <input type="file" name="ggr_price_import_file" accept=".csv,text/csv" />
+                <?php submit_button( 'Importeren', 'secondary', 'ggr_price_import_submit', false ); ?>
+                <a href="<?php echo esc_url( $export_url ); ?>" class="button">Exporteren (CSV)</a>
+            </div>
         </form>
 
         <?php if ( empty( $rows ) ) : ?>
