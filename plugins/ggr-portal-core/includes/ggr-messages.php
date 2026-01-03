@@ -1532,8 +1532,10 @@ function ggr_transacties_overzicht_shortcode( $atts ) {
     $cumul_opname        = 0.0;
     $cumul_distributie   = 0.0; // blijft cumulatief, maar gebruiken we hier niet direct
     $cumul_participaties = 0.0;
+    $current_pos         = 0.0;
 
     $prev_parts          = 0.0; // stand per laatste dag vorige maand
+    $prev_pos            = 0.0; // positiewaarde per laatste dag vorige maand
     $start_parts         = 0.0; // stand per 1e dag nieuwe maand
     $monthly_distrib     = 0.0; // OPGEBOUWDE kapitaalsuitkering = distributie op settlement (1e dag nieuwe maand)
     $new_parts           = 0.0; // nieuwe participaties uit transacties op 1e dag nieuwe maand
@@ -1555,7 +1557,8 @@ function ggr_transacties_overzicht_shortcode( $atts ) {
         $cumul_opname        += (float) $row->opnamebedrag;
         $cumul_distributie   += (float) $row->distributievergoeding;
         $cumul_participaties += (float) $row->nieuwe_participaties - (float) $row->verkochte_participaties;
-
+        $netto_inleg = $cumul_inleg - $cumul_opname;
+        $current_pos = $netto_inleg + $cumul_distributie;
         $row_ymd = $row_dt->format( 'Y-m-d' );
 
         // stand per einde vorige maand (laatste waarde t/m dt_prev_end)
@@ -1586,12 +1589,10 @@ function ggr_transacties_overzicht_shortcode( $atts ) {
     }
 
     // 4. NAV uit GGR stock price tabel
-    $nav_prev  = null;
-    $nav_start = null;
+    $nav_prev = null;
 
     if ( function_exists( 'ggr_get_stock_price_for_date' ) ) {
-        $nav_prev  = ggr_get_stock_price_for_date( $dt_prev_end->format( 'Y-m-d' ) );
-        $nav_start = ggr_get_stock_price_for_date( $dt_new_start->format( 'Y-m-d' ) );
+        $nav_prev = ggr_get_stock_price_for_date( $dt_prev_end->format( 'Y-m-d' ) );
     }
 
     // 5. Waarden berekenen
@@ -1601,9 +1602,9 @@ function ggr_transacties_overzicht_shortcode( $atts ) {
         $new_parts = $start_parts - $prev_parts;
     }
 
-    $total_value_new = null;
-    if ( $nav_start !== null ) {
-        $total_value_new = $start_parts * (float) $nav_start;
+    $positie_value = null;
+    if ( $nav_prev !== null ) {
+        $positie_value = $prev_parts * (float) $nav_prev;
     }
 
     // 6. Output formatteren
@@ -1642,8 +1643,8 @@ ob_start();
                 </th>
 
                 <th>
-                    Totale waarde per<br>
-                    <?php echo esc_html( $label_new_start ); ?> 
+                    Positiewaarde per<br>
+                    <?php echo esc_html( $label_prev_end ); ?> 
                 </th>
             </tr>
             </thead>
@@ -1709,13 +1710,13 @@ ob_start();
 
     <!-- Kolom 6: totale waarde -->
     <td
-        data-label="Totale waarde (EUR)"
-        data-date="<?php echo esc_attr( $label_new_start ); ?>"
+        data-label="Positiewaarde (EUR)"
+        data-date="<?php echo esc_attr( $label_prev_end ); ?>"
     >
         <span class="ggr-trans-value">
             <?php
-            if ( $total_value_new !== null ) {
-                echo '€ ' . number_format( (float) $total_value_new, 2, ',', '.' );
+            if ( $positie_value !== null ) {
+                echo '€ ' . number_format( (float) $positie_value, 2, ',', '.' );
             } else {
                 echo '-';
             }
