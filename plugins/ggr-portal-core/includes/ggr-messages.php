@@ -1604,6 +1604,14 @@ function ggr_transacties_overzicht_shortcode( $atts ) {
         $new_parts = $start_parts - $prev_parts;
     }
 
+    if ( $nav_prev !== null ) {
+        $current_pos = $start_parts * (float) $nav_prev;
+    }
+
+    if ( $new_parts_found ) {
+        $positie_value_from_tx = $current_pos;
+    }
+
     $positie_value = $positie_value_from_tx;
     if ( $positie_value === null && $nav_prev !== null ) {
         $positie_value = $prev_parts * (float) $nav_prev;
