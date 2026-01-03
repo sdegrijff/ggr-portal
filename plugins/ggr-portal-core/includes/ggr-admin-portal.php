@@ -190,7 +190,12 @@ function ggr_admin_render_dashboard() {
 		}
 		return '€ ' . number_format( (float) $value, 2, ',', '.' );
 	};
-
+	$format_nav = function( $value ) {
+		if ( $value === null ) {
+			return '—';
+		}
+		return '€ ' . number_format( (float) $value, 4, ',', '.' );
+	};
 	$last_updated_label = 'Nog niet bijgewerkt';
 	if ( $latest_stock && ! empty( $latest_stock['updated_at'] ) ) {
 		$last_updated_label = wp_date( 'd-m-Y H:i', strtotime( $latest_stock['updated_at'] ) );
@@ -219,7 +224,7 @@ function ggr_admin_render_dashboard() {
 
 	echo '<article class="ggrp-fe-card">';
 	echo '<h2 class="ggrp-fe-card-title">Huidige NAV koers</h2>';
-	echo '<div class="ggrp-fe-card-value">' . esc_html( $format_money( $latest_nav_value ) ) . '</div>';
+	echo '<div class="ggrp-fe-card-value">' . esc_html( $format_nav( $latest_nav_value ) ) . '</div>';
 	echo '<div class="ggrp-fe-card-meta">Laatste koersdatum: ' . esc_html( $latest_nav_date ? date_i18n( 'd-m-Y', strtotime( $latest_nav_date ) ) : '—' ) . '</div>';
 	echo '</article>';
 
