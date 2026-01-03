@@ -59,6 +59,21 @@ function ggr_ibkr_nav_has_credentials() {
 }
 
 /**
+ * Extra cron interval: elke 8 uur.
+ */
+function ggr_portal_register_every_8_hours_cron( $schedules ) {
+    if ( ! isset( $schedules['ggr_every_8_hours'] ) ) {
+        $schedules['ggr_every_8_hours'] = array(
+            'interval' => 8 * HOUR_IN_SECONDS,
+            'display'  => __( 'Every 8 hours', 'ggr-portal-core' ),
+        );
+    }
+
+    return $schedules;
+}
+add_filter( 'cron_schedules', 'ggr_portal_register_every_8_hours_cron' );
+
+/**
  * Cron uitschakelen als er geen geldige credentials zijn.
  */
 function ggr_ibkr_nav_clear_cron() {
@@ -68,7 +83,7 @@ function ggr_ibkr_nav_clear_cron() {
 }
 
 /**
- * Cron plannen (dagelijks).
+ * Cron plannen (elke 8 uur).
  */
 function ggr_ibkr_nav_schedule_cron() {
     if ( ! ggr_ibkr_nav_has_credentials() ) {
@@ -77,7 +92,7 @@ function ggr_ibkr_nav_schedule_cron() {
     }
 
     if ( ! wp_next_scheduled( 'ggr_ibkr_nav_fetch_event' ) ) {
-        wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'ggr_ibkr_nav_fetch_event' );
+        wp_schedule_event( time() + HOUR_IN_SECONDS, 'ggr_every_8_hours', 'ggr_ibkr_nav_fetch_event' );
     }
 }
 add_action( 'init', 'ggr_ibkr_nav_schedule_cron' );
