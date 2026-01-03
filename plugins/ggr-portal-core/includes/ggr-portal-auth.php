@@ -26,8 +26,6 @@ function ggr_portal_start_session() {
     }
 
     if ( headers_sent( $sent_file, $sent_line ) ) {
-        $location = $sent_file ? sprintf( '%s:%s', $sent_file, $sent_line ?: '?' ) : 'onbekend';
-        error_log( 'GGR Portal: sessie kon niet worden gestart, headers al verzonden in ' . $location );
         return;
     }
 
