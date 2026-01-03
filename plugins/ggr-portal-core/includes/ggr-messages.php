@@ -1540,6 +1540,7 @@ function ggr_transacties_overzicht_shortcode( $atts ) {
     $monthly_distrib     = 0.0; // OPGEBOUWDE kapitaalsuitkering = distributie op settlement (1e dag nieuwe maand)
     $new_parts           = 0.0; // nieuwe participaties uit transacties op 1e dag nieuwe maand
     $new_parts_found     = false;
+    $positie_value_from_tx = null;    
     $new_start_ymd = $dt_new_start->format( 'Y-m-d' );
 
     foreach ( $history as $row ) {
@@ -1580,6 +1581,7 @@ function ggr_transacties_overzicht_shortcode( $atts ) {
         if ( $row_ymd === $new_start_ymd ) {
             $new_parts       += (float) $row->nieuwe_participaties - (float) $row->verkochte_participaties;
             $new_parts_found  = true;
+            $positie_value_from_tx = $current_pos;            
         }
     }
 
@@ -1602,8 +1604,8 @@ function ggr_transacties_overzicht_shortcode( $atts ) {
         $new_parts = $start_parts - $prev_parts;
     }
 
-    $positie_value = null;
-    if ( $nav_prev !== null ) {
+    $positie_value = $positie_value_from_tx;
+    if ( $positie_value === null && $nav_prev !== null ) {
         $positie_value = $prev_parts * (float) $nav_prev;
     }
 
