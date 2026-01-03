@@ -205,6 +205,10 @@ body.ggr-admin-shell-enabled .ggr-admin-shell__content .form-table td {
     align-items: start;
 }
 
+.ggr-admin-dashboard-kpis {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
 .ggr-admin-dashboard-panel {
     min-width: 0;
 }
@@ -216,7 +220,12 @@ body.ggr-admin-shell-enabled .ggr-admin-shell__content .form-table td {
 .ggr-admin-dashboard-table {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 0;
+    border: 1px solid #dcdcde;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #ffffff;
+}
 }
 
 .ggr-admin-dashboard-table-head,
@@ -225,22 +234,24 @@ body.ggr-admin-shell-enabled .ggr-admin-shell__content .form-table td {
     gap: 12px;
     align-items: center;
     padding: 10px 12px;
-    border-radius: 10px;
 }
 
 .ggr-admin-dashboard-table-head {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: #6b7280;
-    background: #f3f4f6;
+    font-size: 12px;
+    font-weight: 600;
+    color: #1d2327;
+    background: #f6f7f7;
+    border-bottom: 1px solid #dcdcde;
 }
 
 .ggr-admin-dashboard-table-row {
     background: #ffffff;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    border-bottom: 1px solid #dcdcde;
     color: #111827;
+}
+
+.ggr-admin-dashboard-table-row:nth-child(even) {
+    background: #f6f7f7;
 }
 
 .ggr-admin-dashboard-table--mutaties .ggr-admin-dashboard-table-head,
@@ -257,6 +268,26 @@ body.ggr-admin-shell-enabled .ggr-admin-shell__content .form-table td {
     .ggr-admin-dashboard-grid {
         grid-template-columns: minmax(0, 1fr);
     }
+}
+
+@media (max-width: 1400px) {
+    .ggr-admin-dashboard-kpis {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .ggr-admin-dashboard-kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.ggr-stock-price-actions,
+.ggr-stock-price-import-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
 }
 
 body.ggr-admin-shell-enabled .ggr-admin-shell__content .page-title-action {
