@@ -114,7 +114,7 @@ function ggr_portal_help_shortcode() {
                 <p class="ggrp-fe-subtitle">Vind snel een antwoord of stuur ons direct een bericht.</p>
             </div>
             <div class="ggrp-fe-help-actions">
-                <a class="ggrp-fe-pill" href="mailto:info@ggrincome.com">Mail ons</a>
+                <a class="ggrp-fe-pill" href="mailto:mif@ggrfunds.com">Mail ons</a>
                 <a class="ggrp-fe-pill" href="https://wa.me/31850805035" target="_blank" rel="noreferrer">WhatsApp</a>
                 <a class="ggrp-fe-pill" href="tel:+31850805035">Bel: +31 85 080 50 35</a>
             </div>
@@ -155,12 +155,6 @@ function ggr_portal_help_shortcode() {
 
                     <button type="submit" class="ggrp-fe-button">Stuur bericht</button>
                 </form>
-
-                <ul class="ggrp-fe-contact-list">
-                    <li><strong>E-mail:</strong> <a href="mailto:info@ggrincome.com">info@ggrincome.com</a></li>
-                    <li><strong>WhatsApp:</strong> <a href="https://wa.me/31850805035" target="_blank" rel="noreferrer">+31 85 080 50 35</a></li>
-                    <li><strong>Bellen:</strong> <a href="tel:+31850805035">+31 85 080 50 35</a></li>
-                </ul>
             </div>
 
             <div class="ggrp-fe-help-card">
