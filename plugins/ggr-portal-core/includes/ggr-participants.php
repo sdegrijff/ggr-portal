@@ -3285,6 +3285,13 @@ function ggr_portal_render_participant_profile_page() {
         $participation_type_label = 'IF (≥ € 100.000)';
     }
 
+    $distribution_strategy_label = '—';
+    if ( $distribution_strategy === 'herbeleggen' ) {
+        $distribution_strategy_label = 'Herbeleggen';
+    } elseif ( $distribution_strategy === 'uitkeren' ) {
+        $distribution_strategy_label = 'Uitkeren';
+    }
+
     $investment_target = $participation_amount;
     if ( $investment_target === '' ) {
         $investment_target = $investment_amount !== '' ? $investment_amount : $investment;
@@ -3303,6 +3310,13 @@ function ggr_portal_render_participant_profile_page() {
     };
 
     $created_label = $format_datetime( $user->user_registered );
+    $latest_history_date  = '';
+    $latest_history_units = '—';
+    if ( ! empty( $rows_for_table ) ) {
+        $latest_row = $rows_for_table[0]['row'];
+        $latest_history_date = $format_date_only( $latest_row->datum );
+        $latest_history_units = ggr_portal_format_participaties( $rows_for_table[0]['totaal_participaties'], 4 );
+    }
     
     ?>
     <div class="wrap ggr-participant-wrap">
@@ -3373,7 +3387,7 @@ function ggr_portal_render_participant_profile_page() {
                 text-decoration: underline;                
             }
             
-                        .ggr-admin-summary-grid,
+            .ggr-admin-summary-grid,
             .ggr-admin-crm-summary-grid {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -3397,6 +3411,66 @@ function ggr_portal_render_participant_profile_page() {
             .ggr-admin-summary-item strong,
             .ggr-admin-crm-summary-item strong {
                 font-size: 14px;
+            }
+            .ggr-admin-crm-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 16px;
+                margin-bottom: 16px;
+            }
+            .ggr-admin-crm-header h2 {
+                margin-bottom: 6px;
+            }
+            .ggr-admin-crm-subtitle {
+                color: #6b7280;
+                margin: 0;
+            }
+            .ggr-admin-crm-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 6px 12px;
+                border-radius: 999px;
+                background: #eef2ff;
+                color: #3730a3;
+                font-size: 12px;
+                font-weight: 600;
+            }
+            .ggr-admin-crm-panels {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+                gap: 16px;
+                margin-bottom: 20px;
+            }
+            .ggr-admin-crm-panel {
+                background: #fff;
+                border: 1px solid #e5e7eb;
+                border-radius: 12px;
+                padding: 16px;
+            }
+            .ggr-admin-crm-panel h3 {
+                margin-top: 0;
+                font-size: 14px;
+                color: #111827;
+            }
+            .ggr-admin-crm-kpi {
+                font-size: 20px;
+                font-weight: 700;
+                margin: 6px 0 12px;
+            }
+            .ggr-admin-crm-meta {
+                display: grid;
+                gap: 10px;
+            }
+            .ggr-admin-crm-meta div {
+                display: flex;
+                flex-direction: column;
+            }
+            .ggr-admin-crm-meta span {
+                font-size: 12px;
+                color: #6b7280;
+                margin-bottom: 2px;
             }
             .ggr-admin-onboarding-bar {
                 display: flex;
@@ -3441,6 +3515,9 @@ function ggr_portal_render_participant_profile_page() {
             details.ggr-admin-crm-section .ggr-admin-crm-body {
                 padding: 16px;
             }
+            details.ggr-admin-crm-section.ggr-admin-crm-section--primary > summary {
+                background: #f8fafc;
+            }            
         </style>
 
         <!-- Snel wisselen -->
@@ -3554,37 +3631,74 @@ function ggr_portal_render_participant_profile_page() {
                     <?php endforeach; ?>
                 </div>
             <?php else : ?>
-                <h2 class="title">Participant CRM</h2>
-                <div class="ggr-admin-crm-summary-grid">
-                    <div class="ggr-admin-crm-summary-item">
-                        <span>Naam</span>
-                        <strong><?php echo esc_html( trim( $kyc_first_name . ' ' . $kyc_last_name ) ? trim( $kyc_first_name . ' ' . $kyc_last_name ) : $user->display_name ); ?></strong>
+                <div class="ggr-admin-crm-header">
+                    <div>
+                        <h2 class="title">Participant CRM</h2>
+                        <p class="ggr-admin-crm-subtitle">Kerngegevens, participatie en historie in één CRM-overzicht.</p>
                     </div>
-                    <div class="ggr-admin-crm-summary-item">
-                        <span>E-mailadres</span>
-                        <strong><?php echo esc_html( $user->user_email ); ?></strong>
-                    </div>
-                    <div class="ggr-admin-crm-summary-item">
-                        <span>Telefoonnummer</span>
-                        <strong><?php echo esc_html( $kyc_phone ? $kyc_phone : '—' ); ?></strong>
-                    </div>
-                    <div class="ggr-admin-crm-summary-item">
-                        <span>Onboarding status</span>
-                        <strong><?php echo esc_html( isset( $stages[ $onboarding_status ] ) ? $stages[ $onboarding_status ] : $onboarding_status ); ?></strong>
-                    </div>
-                    <div class="ggr-admin-crm-summary-item">
-                        <span>Deelname-type</span>
-                        <strong><?php echo esc_html( $participation_type_label ); ?></strong>
-                    </div>
-                    <div class="ggr-admin-crm-summary-item">
-                        <span>Laatste login</span>
-                        <strong><?php echo esc_html( $last_login_label ? $last_login_label : '—' ); ?></strong>
+                    <span class="ggr-admin-crm-badge">Laatste activiteit: <?php echo esc_html( $last_login_label ? $last_login_label : ( $latest_history_date ? $latest_history_date : '—' ) ); ?></span>
+                </div>
+                <div class="ggr-admin-crm-panels">
+                    <section class="ggr-admin-crm-panel">
+                        <h3>NAW & contact</h3>
+                        <div class="ggr-admin-crm-kpi"><?php echo esc_html( trim( $kyc_first_name . ' ' . $kyc_last_name ) ? trim( $kyc_first_name . ' ' . $kyc_last_name ) : $user->display_name ); ?></div>
+                        <div class="ggr-admin-crm-meta">
+                            <div>
+                                <span>E-mailadres</span>
+                                <strong><?php echo esc_html( $user->user_email ); ?></strong>
+                            </div>
+                            <div>
+                                <span>Telefoonnummer</span>
+                                <strong><?php echo esc_html( $kyc_phone ? $kyc_phone : '—' ); ?></strong>
+                            </div>
+                            <div>
+                                <span>Adres</span>
+                                <strong><?php echo esc_html( trim( $kyc_address . ' ' . $kyc_postcode . ' ' . $kyc_city_country ) ? trim( $kyc_address . ' ' . $kyc_postcode . ' ' . $kyc_city_country ) : '—' ); ?></strong>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="ggr-admin-crm-panel">
+                        <h3>Participatie</h3>
+                        <div class="ggr-admin-crm-kpi"><?php echo esc_html( $latest_history_units ); ?> participaties</div>
+                        <div class="ggr-admin-crm-meta">
+                            <div>
+                                <span>Deelname-type</span>
+                                <strong><?php echo esc_html( $participation_type_label ); ?></strong>
+                            </div>
+                            <div>
+                                <span>Dividendstrategie</span>
+                                <strong><?php echo esc_html( $distribution_strategy_label ); ?></strong>
+                            </div>
+                            <div>
+                                <span>Beoogde investering</span>
+                                <strong><?php echo esc_html( $format_money( $investment_target ) ); ?></strong>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="ggr-admin-crm-panel">
+                        <h3>Activiteit</h3>
+                        <div class="ggr-admin-crm-kpi"><?php echo esc_html( isset( $stages[ $onboarding_status ] ) ? $stages[ $onboarding_status ] : $onboarding_status ); ?></div>
+                        <div class="ggr-admin-crm-meta">
+                            <div>
+                                <span>Laatste login</span>
+                                <strong><?php echo esc_html( $last_login_label ? $last_login_label : '—' ); ?></strong>
+                            </div>
+                            <div>
+                                <span>Profiel bijgewerkt</span>
+                                <strong><?php echo esc_html( $profile_updated_label ? $profile_updated_label : '—' ); ?></strong>
+                            </div>
+                            <div>
+                                <span>Laatste participatie</span>
+                                <strong><?php echo esc_html( $latest_history_date ? $latest_history_date : '—' ); ?></strong>
+                            </div>
+                        </div>
+                    </section>
                     </div>
                 </div>
             <?php endif; ?>
 
             <?php if ( ! $is_lead ) : ?>
-                <details class="ggr-admin-crm-section">
+                <details class="ggr-admin-crm-section ggr-admin-crm-section--primary" open>
                     <summary>Onboarding details</summary>
                     <div class="ggr-admin-crm-body">
             <?php endif; ?>
