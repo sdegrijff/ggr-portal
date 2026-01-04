@@ -958,88 +958,80 @@ function ggr_portal_render_history_page() {
 
             <h3><?php echo $is_edit ? 'Historie-regel bewerken' : 'Nieuwe regel toevoegen'; ?></h3>
 
-            <form method="post" style="max-width:800px;">
+            <form method="post" style="width:100%;">
                 <?php wp_nonce_field( 'ggr_save_history', 'ggr_history_nonce' ); ?>
                 <input type="hidden" name="page" value="ggr-participatie-historie" />
                 <input type="hidden" name="user_id" value="<?php echo (int) $user_id; ?>" />
                 <input type="hidden" name="entry_id" value="<?php echo $is_edit ? (int) $entry->id : 0; ?>" />
+                <div style="display:flex; flex-wrap:wrap; gap:24px; align-items:flex-start; margin-top:10px;">
+                    <div style="min-width:200px; flex:1;">
+                        <label for="datum" style="display:block; font-weight:600; margin-bottom:6px;">Datum</label>
+                        <input
+                            type="date"
+                            name="datum"
+                            id="datum"
+                            required
+                            value="<?php echo $is_edit ? esc_attr( $entry->datum ) : ''; ?>"
+                            style="width:100%;"
+                        />
+                    </div>
 
-                <table class="form-table">
-                    <tr>
-                        <th><label for="datum">Datum</label></th>
-                        <td>
-                            <input
-                                type="date"
-                                name="datum"
-                                id="datum"
-                                required
-                                value="<?php echo $is_edit ? esc_attr( $entry->datum ) : ''; ?>"
-                            />
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><label for="inlegbedrag">Inlegbedrag (BIJ) (€)</label></th>
-                        <td>
-                            <input
-                                type="text"
-                                name="inlegbedrag"
-                                id="inlegbedrag"
-                                placeholder="bijv. 100000.00"
-                                value="<?php echo $is_edit ? esc_attr( $entry->inlegbedrag ) : ''; ?>"
-                            />
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><label for="opnamebedrag">Opnamebedrag (AF) (€)</label></th>
-                        <td>
-                            <input
-                                type="text"
-                                name="opnamebedrag"
-                                id="opnamebedrag"
-                                placeholder="bijv. 0.00"
-                                value="<?php echo $is_edit ? esc_attr( $entry->opnamebedrag ) : ''; ?>"
-                            />
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><label for="nieuwe_participaties">Nieuwe participaties (BIJ)</label></th>
-                        <td>
-                            <input
-                                type="text"
-                                name="nieuwe_participaties"
-                                id="nieuwe_participaties"
-                                placeholder="bijv. 0,3916"
-                                inputmode="decimal"
-                                value="<?php echo $is_edit ? esc_attr( ggr_portal_format_participaties( $entry->nieuwe_participaties, 4 ) ) : ''; ?>"
-                            />
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><label for="verkochte_participaties">Verkochte participaties (AF)</label></th>
-                        <td>
-                            <input
-                                type="text"
-                                name="verkochte_participaties"
-                                id="verkochte_participaties"
-                                placeholder="bijv. 0,0000"
-                                inputmode="decimal"
-                                value="<?php echo $is_edit ? esc_attr( ggr_portal_format_participaties( $entry->verkochte_participaties, 4 ) ) : ''; ?>"
-                            />
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><label for="distributievergoeding">Distributievergoeding (€)</label></th>
-                        <td>
-                            <input
-                                type="text"
-                                name="distributievergoeding"
-                                id="distributievergoeding"
-                                placeholder="bijv. 1200.00"
-                                value="<?php echo $is_edit ? esc_attr( $entry->distributievergoeding ) : ''; ?>"
-                            />
-                        </td>
-                    </tr>
-                </table>
+                    <div style="min-width:220px; flex:1;">
+                        <label for="inlegbedrag" style="display:block; font-weight:600; margin-bottom:6px;">Inlegbedrag (BIJ) (€)</label>
+                        <input
+                            type="text"
+                            name="inlegbedrag"
+                            id="inlegbedrag"
+                            placeholder="bijv. 100000.00"
+                            value="<?php echo $is_edit ? esc_attr( $entry->inlegbedrag ) : ''; ?>"
+                            style="width:100%; margin-bottom:12px;"
+                        />
+                        <label for="opnamebedrag" style="display:block; font-weight:600; margin-bottom:6px;">Opnamebedrag (AF) (€)</label>
+                        <input
+                            type="text"
+                            name="opnamebedrag"
+                            id="opnamebedrag"
+                            placeholder="bijv. 0.00"
+                            value="<?php echo $is_edit ? esc_attr( $entry->opnamebedrag ) : ''; ?>"
+                            style="width:100%;"
+                        />
+                    </div>
+
+                    <div style="min-width:220px; flex:1;">
+                        <label for="nieuwe_participaties" style="display:block; font-weight:600; margin-bottom:6px;">Nieuwe participaties (BIJ)</label>
+                        <input
+                            type="text"
+                            name="nieuwe_participaties"
+                            id="nieuwe_participaties"
+                            placeholder="bijv. 0,3916"
+                            inputmode="decimal"
+                            value="<?php echo $is_edit ? esc_attr( ggr_portal_format_participaties( $entry->nieuwe_participaties, 4 ) ) : ''; ?>"
+                            style="width:100%; margin-bottom:12px;"
+                        />
+                        <label for="verkochte_participaties" style="display:block; font-weight:600; margin-bottom:6px;">Verkochte participaties (AF)</label>
+                        <input
+                            type="text"
+                            name="verkochte_participaties"
+                            id="verkochte_participaties"
+                            placeholder="bijv. 0,0000"
+                            inputmode="decimal"
+                            value="<?php echo $is_edit ? esc_attr( ggr_portal_format_participaties( $entry->verkochte_participaties, 4 ) ) : ''; ?>"
+                            style="width:100%;"
+                        />
+                    </div>
+
+                    <div style="min-width:220px; flex:1;">
+                        <label for="distributievergoeding" style="display:block; font-weight:600; margin-bottom:6px;">Distributievergoeding (€)</label>
+                        <input
+                            type="text"
+                            name="distributievergoeding"
+                            id="distributievergoeding"
+                            placeholder="bijv. 1200.00"
+                            value="<?php echo $is_edit ? esc_attr( $entry->distributievergoeding ) : ''; ?>"
+                            style="width:100%;"
+                        />
+                    </div>
+                </div>
 
                 <p>
                     <button class="button button-primary" type="submit">
@@ -2735,7 +2727,13 @@ function ggr_portal_render_participant_profile_page() {
     }
 
     $user_id = isset( $_GET['user_id'] ) ? (int) $_GET['user_id'] : 0;
-
+    $message = '';
+    $error   = '';
+    $edit_id = isset( $_GET['edit_id'] ) ? (int) $_GET['edit_id'] : 0;
+    $entry   = null;
+    $delete_entry = null;
+    $delete_all_request = 0;
+    
     // Keuzescherm als er nog geen user_id is
     if ( ! $user_id ) {
         ?>
@@ -2764,6 +2762,262 @@ function ggr_portal_render_participant_profile_page() {
     if ( ! $user ) {
         echo '<div class="wrap"><h1>Profiel</h1><p>Gebruiker niet gevonden.</p></div>';
         return;
+    }
+
+    if (
+        isset( $_POST['ggr_import_nonce'] )
+        && wp_verify_nonce( $_POST['ggr_import_nonce'], 'ggr_import_history' )
+    ) {
+        $import_user_id = isset( $_POST['import_user_id'] ) ? (int) $_POST['import_user_id'] : 0;
+
+        if ( ! $import_user_id || $import_user_id !== $user_id ) {
+            $error = 'Geen gebruiker geselecteerd voor import.';
+        } elseif ( ! isset( $_FILES['ggr_import_file'] ) || empty( $_FILES['ggr_import_file']['tmp_name'] ) ) {
+            $error = 'Geen bestand geselecteerd voor import.';
+        } elseif ( $_FILES['ggr_import_file']['error'] !== UPLOAD_ERR_OK ) {
+            $error = 'Upload mislukt.';
+        } else {
+            $tmp_name = $_FILES['ggr_import_file']['tmp_name'];
+            $handle   = fopen( $tmp_name, 'r' );
+
+            if ( ! $handle ) {
+                $error = 'Bestand kon niet worden geopend.';
+            } else {
+                $firstLine = fgets( $handle );
+                if ( $firstLine === false ) {
+                    $error = 'Leeg bestand.';
+                    fclose( $handle );
+                } else {
+                    $semicolon_count = substr_count( $firstLine, ';' );
+                    $comma_count     = substr_count( $firstLine, ',' );
+                    $delimiter       = ',';
+
+                    if ( $semicolon_count > $comma_count ) {
+                        $delimiter = ';';
+                    }
+
+                    rewind( $handle );
+
+                    $rows_imported = 0;
+                    $row_index     = 0;
+
+                    while ( ( $data = fgetcsv( $handle, 0, $delimiter ) ) !== false ) {
+                        $row_index++;
+
+                        if ( $row_index === 1 ) {
+                            if ( isset( $data[3] ) && stripos( $data[3], 'datum' ) !== false ) {
+                                continue;
+                            }
+                        }
+
+                        if ( count( $data ) < 9 ) {
+                            continue;
+                        }
+
+                        $csv_user_id = (int) $data[1];
+
+                        if ( $csv_user_id && $csv_user_id !== $import_user_id ) {
+                            continue;
+                        }
+
+                        $datum_raw   = trim( $data[3] );
+                        $inleg       = trim( $data[4] );
+                        $opname      = trim( $data[5] );
+                        $nieuwe      = trim( $data[6] );
+                        $verkochte   = trim( $data[7] );
+                        $distributie = trim( $data[8] );
+
+                        if ( ! $datum_raw ) {
+                            continue;
+                        }
+
+                        $ok = ggr_portal_add_history_entry(
+                            $import_user_id,
+                            $datum_raw,
+                            $inleg,
+                            $opname,
+                            $nieuwe,
+                            $verkochte,
+                            $distributie
+                        );
+
+                        if ( $ok ) {
+                            $rows_imported++;
+                        }
+                    }
+
+                    fclose( $handle );
+
+                    if ( $rows_imported > 0 ) {
+                        $message = sprintf( '%d regels geïmporteerd.', $rows_imported );
+                    } else {
+                        $error = 'Geen geldige regels geïmporteerd.';
+                    }
+                }
+            }
+        }
+    }
+
+    if ( isset( $_POST['ggr_delete_history_nonce'] ) && wp_verify_nonce( $_POST['ggr_delete_history_nonce'], 'ggr_delete_history_action' ) ) {
+        $delete_user_id = isset( $_POST['user_id'] ) ? (int) $_POST['user_id'] : 0;
+        $delete_id      = isset( $_POST['delete_id'] ) ? (int) $_POST['delete_id'] : 0;
+        $confirm        = isset( $_POST['confirm'] ) ? sanitize_text_field( $_POST['confirm'] ) : '';
+
+        $delete_entry = $delete_id ? ggr_portal_get_history_entry( $delete_id ) : null;
+
+        if ( $delete_entry && $delete_user_id && (int) $delete_entry->user_id === $delete_user_id && $delete_user_id === $user_id ) {
+            if ( $confirm === 'yes' ) {
+                $ok = ggr_portal_delete_history_entry( $delete_id );
+                if ( $ok ) {
+                    $message = 'Historie-regel is verwijderd.';
+                } else {
+                    $error = 'Verwijderen mislukt.';
+                }
+            } else {
+                $message = 'Verwijderen geannuleerd.';
+            }
+        } else {
+            $error = 'Ongeldige verwijder-aanvraag.';
+        }
+    }
+
+    if ( isset( $_POST['ggr_delete_all_history_nonce'] ) && wp_verify_nonce( $_POST['ggr_delete_all_history_nonce'], 'ggr_delete_all_history_action' ) ) {
+        $delete_user_id = isset( $_POST['user_id'] ) ? (int) $_POST['user_id'] : 0;
+        $confirm        = isset( $_POST['confirm'] ) ? sanitize_text_field( $_POST['confirm'] ) : '';
+
+        if ( $delete_user_id === $user_id && $confirm === 'yes' ) {
+            $ok = ggr_portal_delete_all_history_for_user( $delete_user_id );
+            if ( $ok ) {
+                $message = 'Alle historie voor deze gebruiker is verwijderd.';
+            } else {
+                $error = 'Verwijderen van alle historie is mislukt.';
+            }
+        } elseif ( $delete_user_id === $user_id && $confirm === 'no' ) {
+            $message = 'Verwijderen van alle historie geannuleerd.';
+        } else {
+            $error = 'Ongeldige aanvraag voor verwijderen van alle historie.';
+        }
+    }
+
+    if ( $edit_id ) {
+        $entry = ggr_portal_get_history_entry( $edit_id );
+        if ( $entry && (int) $entry->user_id !== $user_id ) {
+            $entry   = null;
+            $edit_id = 0;
+        }
+    }
+
+    $delete_id    = isset( $_GET['delete_id'] ) ? (int) $_GET['delete_id'] : 0;
+    $delete_entry = null;
+
+    if (
+        $_SERVER['REQUEST_METHOD'] === 'GET'
+        && $delete_id
+        && isset( $_GET['_ggrdelnonce'] )
+        && wp_verify_nonce( $_GET['_ggrdelnonce'], 'ggr_delete_history' )
+    ) {
+        $delete_entry = ggr_portal_get_history_entry( $delete_id );
+        if ( $delete_entry && (int) $delete_entry->user_id !== $user_id ) {
+            $delete_entry = null;
+            $delete_id    = 0;
+        }
+    } else {
+        $delete_id    = 0;
+        $delete_entry = null;
+    }
+
+    if (
+        $_SERVER['REQUEST_METHOD'] === 'GET'
+        && $user_id
+        && isset( $_GET['delete_all'] )
+        && (int) $_GET['delete_all'] === 1
+        && isset( $_GET['_ggrdelallnonce'] )
+        && wp_verify_nonce( $_GET['_ggrdelallnonce'], 'ggr_delete_all_history' )
+    ) {
+        $delete_all_request = 1;
+    }
+    $is_edit = ( $edit_id && $entry );
+
+    if ( isset( $_POST['ggr_history_nonce'] ) && wp_verify_nonce( $_POST['ggr_history_nonce'], 'ggr_save_history' ) ) {
+        $entry_user_id = isset( $_POST['user_id'] ) ? (int) $_POST['user_id'] : 0;
+        $entry_id      = isset( $_POST['entry_id'] ) ? (int) $_POST['entry_id'] : 0;
+
+        $datum          = isset( $_POST['datum'] ) ? sanitize_text_field( $_POST['datum'] ) : '';
+        $inlegbedrag    = isset( $_POST['inlegbedrag'] ) ? sanitize_text_field( $_POST['inlegbedrag'] ) : '';
+        $opnamebedrag   = isset( $_POST['opnamebedrag'] ) ? sanitize_text_field( $_POST['opnamebedrag'] ) : '';
+        $nieuwe         = isset( $_POST['nieuwe_participaties'] ) ? sanitize_text_field( $_POST['nieuwe_participaties'] ) : '';
+        $verkochte      = isset( $_POST['verkochte_participaties'] ) ? sanitize_text_field( $_POST['verkochte_participaties'] ) : '';
+        $distributie    = isset( $_POST['distributievergoeding'] ) ? sanitize_text_field( $_POST['distributievergoeding'] ) : '';
+
+        if ( $entry_user_id === $user_id && $datum ) {
+            if ( $entry_id ) {
+                $ok = ggr_portal_update_history_entry(
+                    $entry_id,
+                    $datum,
+                    $inlegbedrag,
+                    $opnamebedrag,
+                    $nieuwe,
+                    $verkochte,
+                    $distributie
+                );
+
+                if ( $ok ) {
+                    $message = 'Historie-regel bijgewerkt.';
+                    $edit_id = 0;
+                    $entry   = null;
+                } else {
+                    $error = 'Bijwerken mislukt (controleer ook de datum-invoer).';
+                }
+            } else {
+                $ok = ggr_portal_add_history_entry(
+                    $entry_user_id,
+                    $datum,
+                    $inlegbedrag,
+                    $opnamebedrag,
+                    $nieuwe,
+                    $verkochte,
+                    $distributie
+                );
+
+                if ( $ok ) {
+                    $message = 'Historie-regel opgeslagen.';
+                } else {
+                    $error = 'Opslaan mislukt (controleer ook de datum-invoer).';
+                }
+            }
+        } else {
+            $error = 'Minimaal gebruiker en datum zijn verplicht.';
+        }
+    }
+
+    $export_url = '';
+    if ( $user_id ) {
+        $export_url = wp_nonce_url(
+            add_query_arg(
+                [
+                    'action'  => 'ggr_export_history',
+                    'user_id' => $user_id,
+                ],
+                admin_url( 'admin-post.php' )
+            ),
+            'ggr_export_history'
+        );
+    }
+
+    $delete_all_url = '';
+    if ( $user_id ) {
+        $delete_all_url = wp_nonce_url(
+            add_query_arg(
+                [
+                    'page'       => 'ggr-participant-profiel',
+                    'user_id'    => $user_id,
+                    'delete_all' => 1,
+                ],
+                admin_url( 'users.php' )
+            ),
+            'ggr_delete_all_history',
+            '_ggrdelallnonce'
+        );
     }
 
         $meta         = get_user_meta( $user_id );
@@ -3052,7 +3306,7 @@ function ggr_portal_render_participant_profile_page() {
     
     ?>
     <div class="wrap ggr-participant-wrap">
-        <a class="ggr-admin-back-link" href="<?php echo esc_url( admin_url( 'users.php' ) ); ?>">← Terug</a>        
+        <a class="ggr-admin-back-link" href="<?php echo esc_url( admin_url( 'users.php?page=ggr-participant-overzicht' ) ); ?>">← Terug</a>     
         <h1>Profiel – <?php echo esc_html( $user->display_name ); ?> (ID: <?php echo (int) $user_id; ?>)</h1>
 
         <!-- same flex CSS als in profiel-blok -->
@@ -3906,8 +4160,176 @@ function ggr_portal_render_participant_profile_page() {
                 <details class="ggr-admin-crm-section">
                     <summary>Participatie historie</summary>
                     <div class="ggr-admin-crm-body">
+                        <?php if ( $message ) : ?>
+                            <div class="notice notice-success"><p><?php echo esc_html( $message ); ?></p></div>
+                        <?php endif; ?>
+
+                        <?php if ( $error ) : ?>
+                            <div class="notice notice-error"><p><?php echo esc_html( $error ); ?></p></div>
+                        <?php endif; ?>
+
+                        <h3>Historie voor: <?php echo esc_html( $user->display_name ); ?> (ID: <?php echo (int) $user_id; ?>)</h3>
+
+                        <?php if ( $delete_entry ) : ?>
+                            <div class="notice notice-warning" style="padding:15px; margin-bottom:20px;">
+                                <p><strong>Weet je zeker dat je deze historie-regel wilt verwijderen?</strong></p>
+                                <p>
+                                    Transactie ID: <?php echo esc_html( $delete_entry->transactie_code ); ?><br>
+                                    Datum: <?php echo esc_html( $delete_entry->datum ); ?><br>
+                                    Inleg (BIJ): € <?php echo number_format( $delete_entry->inlegbedrag, 2, ',', '.' ); ?><br>
+                                    Opname (AF): € <?php echo number_format( $delete_entry->opnamebedrag, 2, ',', '.' ); ?><br>
+                                    Nieuwe participaties (BIJ): <?php echo esc_html( ggr_portal_format_participaties( $delete_entry->nieuwe_participaties, 4 ) ); ?><br>
+                                    Verkochte participaties (AF): <?php echo esc_html( ggr_portal_format_participaties( $delete_entry->verkochte_participaties, 4 ) ); ?><br>
+                                    Distributievergoeding: € <?php echo number_format( $delete_entry->distributievergoeding, 2, ',', '.' ); ?>
+                                </p>
+                                <form method="post" style="display:inline-block; margin-right:10px;">
+                                    <?php wp_nonce_field( 'ggr_delete_history_action', 'ggr_delete_history_nonce' ); ?>
+                                    <input type="hidden" name="user_id" value="<?php echo (int) $user_id; ?>" />
+                                    <input type="hidden" name="delete_id" value="<?php echo (int) $delete_entry->id; ?>" />
+                                    <input type="hidden" name="confirm" value="yes" />
+                                    <button type="submit" class="button button-primary">Ja, verwijderen</button>
+                                </form>
+                                <form method="post" style="display:inline-block;">
+                                    <?php wp_nonce_field( 'ggr_delete_history_action', 'ggr_delete_history_nonce' ); ?>
+                                    <input type="hidden" name="user_id" value="<?php echo (int) $user_id; ?>" />
+                                    <input type="hidden" name="delete_id" value="<?php echo (int) $delete_entry->id; ?>" />
+                                    <input type="hidden" name="confirm" value="no" />
+                                    <button type="submit" class="button">Nee, annuleren</button>
+                                </form>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if ( $delete_all_request && $user_id ) : ?>
+                            <div class="notice notice-warning" style="padding:15px; margin-bottom:20px;">
+                                <p><strong>Weet je zeker dat je <u>alle</u> historie voor deze gebruiker wilt verwijderen?</strong></p>
+                                <p>Dit kan niet ongedaan worden gemaakt.</p>
+                                <form method="post" style="display:inline-block; margin-right:10px;">
+                                    <?php wp_nonce_field( 'ggr_delete_all_history_action', 'ggr_delete_all_history_nonce' ); ?>
+                                    <input type="hidden" name="user_id" value="<?php echo (int) $user_id; ?>" />
+                                    <input type="hidden" name="confirm" value="yes" />
+                                    <button type="submit" class="button button-primary">Ja, alles verwijderen</button>
+                                </form>
+                                <form method="post" style="display:inline-block;">
+                                    <?php wp_nonce_field( 'ggr_delete_all_history_action', 'ggr_delete_all_history_nonce' ); ?>
+                                    <input type="hidden" name="user_id" value="<?php echo (int) $user_id; ?>" />
+                                    <input type="hidden" name="confirm" value="no" />
+                                    <button type="submit" class="button">Nee, annuleren</button>
+                                </form>
+                            </div>
+                        <?php endif; ?>
+
+                        <h3><?php echo $is_edit ? 'Historie-regel bewerken' : 'Nieuwe regel toevoegen'; ?></h3>
+
+                        <form method="post" style="max-width:800px;">
+                            <?php wp_nonce_field( 'ggr_save_history', 'ggr_history_nonce' ); ?>
+                            <input type="hidden" name="user_id" value="<?php echo (int) $user_id; ?>" />
+                            <input type="hidden" name="entry_id" value="<?php echo $is_edit ? (int) $entry->id : 0; ?>" />
+
+                            <table class="form-table">
+                                <tr>
+                                    <th><label for="datum">Datum</label></th>
+                                    <td>
+                                        <input
+                                            type="date"
+                                            name="datum"
+                                            id="datum"
+                                            required
+                                            value="<?php echo $is_edit ? esc_attr( $entry->datum ) : ''; ?>"
+                                        />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th><label for="inlegbedrag">Inlegbedrag (BIJ) (€)</label></th>
+                                    <td>
+                                        <input
+                                            type="text"
+                                            name="inlegbedrag"
+                                            id="inlegbedrag"
+                                            placeholder="bijv. 100000.00"
+                                            value="<?php echo $is_edit ? esc_attr( $entry->inlegbedrag ) : ''; ?>"
+                                        />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th><label for="opnamebedrag">Opnamebedrag (AF) (€)</label></th>
+                                    <td>
+                                        <input
+                                            type="text"
+                                            name="opnamebedrag"
+                                            id="opnamebedrag"
+                                            placeholder="bijv. 0.00"
+                                            value="<?php echo $is_edit ? esc_attr( $entry->opnamebedrag ) : ''; ?>"
+                                        />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th><label for="nieuwe_participaties">Nieuwe participaties (BIJ)</label></th>
+                                    <td>
+                                        <input
+                                            type="text"
+                                            name="nieuwe_participaties"
+                                            id="nieuwe_participaties"
+                                            placeholder="bijv. 0,3916"
+                                            inputmode="decimal"
+                                            value="<?php echo $is_edit ? esc_attr( ggr_portal_format_participaties( $entry->nieuwe_participaties, 4 ) ) : ''; ?>"
+                                        />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th><label for="verkochte_participaties">Verkochte participaties (AF)</label></th>
+                                    <td>
+                                        <input
+                                            type="text"
+                                            name="verkochte_participaties"
+                                            id="verkochte_participaties"
+                                            placeholder="bijv. 0,0000"
+                                            inputmode="decimal"
+                                            value="<?php echo $is_edit ? esc_attr( ggr_portal_format_participaties( $entry->verkochte_participaties, 4 ) ) : ''; ?>"
+                                        />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th><label for="distributievergoeding">Distributievergoeding (€)</label></th>
+                                    <td>
+                                        <input
+                                            type="text"
+                                            name="distributievergoeding"
+                                            id="distributievergoeding"
+                                            placeholder="bijv. 1200.00"
+                                            value="<?php echo $is_edit ? esc_attr( $entry->distributievergoeding ) : ''; ?>"
+                                        />
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p>
+                                <button class="button button-primary" type="submit">
+                                    <?php echo $is_edit ? 'Bijwerken' : 'Opslaan'; ?>
+                                </button>
+                            </p>
+                        </form>
+
+                        <div style="margin-top:30px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                            <h3 style="margin:0;">Bestaande historie</h3>
+                            <div>
+                                <form method="post" enctype="multipart/form-data" style="display:inline-block; margin-right:8px;">
+                                    <?php wp_nonce_field( 'ggr_import_history', 'ggr_import_nonce' ); ?>
+                                    <input type="hidden" name="import_user_id" value="<?php echo (int) $user_id; ?>" />
+                                    <input type="file" name="ggr_import_file" accept=".csv" style="display:inline-block; margin-right:6px;" />
+                                    <button type="submit" class="button">Importeren</button>
+                                </form>
+                                <?php if ( $export_url ) : ?>
+                                    <a href="<?php echo esc_url( $export_url ); ?>" class="button button-secondary">Exporteren</a>
+                                <?php endif; ?>
+                                <?php if ( $delete_all_url ) : ?>
+                                    <a href="<?php echo esc_url( $delete_all_url ); ?>" class="button button-link-delete" style="margin-left:8px;">
+                                        Alle historie verwijderen
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
                         <?php if ( ! empty( $rows_for_table ) ) : ?>
-                        <?php if ( ! empty( $history_rows_desc ) ) : ?>
                             <table class="widefat striped">
                                 <thead>
                                     <tr>
@@ -3938,7 +4360,7 @@ function ggr_portal_render_participant_profile_page() {
 
                                         $edit_url = add_query_arg(
                                             [
-                                                'page'    => 'ggr-participatie-historie',
+                                                'page'    => 'ggr-participant-profiel',
                                                 'user_id' => $user_id,
                                                 'edit_id' => $row->id,
                                             ],
@@ -3948,7 +4370,7 @@ function ggr_portal_render_participant_profile_page() {
                                         $delete_url = wp_nonce_url(
                                             add_query_arg(
                                                 [
-                                                    'page'      => 'ggr-participatie-historie',
+                                                    'page'      => 'ggr-participant-profiel',
                                                     'user_id'   => $user_id,
                                                     'delete_id' => $row->id,
                                                 ],
@@ -4403,14 +4825,6 @@ function ggr_portal_render_participant_overview_page() {
                     admin_url( 'users.php' )
                 );
 
-                // Link naar participatie-historie
-                $history_url = add_query_arg(
-                    [
-                        'page'    => 'ggr-participatie-historie',
-                        'user_id' => $uid,
-                    ],
-                    admin_url( 'users.php' )
-                );
                 ?>
                 <tr>
                     <td><?php echo (int) $uid; ?></td>
