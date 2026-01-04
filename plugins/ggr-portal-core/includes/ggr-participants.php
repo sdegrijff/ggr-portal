@@ -963,8 +963,8 @@ function ggr_portal_render_history_page() {
                 <input type="hidden" name="page" value="ggr-participatie-historie" />
                 <input type="hidden" name="user_id" value="<?php echo (int) $user_id; ?>" />
                 <input type="hidden" name="entry_id" value="<?php echo $is_edit ? (int) $entry->id : 0; ?>" />
-                <div style="display:flex; flex-wrap:wrap; gap:24px; align-items:flex-start; margin-top:10px;">
-                    <div style="min-width:200px; flex:1;">
+                <div style="display:grid; grid-template-columns: minmax(200px, 1fr) minmax(240px, 1fr) minmax(240px, 1fr) minmax(220px, 1fr); gap:24px; align-items:flex-start; margin-top:10px; width:100%;">
+                    <div style="display:flex; flex-direction:column; gap:10px; min-width:0;">
                         <label for="datum" style="display:block; font-weight:600; margin-bottom:6px;">Datum</label>
                         <input
                             type="date"
@@ -976,7 +976,7 @@ function ggr_portal_render_history_page() {
                         />
                     </div>
 
-                    <div style="min-width:220px; flex:1;">
+                    <div style="display:flex; flex-direction:column; gap:10px; min-width:0;">
                         <label for="inlegbedrag" style="display:block; font-weight:600; margin-bottom:6px;">Inlegbedrag (BIJ) (€)</label>
                         <input
                             type="text"
@@ -997,7 +997,7 @@ function ggr_portal_render_history_page() {
                         />
                     </div>
 
-                    <div style="min-width:220px; flex:1;">
+                    <div style="display:flex; flex-direction:column; gap:10px; min-width:0;">
                         <label for="nieuwe_participaties" style="display:block; font-weight:600; margin-bottom:6px;">Nieuwe participaties (BIJ)</label>
                         <input
                             type="text"
@@ -1020,7 +1020,7 @@ function ggr_portal_render_history_page() {
                         />
                     </div>
 
-                    <div style="min-width:220px; flex:1;">
+                    <div style="display:flex; flex-direction:column; gap:10px; min-width:0;">
                         <label for="distributievergoeding" style="display:block; font-weight:600; margin-bottom:6px;">Distributievergoeding (€)</label>
                         <input
                             type="text"
@@ -4846,8 +4846,7 @@ function ggr_portal_render_participant_overview_page() {
                     <td><?php echo esc_html( $dividend_strategy ); ?></td>        
                     <td><?php echo esc_html( $inv_rend_label ); ?></td>
                     <td>
-                        <a href="<?php echo esc_url( $profile_url ); ?>">Bekijk profiel</a> |
-                        <a href="<?php echo esc_url( $history_url ); ?>">Bekijk historie</a>
+                        <a href="<?php echo esc_url( $profile_url ); ?>">Bekijk profiel</a>
                     </td>
                 </tr>
 
