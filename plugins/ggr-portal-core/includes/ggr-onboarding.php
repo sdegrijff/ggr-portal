@@ -22,7 +22,7 @@ function ggr_onboarding_get_stages() {
         'validating'         => 'Documentatie controleren',
         'sign_contract'      => 'Overeenkomst tekenen',
         'transfer_completed' => 'Geld overmaken',
-        'active_participant' => 'Achterover leunen',
+        'active_participant' => 'Participant geworden',
     );
 }
 
@@ -54,6 +54,10 @@ function ggr_onboarding_get_status( $user_id ) {
         $status = 'register';
     }
 
+    if ( 'confirmed' === $status && ! get_user_meta( $user_id, 'ggr_email_verified', true ) ) {
+        $status = 'register';
+    }
+    
     return $status;
 }
 
