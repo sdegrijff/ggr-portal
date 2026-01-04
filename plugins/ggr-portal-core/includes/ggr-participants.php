@@ -3026,6 +3026,7 @@ function ggr_portal_render_participant_profile_page() {
     $last_name     = isset( $meta['last_name'][0] )    ? $meta['last_name'][0]    : '';
     $greeting_name = isset( $meta['ggr_greeting_name'][0] ) ? $meta['ggr_greeting_name'][0] : '';
     $phone        = isset( $meta['phone'][0] )        ? $meta['phone'][0]        : '';
+    $registration_phone = isset( $meta['ggr_phone'][0] ) ? $meta['ggr_phone'][0] : $phone;    
     $company_name = isset( $meta['company_name'][0] ) ? $meta['company_name'][0] : '';
     $company_kvk  = isset( $meta['company_kvk'][0] )  ? $meta['company_kvk'][0]  : '';
 
@@ -3038,6 +3039,7 @@ function ggr_portal_render_participant_profile_page() {
     $marketing_optin    = isset( $meta['ggr_marketing_optin'][0] ) ? (int) $meta['ggr_marketing_optin'][0] : 0;
     $onboarding_status  = function_exists( 'ggr_onboarding_get_status' ) ? ggr_onboarding_get_status( $user_id ) : ( isset( $meta['ggr_onboarding_status'][0] ) ? $meta['ggr_onboarding_status'][0] : '' );
     $onboarding_updated = isset( $meta['ggr_onboarding_updated_at'][0] ) ? $meta['ggr_onboarding_updated_at'][0] : '';
+    $email_verified_at  = isset( $meta['ggr_email_verified_at'][0] ) ? $meta['ggr_email_verified_at'][0] : '';    
     $doc_feedback       = isset( $meta['ggr_doc_feedback'][0] ) ? $meta['ggr_doc_feedback'][0] : '';
     $contract_signed_at = isset( $meta['ggr_contract_signed_at'][0] ) ? $meta['ggr_contract_signed_at'][0] : '';
     $contract_preview_url = isset( $meta['ggr_contract_preview_url'][0] ) ? $meta['ggr_contract_preview_url'][0] : '';    
@@ -3173,6 +3175,7 @@ function ggr_portal_render_participant_profile_page() {
     $onboarding_updated_label = $format_datetime( $onboarding_updated );
     $profile_updated_label    = $format_datetime( $profile_updated_raw );
     $last_login_label        = $format_datetime( $last_login_raw );
+    $email_verified_label    = $format_date_only( $email_verified_at );
     
         // Onboarding documenten
     $document_labels = array(
@@ -3278,6 +3281,13 @@ function ggr_portal_render_participant_profile_page() {
         $language_label = ( 'en_US' === $locale_meta ) ? 'Engels (US)' : $locale_meta;
     }
 
+    $account_type_label = '—';
+    if ( 'private' === $account_type ) {
+        $account_type_label = 'Particulier';
+    } elseif ( 'business' === $account_type ) {
+        $account_type_label = 'Zakelijk';
+    }
+
     $participation_type_label = 'Automatisch';
     if ( $participation_type === 'mif' ) {
         $participation_type_label = 'MIF (onder € 100.000)';
@@ -3320,7 +3330,6 @@ function ggr_portal_render_participant_profile_page() {
     
     ?>
     <div class="wrap ggr-participant-wrap">
-        <h1>Profiel – <?php echo esc_html( $user->display_name ); ?> (ID: <?php echo (int) $user_id; ?>)</h1>
 
         <!-- same flex CSS als in profiel-blok -->
         <style>
@@ -3624,6 +3633,7 @@ function ggr_portal_render_participant_profile_page() {
                 <a class="ggr-admin-back-link" href="<?php echo esc_url( admin_url( 'users.php?page=ggr-participant-overzicht' ) ); ?>">← Terug</a>
                 <button type="submit" class="button button-primary">Wijzigingen opslaan</button>
             </div>
+            <h1>Profiel – <?php echo esc_html( $user->display_name ); ?> (ID: <?php echo (int) $user_id; ?>)</h1>            
             <?php
             $stages = function_exists( 'ggr_onboarding_get_stages' ) ? ggr_onboarding_get_stages() : array();
             if ( empty( $stages ) ) {
@@ -3899,10 +3909,55 @@ function ggr_portal_render_participant_profile_page() {
                     </tr>
                 </table>
             <?php endif; ?>
-            <div class="ggr-admin-onboarding-details" data-onboarding-details>            
-            <h2 class="title">Documentatie (stap 1 t/m 5)</h2>
+            <div class="ggr-admin-onboarding-details" data-onboarding-details>
             <?php if ( $is_lead ) : ?>
-                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="register confirmed">
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="register">
+                    <h2 class="title">Formulier ingevuld</h2>
+                    <div class="ggr-admin-summary-grid ggr-admin-summary-grid--compact">
+                        <div class="ggr-admin-summary-item">
+                            <span>Account type</span>
+                            <strong><?php echo esc_html( $account_type_label ); ?></strong>
+                        </div>
+                        <div class="ggr-admin-summary-item">
+                            <span>Voornaam</span>
+                            <strong><?php echo esc_html( $first_name ? $first_name : '—' ); ?></strong>
+                        </div>
+                        <div class="ggr-admin-summary-item">
+                            <span>Achternaam</span>
+                            <strong><?php echo esc_html( $last_name ? $last_name : '—' ); ?></strong>
+                        </div>
+                        <div class="ggr-admin-summary-item">
+                            <span>E-mailadres</span>
+                            <strong><?php echo esc_html( $user->user_email ? $user->user_email : '—' ); ?></strong>
+                        </div>
+                        <div class="ggr-admin-summary-item">
+                            <span>Telefoonnummer</span>
+                            <strong><?php echo esc_html( $registration_phone ? $registration_phone : '—' ); ?></strong>
+                        </div>
+                        <div class="ggr-admin-summary-item">
+                            <span>Nationaliteit</span>
+                            <strong><?php echo esc_html( $nationality ? $nationality : '—' ); ?></strong>
+                        </div>
+                        <div class="ggr-admin-summary-item">
+                            <span>Beoogde investering</span>
+                            <strong><?php echo esc_html( $format_money( $investment_target ) ); ?></strong>
+                        </div>
+                        <div class="ggr-admin-summary-item">
+                            <span>Marketing consent</span>
+                            <strong><?php echo esc_html( $marketing_optin ? 'Ja' : 'Nee' ); ?></strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="confirmed">
+                    <h2 class="title">Account bevestigd</h2>
+                    <p class="ggr-admin-meta-note">E-mailadres bevestigd op: <?php echo esc_html( $email_verified_label ? $email_verified_label : '—' ); ?></p>
+                </div>
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="collecting validating">
+                    <h2 class="title">Documentatie (stap 1 t/m 5)</h2>
+                </div>
+            <?php endif; ?>
+            <?php if ( $is_lead ) : ?>
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="collecting">
             <?php endif; ?>         
             <h4 class="title">Stap 1: Investeringsbedrag</h4>
             <table class="form-table" role="presentation">
@@ -3928,7 +3983,7 @@ function ggr_portal_render_participant_profile_page() {
             <?php endif; ?>
 
             <?php if ( $is_lead ) : ?>
-                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="confirmed">
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="collecting">
             <?php endif; ?>
             <h4 class="title">Stap 2: Profielkeuzes</h4>
             <table class="form-table" role="presentation">
@@ -3977,7 +4032,7 @@ function ggr_portal_render_participant_profile_page() {
             <?php endif; ?>
 
             <?php if ( $is_lead ) : ?>
-                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="confirmed collecting">
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="collecting">
             <?php endif; ?>
             <h4 class="title">Stap 3: Persoonlijke gegevens</h4>
             <table class="form-table" role="presentation">
@@ -4229,7 +4284,7 @@ function ggr_portal_render_participant_profile_page() {
             <?php endif; ?>
 
             <?php if ( $is_lead ) : ?>
-                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="validating">
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="collecting validating">
             <?php endif; ?>
             <h4 class="title">Stap 5: Documenten</h4>
             <table class="form-table" role="presentation">
