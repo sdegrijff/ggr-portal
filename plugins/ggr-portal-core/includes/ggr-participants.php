@@ -3454,12 +3454,30 @@ function ggr_portal_render_participant_profile_page() {
                 font-size: 14px;
                 color: #111827;
             }
+            .ggr-admin-lead-panel h4 {
+                margin: 12px 0 8px;
+                font-size: 13px;
+            }
             .ggr-admin-lead-stack {
                 display: grid;
                 gap: 12px;
             }
             .ggr-admin-lead-stack .ggr-admin-inline-field {
                 margin-bottom: 0;
+            }
+            .ggr-admin-docs-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 16px;
+                align-items: start;
+            }
+            .ggr-admin-inline-field--full {
+                grid-column: 1 / -1;
+            }
+            .ggr-admin-checkbox-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px 16px;
             }
             .ggr-admin-meta-list {
                 margin: 8px 0 0;
@@ -3633,7 +3651,7 @@ function ggr_portal_render_participant_profile_page() {
                 <a class="ggr-admin-back-link" href="<?php echo esc_url( admin_url( 'users.php?page=ggr-participant-overzicht' ) ); ?>">← Terug</a>
                 <button type="submit" class="button button-primary">Wijzigingen opslaan</button>
             </div>
-            <h1>Profiel – <?php echo esc_html( $user->display_name ); ?> (ID: <?php echo (int) $user_id; ?>)</h1>            
+            <h1><?php echo $is_lead ? 'Lead Profiel' : 'Profiel'; ?> – <?php echo esc_html( $user->display_name ); ?> (ID: <?php echo (int) $user_id; ?>)</h1>           
             <?php
             $stages = function_exists( 'ggr_onboarding_get_stages' ) ? ggr_onboarding_get_stages() : array();
             if ( empty( $stages ) ) {
@@ -3641,7 +3659,6 @@ function ggr_portal_render_participant_profile_page() {
             }
             ?>
             <?php if ( $is_lead ) : ?>
-                <h2 class="title">Lead-overzicht</h2>
                 <div class="ggr-admin-lead-grid">
                     <div class="ggr-admin-lead-sidebar">
                         <section class="ggr-admin-lead-panel">
@@ -3748,6 +3765,13 @@ function ggr_portal_render_participant_profile_page() {
                                     </div>
                                 <?php endif; ?>
                             </div>
+                            <h4>Wachtwoord beheer</h4>
+                            <div class="ggr-admin-inline-field">
+                                <label for="ggr_new_password">Nieuw wachtwoord</label>
+                                <input name="ggr_new_password" id="ggr_new_password" type="text"
+                                       class="regular-text" autocomplete="off" />
+                                <p class="description">Laat leeg om het huidige wachtwoord te behouden.</p>
+                            </div>                            
                         </section>
                     </div>
                     <section class="ggr-admin-lead-panel">
@@ -3962,19 +3986,24 @@ function ggr_portal_render_participant_profile_page() {
             <h4 class="title">Stap 1: Investeringsbedrag</h4>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"><label for="ggr_participation_amount">Beoogd bedrag (€)</label></th>
+                    <th scope="row"></th>
                     <td>
-                        <input name="ggr_participation_amount" id="ggr_participation_amount" type="text" value="<?php echo esc_attr( $participation_amount ); ?>" />
-                        <p class="description">Minimale inschrijving: € 5.000.</p>
-                        <?php if ( 'register' !== $onboarding_status ) : ?>
-                            <div class="ggr-admin-inline-field" style="margin-top:8px;">
-                                <label>
-                                    <input type="checkbox" name="ggr_collecting_intake_done" value="1" <?php checked( $collecting_intake_done, true ); ?> />
-                                    Intake afgerond (deelnemer mag na intake verder)
-                                </label>
-                                <p class="description">Alleen relevant bij investeringen onder € 100.000; vink aan na een afgeronde intake.</p>
+                        <div class="ggr-admin-docs-grid">
+                            <div class="ggr-admin-inline-field">
+                                <label for="ggr_participation_amount">Beoogd bedrag (€)</label>
+                                <input name="ggr_participation_amount" id="ggr_participation_amount" type="text" value="<?php echo esc_attr( $participation_amount ); ?>" />
+                                <p class="description">Minimale inschrijving: € 5.000.</p>
                             </div>
-                        <?php endif; ?>                       
+                            <?php if ( 'register' !== $onboarding_status ) : ?>
+                                <div class="ggr-admin-inline-field ggr-admin-inline-field--full" style="margin-top:8px;">
+                                    <label>
+                                        <input type="checkbox" name="ggr_collecting_intake_done" value="1" <?php checked( $collecting_intake_done, true ); ?> />
+                                        Intake afgerond (deelnemer mag na intake verder)
+                                    </label>
+                                    <p class="description">Alleen relevant bij investeringen onder € 100.000; vink aan na een afgeronde intake.</p>
+                                </div>
+                            <?php endif; ?>
+                        </div>                   
                     </td>
                 </tr>
             </table>
@@ -3988,9 +4017,9 @@ function ggr_portal_render_participant_profile_page() {
             <h4 class="title">Stap 2: Profielkeuzes</h4>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row">Profiel</th>
+                    <th scope="row"></th>
                     <td>
-                        <div class="ggr-admin-columns">
+                        <div class="ggr-admin-docs-grid">
                             <div class="ggr-admin-col">
                                 <div class="ggr-admin-inline-field">
                                     <label for="ggr_participation_profile">Deelname als</label>
@@ -4037,9 +4066,9 @@ function ggr_portal_render_participant_profile_page() {
             <h4 class="title">Stap 3: Persoonlijke gegevens</h4>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row">Contact & identiteit</th>
+                    <th scope="row"></th>
                     <td>
-                        <div class="ggr-admin-columns">
+                        <div class="ggr-admin-docs-grid">
                             <div class="ggr-admin-col">
                                 <h4>Participant</h4>
                                 <div class="ggr-admin-inline-field">
@@ -4238,43 +4267,45 @@ function ggr_portal_render_participant_profile_page() {
             <h4 class="title">Stap 4: Herkomst vermogen</h4>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row">Herkomst vermogen</th>
+                    <th scope="row"></th>
                     <td>
-                        <?php if ( ! is_array( $origin_sources ) ) { $origin_sources = array(); } ?>                        
-                        <div class="ggr-admin-inline-field">
-                            <label for="ggr_origin_country">Land van herkomst</label>
-                            <select name="ggr_origin_country" id="ggr_origin_country">
-                                <option value="" <?php selected( '', $origin_country ); ?>>Maak een keuze</option>
-                                <?php foreach ( $countries as $country ) : ?>
-                                    <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $origin_country, $country ); ?>><?php echo esc_html( $country ); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="ggr-admin-inline-field">
-                            <label>Bronnen</label>
-                            <div>
-                                <?php
-                                $origin_labels = array(
-                                    'salary'   => 'In loondienst',
-                                    'business' => 'Ondernemingsactiviteiten',
-                                    'rental'   => 'Rente/dividend/huur',
-                                    'savings'  => 'Vermogen/erfenis/pensioen',
-                                    'sale'     => 'Opbrengst verkoop',
-                                    'loan'     => 'Ontvangen lening',
-                                    'other'    => 'Andere herkomst',
-                                );
-                                foreach ( $origin_labels as $key => $label ) :
-                                    ?>
-                                    <label style="display:block;">
-                                        <input type="checkbox" name="ggr_origin_sources[]" value="<?php echo esc_attr( $key ); ?>" <?php checked( in_array( $key, $origin_sources, true ) ); ?> />
-                                        <?php echo esc_html( $label ); ?>
-                                    </label>
-                                <?php endforeach; ?>
+                        <?php if ( ! is_array( $origin_sources ) ) { $origin_sources = array(); } ?>
+                        <div class="ggr-admin-docs-grid">
+                            <div class="ggr-admin-inline-field">
+                                <label for="ggr_origin_country">Land van herkomst</label>
+                                <select name="ggr_origin_country" id="ggr_origin_country">
+                                    <option value="" <?php selected( '', $origin_country ); ?>>Maak een keuze</option>
+                                    <?php foreach ( $countries as $country ) : ?>
+                                        <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $origin_country, $country ); ?>><?php echo esc_html( $country ); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
-                        </div>
-                        <div class="ggr-admin-inline-field">
-                            <label for="ggr_origin_notes">Toelichting</label>
-                            <textarea name="ggr_origin_notes" id="ggr_origin_notes" rows="3" style="width:100%;"><?php echo esc_textarea( $origin_notes ); ?></textarea>
+                            <div class="ggr-admin-inline-field">
+                                <label>Bronnen</label>
+                                <div class="ggr-admin-checkbox-grid">
+                                    <?php
+                                    $origin_labels = array(
+                                        'salary'   => 'In loondienst',
+                                        'business' => 'Ondernemingsactiviteiten',
+                                        'rental'   => 'Rente/dividend/huur',
+                                        'savings'  => 'Vermogen/erfenis/pensioen',
+                                        'sale'     => 'Opbrengst verkoop',
+                                        'loan'     => 'Ontvangen lening',
+                                        'other'    => 'Andere herkomst',
+                                    );
+                                    foreach ( $origin_labels as $key => $label ) :
+                                        ?>
+                                        <label>
+                                            <input type="checkbox" name="ggr_origin_sources[]" value="<?php echo esc_attr( $key ); ?>" <?php checked( in_array( $key, $origin_sources, true ) ); ?> />
+                                            <?php echo esc_html( $label ); ?>
+                                        </label>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                            <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
+                                <label for="ggr_origin_notes">Toelichting</label>
+                                <textarea name="ggr_origin_notes" id="ggr_origin_notes" rows="3" style="width:100%;"><?php echo esc_textarea( $origin_notes ); ?></textarea>
+                            </div>
                         </div>
                     </td>
                 </tr>
@@ -4289,38 +4320,41 @@ function ggr_portal_render_participant_profile_page() {
             <h4 class="title">Stap 5: Documenten</h4>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row">Uploads</th>
+                    <th scope="row"></th>
                     <td>
-                        <?php if ( ! empty( $uploaded_documents ) ) : ?>
-                            <ul class="ggr-admin-doc-list">
-                                <?php foreach ( $uploaded_documents as $doc ) : ?>
-                                    <li>
-                                        <strong><?php echo esc_html( $doc['label'] ); ?>:</strong>
-                                        <a href="<?php echo esc_url( $doc['url'] ); ?>" target="_blank" rel="noopener noreferrer">Bekijken</a>
-                                        <button type="submit"
-                                                class="button-link-delete"
-                                                name="ggr_delete_document"
-                                                value="<?php echo esc_attr( $doc['meta_key'] ); ?>"
-                                                onclick="return confirm('Weet je zeker dat je dit document wilt verwijderen?');">
-                                            Verwijderen
-                                        </button>
-                                    </li>
-                                <?php endforeach; ?>
-                            </ul>
-                        <?php else : ?>
-                            <p>Er zijn nog geen documenten geüpload.</p>
-                        <?php endif; ?>
+                        <div class="ggr-admin-docs-grid">
+                            <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
+                                <?php if ( ! empty( $uploaded_documents ) ) : ?>
+                                    <ul class="ggr-admin-doc-list">
+                                        <?php foreach ( $uploaded_documents as $doc ) : ?>
+                                            <li>
+                                                <strong><?php echo esc_html( $doc['label'] ); ?>:</strong>
+                                                <a href="<?php echo esc_url( $doc['url'] ); ?>" target="_blank" rel="noopener noreferrer">Bekijken</a>
+                                                <button type="submit"
+                                                        class="button-link-delete"
+                                                        name="ggr_delete_document"
+                                                        value="<?php echo esc_attr( $doc['meta_key'] ); ?>"
+                                                        onclick="return confirm('Weet je zeker dat je dit document wilt verwijderen?');">
+                                                    Verwijderen
+                                                </button>
+                                            </li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                <?php else : ?>
+                                    <p>Er zijn nog geen documenten geüpload.</p>
+                                <?php endif; ?>
+                            </div>
 
-                        <div class="ggr-admin-inline-field">
-                            <label for="ggr_doc_feedback">Opmerking voor lead (bij afkeuren)</label>
-                            <textarea name="ggr_doc_feedback" id="ggr_doc_feedback" rows="3" style="width:100%;"><?php echo esc_textarea( $doc_feedback ); ?></textarea>
-                            <p class="description">Wordt meegenomen in de afwijs-e-mail en kan gebruikt worden als toelichting.</p>
-                        </div>
+                            <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
+                                <label for="ggr_doc_feedback">Opmerking voor lead (bij afkeuren)</label>
+                                <textarea name="ggr_doc_feedback" id="ggr_doc_feedback" rows="3" style="width:100%;"><?php echo esc_textarea( $doc_feedback ); ?></textarea>
+                                <p class="description">Wordt meegenomen in de afwijs-e-mail en kan gebruikt worden als toelichting.</p>
+                            </div>
 
-                        <div class="ggr-admin-inline-actions">
-                            <button type="submit" name="ggr_doc_action" value="approve" class="button button-primary">Documentatie goedgekeurd</button>
-                            <button type="submit" name="ggr_doc_action" value="reject" class="button">Afkeuren en terug naar documentatie</button>
-                        </div>
+                            <div class="ggr-admin-inline-actions ggr-admin-inline-field--full">
+                                <button type="submit" name="ggr_doc_action" value="approve" class="button button-primary">Documentatie goedgekeurd</button>
+                                <button type="submit" name="ggr_doc_action" value="reject" class="button">Afkeuren en terug naar documentatie</button>
+                            </div>
                     </td>
                 </tr>
             </table>
@@ -4452,6 +4486,31 @@ function ggr_portal_render_participant_profile_page() {
             <?php if ( $is_lead ) : ?>
                 </div>
             <?php endif; ?>
+
+            <?php if ( $is_lead ) : ?>
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="active_participant">
+                    <h2 class="title">Participant geworden</h2>
+                    <table class="form-table" role="presentation">
+                        <tr>
+                            <th scope="row"><label for="ggr_role">Rol</label></th>
+                            <td>
+                                <?php if ( current_user_can( 'promote_users' ) ) : ?>
+                                    <select name="ggr_role" id="ggr_role">
+                                        <?php foreach ( $all_roles as $role_key => $role_info ) : ?>
+                                            <option value="<?php echo esc_attr( $role_key ); ?>" <?php selected( $role_key, $current_role ); ?>>
+                                                <?php echo esc_html( $role_info['name'] ); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                <?php else : ?>
+                                    <p><?php echo esc_html( ucfirst( $current_role ) ); ?></p>
+                                    <p class="description">Je hebt geen rechten om rollen te wijzigen.</p>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            <?php endif; ?>            
             </div>            
             <?php if ( ! $is_lead ) : ?>
             
@@ -4738,44 +4797,41 @@ function ggr_portal_render_participant_profile_page() {
                 <details class="ggr-admin-crm-section">
                     <summary>Account beheer</summary>
                     <div class="ggr-admin-crm-body">
-            <?php endif; ?>
 
-            <!-- WACHTWOORD -->
-            <h2 class="title">Wachtwoord beheer</h2>
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row"><label for="ggr_new_password">Nieuw wachtwoord</label></th>
-                    <td>
-                        <input name="ggr_new_password" id="ggr_new_password" type="text"
-                               class="regular-text" autocomplete="off" />
-                        <p class="description">Laat leeg om het huidige wachtwoord te behouden.</p>
-                    </td>
-                </tr>
-            </table>
+                        <!-- WACHTWOORD -->
+                        <h2 class="title">Wachtwoord beheer</h2>
+                        <table class="form-table" role="presentation">
+                            <tr>
+                                <th scope="row"><label for="ggr_new_password">Nieuw wachtwoord</label></th>
+                                <td>
+                                    <input name="ggr_new_password" id="ggr_new_password" type="text"
+                                           class="regular-text" autocomplete="off" />
+                                    <p class="description">Laat leeg om het huidige wachtwoord te behouden.</p>
+                                </td>
+                            </tr>
+                        </table>
 
-            <!-- ROL -->
-            <h2 class="title">Rol toewijzing</h2>
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row"><label for="ggr_role">Rol</label></th>
-                    <td>
-                        <?php if ( current_user_can( 'promote_users' ) ) : ?>
-                            <select name="ggr_role" id="ggr_role">
-                                <?php foreach ( $all_roles as $role_key => $role_info ) : ?>
-                                    <option value="<?php echo esc_attr( $role_key ); ?>" <?php selected( $role_key, $current_role ); ?>>
-                                        <?php echo esc_html( $role_info['name'] ); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        <?php else : ?>
-                            <p><?php echo esc_html( ucfirst( $current_role ) ); ?></p>
-                            <p class="description">Je hebt geen rechten om rollen te wijzigen.</p>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-            </table>
-
-            <?php if ( ! $is_lead ) : ?>
+                        <!-- ROL -->
+                        <h2 class="title">Rol toewijzing</h2>
+                        <table class="form-table" role="presentation">
+                            <tr>
+                                <th scope="row"><label for="ggr_role">Rol</label></th>
+                                <td>
+                                    <?php if ( current_user_can( 'promote_users' ) ) : ?>
+                                        <select name="ggr_role" id="ggr_role">
+                                            <?php foreach ( $all_roles as $role_key => $role_info ) : ?>
+                                                <option value="<?php echo esc_attr( $role_key ); ?>" <?php selected( $role_key, $current_role ); ?>>
+                                                    <?php echo esc_html( $role_info['name'] ); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    <?php else : ?>
+                                        <p><?php echo esc_html( ucfirst( $current_role ) ); ?></p>
+                                        <p class="description">Je hebt geen rechten om rollen te wijzigen.</p>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        </table>
                     </div>
                 </details>
             <?php endif; ?>
