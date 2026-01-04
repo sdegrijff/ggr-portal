@@ -2403,6 +2403,7 @@ function ggr_onboarding_handle_email_verification() {
     delete_user_meta( $user_id, 'ggr_onboarding_email_token' );
     delete_user_meta( $user_id, 'ggr_onboarding_email_token_expires' );
     update_user_meta( $user_id, 'ggr_email_verified', 1 );
+    update_user_meta( $user_id, 'ggr_email_verified_at', current_time( 'mysql' ) );    
 
     // Onboarding status op "confirmed"
     if ( function_exists( 'ggr_onboarding_update_status' ) ) {
