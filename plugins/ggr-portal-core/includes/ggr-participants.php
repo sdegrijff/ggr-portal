@@ -3698,7 +3698,7 @@ function ggr_portal_render_participant_profile_page() {
             <?php endif; ?>
 
             <?php if ( ! $is_lead ) : ?>
-                <details class="ggr-admin-crm-section ggr-admin-crm-section--primary" open>
+                <details class="ggr-admin-crm-section">
                     <summary>Onboarding details</summary>
                     <div class="ggr-admin-crm-body">
             <?php endif; ?>
@@ -4271,7 +4271,7 @@ function ggr_portal_render_participant_profile_page() {
             <?php endif; ?>
 
             <?php if ( ! $is_lead ) : ?>
-                <details class="ggr-admin-crm-section">
+                <details class="ggr-admin-crm-section ggr-admin-crm-section--primary" open>
                     <summary>Participatie historie</summary>
                     <div class="ggr-admin-crm-body">
                         <?php if ( $message ) : ?>
