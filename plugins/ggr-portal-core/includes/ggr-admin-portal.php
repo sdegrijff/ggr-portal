@@ -361,6 +361,7 @@ add_action( 'admin_init', function() {
 		'ggr-mutaties',
 		'ggr-stock-price',
 		'ggr-dividend-accruals',
+		'ggr-track-delivery',		
 	);
 
 	$allowed_users_pages = array(
@@ -536,6 +537,12 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 			'icon'  => 'ri-mail-settings-line',
 			'url'   => admin_url( 'edit.php?post_type=ggr_email_template' ),
 		],
+		[
+			'slug'  => 'ggr-track-delivery',
+			'label' => 'Track delivery',
+			'icon'  => 'ri-mail-send-line',
+			'url'   => admin_url( 'admin.php?page=ggr-track-delivery' ),
+		],		
 		[
 			'slug'  => 'ggr-audit-log',
 			'label' => 'Audit log',
