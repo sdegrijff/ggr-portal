@@ -2410,6 +2410,11 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
         }
     }
     // Betaling en startdatum
+    if ( ! empty( $_POST['ggr_payment_confirm_admin'] ) ) {
+        update_user_meta( $user_id, 'ggr_payment_confirmation_at', $profile_timestamp );
+        update_user_meta( $user_id, 'ggr_onboarding_updated_at', $profile_timestamp );
+    }
+    
     $payment_received = ! empty( $_POST['ggr_payment_received'] ) ? 1 : 0;
     update_user_meta( $user_id, 'ggr_payment_received', $payment_received );
 
@@ -3703,15 +3708,6 @@ function ggr_portal_render_participant_profile_page() {
         $countries = function_exists( 'ggr_get_countries_nl' ) ? ggr_get_countries_nl() : array( 'Nederland' );
         ?>
 
-        <form method="post" class="ggr-participant-form">
-            <?php wp_nonce_field( 'ggr_participant_profile_save', 'ggr_participant_profile_nonce' ); ?>
-            <input type="hidden" name="ggr_participant_user_id" value="<?php echo (int) $user_id; ?>" />
-            <div class="ggr-admin-header-actions">
-                <a class="ggr-admin-back-link" href="<?php echo esc_url( admin_url( 'users.php?page=ggr-participant-overzicht' ) ); ?>">← Terug</a>
-                <?php if ( ! $is_lead ) : ?>
-                    <button type="submit" class="button button-primary">Wijzigingen opslaan</button>
-                <?php endif; ?>
-            </div>
         <!-- Snel wisselen -->
         <form method="get" class="ggr-participant-switcher" style="margin: 10px 0 20px;">
             <input type="hidden" name="page" value="ggr-participant-profiel" />
@@ -3742,6 +3738,15 @@ function ggr_portal_render_participant_profile_page() {
         })();
         </script>        
         
+        <form method="post" class="ggr-participant-form">
+            <?php wp_nonce_field( 'ggr_participant_profile_save', 'ggr_participant_profile_nonce' ); ?>
+            <input type="hidden" name="ggr_participant_user_id" value="<?php echo (int) $user_id; ?>" />
+            <div class="ggr-admin-header-actions">
+                <a class="ggr-admin-back-link" href="<?php echo esc_url( admin_url( 'users.php?page=ggr-participant-overzicht' ) ); ?>">← Terug</a>
+                <?php if ( ! $is_lead ) : ?>
+                    <button type="submit" class="button button-primary">Wijzigingen opslaan</button>
+                <?php endif; ?>
+            </div>
             
             <h1><?php echo $is_lead ? 'Lead Profiel' : 'Profiel'; ?> – <?php echo esc_html( $user->display_name ); ?> (ID: <?php echo (int) $user_id; ?>)</h1>           
             <?php
@@ -4401,7 +4406,7 @@ function ggr_portal_render_participant_profile_page() {
             <?php endif; ?>
 
             <?php if ( $is_lead ) : ?>
-                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="collecting validating">
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="collecting">
             <?php endif; ?>
             <h4 class="title">Stap 5: Documenten</h4>
             <table class="form-table" role="presentation">
@@ -4432,15 +4437,12 @@ function ggr_portal_render_participant_profile_page() {
                             <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
                                 <label style="display:block; margin-bottom:8px;">
                                     <input type="checkbox" name="ggr_doc_approve" id="ggr_doc_approve_collecting" value="1" />
-                                    Documentatie goedgekeurd (door naar overeenkomst tekenen)
+                                    Documentatie goedkeuren (door naar geld overmaken)
                                 </label>
                                 <label style="display:block;">
                                     <input type="checkbox" name="ggr_doc_reject" id="ggr_doc_reject_collecting" value="1" />
-                                    Documentatie afkeuren (terug naar documentatie)
+                                    Documentatie afkeuren (meer informatie opvragen)
                                 </label>
-                            </div>
-                            <div class="ggr-admin-inline-actions ggr-admin-inline-field--full">
-                                <button type="submit" class="button button-primary">Documentatie opslaan</button>
                             </div>
                         </div>                            
                     </td>
@@ -4461,27 +4463,9 @@ function ggr_portal_render_participant_profile_page() {
                             <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
                                 <h4>Inschrijfformulier (PDF)</h4>
                                 <?php if ( $application_pdf_url ) : ?>
-                                    <div style="border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; background:#f8fafc; margin-bottom:12px;">
-                                        <iframe src="<?php echo esc_url( $application_pdf_embed_url ); ?>" title="Inschrijfformulier" style="width:100%; height:520px; border:0;" loading="lazy"></iframe>
-                                    </div>
                                     <a class="button" href="<?php echo esc_url( $application_pdf_url ); ?>" target="_blank" rel="noopener noreferrer">Bekijk inschrijfformulier</a>
                                 <?php else : ?>
                                     <p class="description">Het inschrijfformulier is nog niet beschikbaar.</p>
-                                <?php endif; ?>
-                            </div>
-                            <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
-                                <h4>Aangeleverde documenten</h4>
-                                <?php if ( ! empty( $uploaded_documents ) ) : ?>
-                                    <ul class="ggr-admin-doc-list">
-                                        <?php foreach ( $uploaded_documents as $doc ) : ?>
-                                            <li>
-                                                <strong><?php echo esc_html( $doc['label'] ); ?>:</strong>
-                                                <a href="<?php echo esc_url( $doc['url'] ); ?>" target="_blank" rel="noopener noreferrer">Bekijken</a>
-                                            </li>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                <?php else : ?>
-                                    <p>Er zijn nog geen documenten geüpload.</p>
                                 <?php endif; ?>
                             </div>
                             <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
@@ -4498,9 +4482,6 @@ function ggr_portal_render_participant_profile_page() {
                                     <input type="checkbox" name="ggr_doc_reject" id="ggr_doc_reject" value="1" />
                                     Inschrijfformulier afkeuren (aanvullende informatie opvragen)
                                 </label>
-                            </div>
-                            <div class="ggr-admin-inline-actions ggr-admin-inline-field--full">
-                                <button type="submit" class="button button-primary">Beoordeling opslaan</button>
                             </div>
                         </div>
 
@@ -4664,6 +4645,11 @@ function ggr_portal_render_participant_profile_page() {
                         <label style="display:block; margin-bottom:8px;">
                             <input type="checkbox" name="ggr_payment_received" value="1" <?php checked( $payment_received, 1 ); ?> /> Betaling ontvangen en gecontroleerd
                         </label>
+                        <div class="ggr-admin-inline-actions">
+                            <?php if ( ! $payment_confirmation_at ) : ?>
+                                <button type="submit" class="button" name="ggr_payment_confirm_admin" value="1">Betaling bevestigd door lead registreren</button>
+                            <?php endif; ?>
+                        </div>                        
                         <p class="description">Back-end stappen voor deze fase:</p>
                         <ul class="ggr-admin-meta-list">
                             <li>Markeer de betaling als ontvangen (bovenstaande checkbox).</li>
