@@ -1848,7 +1848,6 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
     <table class="form-table" role="presentation">
         <!-- CONTACTGEGEVENS: participant + mede-participant naast elkaar -->
         <tr>
-            <th scope="row">Contactgegevens</th>
             <td>
                 <div class="ggr-admin-columns">
                     <div class="ggr-admin-col">
@@ -3863,7 +3862,6 @@ function ggr_portal_render_participant_profile_page() {
                 <h2 class="title">Overzicht</h2>
                 <table class="form-table" role="presentation">
                     <tr>
-                        <th scope="row">Status & voorkeuren</th>
                         <td>
                             <div class="ggr-admin-columns">
                                 <div class="ggr-admin-col">
@@ -3986,7 +3984,6 @@ function ggr_portal_render_participant_profile_page() {
             <h4 class="title">Stap 1: Investeringsbedrag</h4>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"></th>
                     <td>
                         <div class="ggr-admin-docs-grid">
                             <div class="ggr-admin-inline-field">
@@ -4017,7 +4014,6 @@ function ggr_portal_render_participant_profile_page() {
             <h4 class="title">Stap 2: Profielkeuzes</h4>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"></th>
                     <td>
                         <div class="ggr-admin-docs-grid">
                             <div class="ggr-admin-col">
@@ -4066,7 +4062,6 @@ function ggr_portal_render_participant_profile_page() {
             <h4 class="title">Stap 3: Persoonlijke gegevens</h4>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"></th>
                     <td>
                         <div class="ggr-admin-docs-grid">
                             <div class="ggr-admin-col">
@@ -4267,7 +4262,6 @@ function ggr_portal_render_participant_profile_page() {
             <h4 class="title">Stap 4: Herkomst vermogen</h4>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"></th>
                     <td>
                         <?php if ( ! is_array( $origin_sources ) ) { $origin_sources = array(); } ?>
                         <div class="ggr-admin-docs-grid">
@@ -4320,7 +4314,6 @@ function ggr_portal_render_participant_profile_page() {
             <h4 class="title">Stap 5: Documenten</h4>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"></th>
                     <td>
                         <div class="ggr-admin-docs-grid">
                             <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
@@ -4368,7 +4361,6 @@ function ggr_portal_render_participant_profile_page() {
             <h4 class="title">Stap 6: Aanvullende informatie</h4>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row">Instellingen & antwoord</th>
                     <td>
                         <div class="ggr-admin-inline-field">
                             <label for="ggr_collecting_extra_required">
@@ -4415,7 +4407,6 @@ function ggr_portal_render_participant_profile_page() {
             <h2 class="title">Contract ondertekend</h2>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row">Status</th>
                     <td>
                         <label style="display:block; margin-bottom:8px;">
                             <input type="checkbox" name="ggr_contract_signed_admin" value="1" <?php checked( (bool) $contract_signed_at, true ); ?> />
@@ -4462,7 +4453,6 @@ function ggr_portal_render_participant_profile_page() {
             <h2 class="title">Betaling & start</h2>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row">Ontvangst betaling</th>
                     <td>
                         <label style="display:block; margin-bottom:8px;">
                             <input type="checkbox" name="ggr_payment_received" value="1" <?php checked( $payment_received, 1 ); ?> /> Betaling ontvangen en gecontroleerd
