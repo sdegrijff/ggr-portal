@@ -59,21 +59,6 @@ function ggr_ibkr_nav_has_credentials() {
 }
 
 /**
- * Extra cron interval: elke 8 uur.
- */
-function ggr_portal_register_every_8_hours_cron( $schedules ) {
-    if ( ! isset( $schedules['ggr_every_8_hours'] ) ) {
-        $schedules['ggr_every_8_hours'] = array(
-            'interval' => 8 * HOUR_IN_SECONDS,
-            'display'  => __( 'Every 8 hours', 'ggr-portal-core' ),
-        );
-    }
-
-    return $schedules;
-}
-add_filter( 'cron_schedules', 'ggr_portal_register_every_8_hours_cron' );
-
-/**
  * Cron uitschakelen als er geen geldige credentials zijn.
  */
 function ggr_ibkr_nav_clear_cron() {
@@ -83,7 +68,7 @@ function ggr_ibkr_nav_clear_cron() {
 }
 
 /**
- * Cron plannen (elke 8 uur).
+ * Cron plannen (dagelijks).
  */
 function ggr_ibkr_nav_schedule_cron() {
     if ( ! ggr_ibkr_nav_has_credentials() ) {
@@ -92,7 +77,7 @@ function ggr_ibkr_nav_schedule_cron() {
     }
 
     if ( ! wp_next_scheduled( 'ggr_ibkr_nav_fetch_event' ) ) {
-        wp_schedule_event( time() + HOUR_IN_SECONDS, 'ggr_every_8_hours', 'ggr_ibkr_nav_fetch_event' );
+        wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'ggr_ibkr_nav_fetch_event' );
     }
 }
 add_action( 'init', 'ggr_ibkr_nav_schedule_cron' );
@@ -658,6 +643,20 @@ function ggr_ibkr_nav_clear_last_error() {
  * @param float|null $total_participations
  */
 function ggr_ibkr_nav_send_admin_notification( $date, $nav_per_participation, $statement, $fund_total = null, $total_participations = null ) {
+    if ( function_exists( 'ggr_portal_send_admin_templated_email' ) ) {
+        $placeholders = array(
+            'ibkr_run_timestamp'        => wp_date( 'Y-m-d H:i:s' ),
+            'ibkr_report_date'          => $date,
+            'ibkr_nav_per_participation'=> number_format( (float) $nav_per_participation, 6, ',', '.' ),
+            'ibkr_total'                => null !== $fund_total ? number_format( (float) $fund_total, 2, ',', '.' ) : '',
+            'ibkr_participations'       => null !== $total_participations ? number_format( (float) $total_participations, 4, ',', '.' ) : '',
+        );
+
+        $sent = ggr_portal_send_admin_templated_email( 'admin_ibkr_nav_success', $placeholders );
+        if ( $sent ) {
+            return;
+        }
+    }    
     $admin_email = get_option( 'admin_email' );
 
     if ( ! $admin_email || ! is_email( $admin_email ) ) {
