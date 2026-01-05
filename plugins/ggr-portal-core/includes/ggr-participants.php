@@ -3371,7 +3371,6 @@ function ggr_portal_render_participant_profile_page() {
             }
             .ggr-admin-doc-list {
                 margin: 0;
-                padding-left: 18px;
             }
             .ggr-admin-doc-list li {
                 margin-bottom: 6px;
@@ -3437,6 +3436,8 @@ function ggr_portal_render_participant_profile_page() {
                 margin: 0px;
             }            
             .ggr-admin-lead-left {
+                padding-right: 16px;
+                padding-left: 16px;    
                 display: grid;
                 align-content: start;
                 border: 1px solid #e5e7eb!important;
@@ -3450,8 +3451,9 @@ function ggr_portal_render_participant_profile_page() {
             }
             
             .ggr-admin-lead-panel {
-                padding: 16px;
-                border-bottom: 1px solid #e5e7eb!important;              
+                border-bottom: 1px solid #e5e7eb!important;       
+                padding-top: 16px;
+                padding-bottom: 16px;                
             }
             .ggr-admin-lead-panel h3 {
                 margin-top: 0;
@@ -3578,11 +3580,9 @@ function ggr_portal_render_participant_profile_page() {
                 color: #fff;
                 font-weight: 600;
             }
-            .ggr-admin-onboarding-details {
-                margin-top: 12px;
-            }            
-            .ggr-admin-onboarding-section {
-                margin-top: 16px;
+            .ggr-admin-onboarding-section h2 {
+                 margin-top: 0px;
+                 margin-bottom: 10px;
             }
             details.ggr-admin-crm-section {
                 border: 1px solid #e5e7eb;
@@ -3608,37 +3608,6 @@ function ggr_portal_render_participant_profile_page() {
             }            
         </style>
 
-        <!-- Snel wisselen -->
-        <form method="get" class="ggr-participant-switcher" style="margin: 10px 0 20px;">
-            <input type="hidden" name="page" value="ggr-participant-profiel" />
-            <label for="ggr_participant_switch" style="margin-right:8px;">Ga naar andere gebruiker:</label>
-            <?php
-            wp_dropdown_users( [
-                'name'             => 'user_id',
-                'id'               => 'ggr_participant_switch',
-                'selected'         => $user_id,
-                'role__in'         => [ 'participant', 'lead' ],
-                'show'             => 'display_name',
-                'show_option_none' => '— Kies gebruiker —',
-            ] );
-            ?>
-            <noscript><button class="button">Openen</button></noscript>
-        </form>
-
-        <script>
-        (function() {
-            var select = document.getElementById('ggr_participant_switch');
-            if (!select) return;
-            select.addEventListener('change', function () {
-                if (!this.value) return;
-                var url = new URL(window.location.href);
-                url.searchParams.set('page', 'ggr-participant-profiel');
-                url.searchParams.set('user_id', this.value);
-                window.location.href = url.toString();
-            });
-        })();
-        </script>
-
         <?php if ( isset( $_GET['updated'] ) && (int) $_GET['updated'] === 1 ) : ?>
             <div class="notice notice-success is-dismissible">
                 <p>Profielgegevens opgeslagen.</p>
@@ -3656,6 +3625,37 @@ function ggr_portal_render_participant_profile_page() {
                 <a class="ggr-admin-back-link" href="<?php echo esc_url( admin_url( 'users.php?page=ggr-participant-overzicht' ) ); ?>">← Terug</a>
                 <button type="submit" class="button button-primary">Wijzigingen opslaan</button>
             </div>
+        <!-- Snel wisselen -->
+        <form method="get" class="ggr-participant-switcher" style="margin: 10px 0 20px;">
+            <input type="hidden" name="page" value="ggr-participant-profiel" />
+            <label for="ggr_participant_switch" style="margin-right:8px;">Ga naar andere gebruiker:</label>
+            <?php
+            wp_dropdown_users( [
+                'name'             => 'user_id',
+                'id'               => 'ggr_participant_switch',
+                'selected'         => $user_id,
+                'role__in'         => [ 'participant', 'lead' ],
+                'show'             => 'display_name',
+                'show_option_none' => '— Kies gebruiker —',
+            ] );
+            ?>
+            <noscript><button class="button">Openen</button></noscript>
+        </form>   
+        <script>
+        (function() {
+            var select = document.getElementById('ggr_participant_switch');
+            if (!select) return;
+            select.addEventListener('change', function () {
+                if (!this.value) return;
+                var url = new URL(window.location.href);
+                url.searchParams.set('page', 'ggr-participant-profiel');
+                url.searchParams.set('user_id', this.value);
+                window.location.href = url.toString();
+            });
+        })();
+        </script>        
+        
+            
             <h1><?php echo $is_lead ? 'Lead Profiel' : 'Profiel'; ?> – <?php echo esc_html( $user->display_name ); ?> (ID: <?php echo (int) $user_id; ?>)</h1>           
             <?php
             $stages = function_exists( 'ggr_onboarding_get_stages' ) ? ggr_onboarding_get_stages() : array();
@@ -3664,6 +3664,13 @@ function ggr_portal_render_participant_profile_page() {
             }
             ?>
             <?php if ( $is_lead ) : ?>
+                <div class="ggr-admin-onboarding-bar" data-current-status="<?php echo esc_attr( $onboarding_status ); ?>">
+                    <?php foreach ( $stages as $key => $label ) : ?>
+                        <button type="button" data-status="<?php echo esc_attr( $key ); ?>">
+                            <?php echo esc_html( $label ); ?>
+                        </button>
+                    <?php endforeach; ?>
+                </div>            
                 <div class="ggr-admin-lead-grid">
                     <div class="ggr-admin-lead-left">
                         <section class="ggr-admin-lead-panel">
@@ -3779,14 +3786,6 @@ function ggr_portal_render_participant_profile_page() {
                         </section>
                     </div>
                     <section class="ggr-admin-lead-panel-right">
-                        <h3 class="title">Onboarding stappen</h3>
-                        <div class="ggr-admin-onboarding-bar" data-current-status="<?php echo esc_attr( $onboarding_status ); ?>">
-                            <?php foreach ( $stages as $key => $label ) : ?>
-                                <button type="button" data-status="<?php echo esc_attr( $key ); ?>">
-                                    <?php echo esc_html( $label ); ?>
-                                </button>
-                            <?php endforeach; ?>
-                        </div>
                         <div class="ggr-admin-onboarding-details-target" data-onboarding-details-target></div>                        
                     </section>
                 </div>
@@ -3981,7 +3980,7 @@ function ggr_portal_render_participant_profile_page() {
                     <p class="ggr-admin-meta-note">E-mailadres bevestigd op: <?php echo esc_html( $email_verified_label ? $email_verified_label : '—' ); ?></p>
                 </div>
                 <div class="ggr-admin-onboarding-section" data-onboarding-statuses="collecting validating">
-                    <h2 class="title">Documentatie (stap 1 t/m 5)</h2>
+                    <h2 class="title">Documentatie aanleveren</h2>
                 </div>
             <?php endif; ?>
             <?php if ( $is_lead ) : ?>
