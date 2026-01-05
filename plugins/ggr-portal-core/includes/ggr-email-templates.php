@@ -222,6 +222,8 @@ function ggr_portal_render_email_template_metabox( $post ) {
         'onboarding_email_verification'=> 'Onboarding e-mailverificatie',
         'referral_invite'              => 'Verwijs-vriend uitnodiging',
         'admin_new_melding'            => 'Admin: nieuwe melding',
+        'admin_ibkr_nav_success'       => 'Admin: IBKR NAV opgeslagen',
+        'admin_dividend_import'        => 'Admin: dividendtransacties opgehaald',        
     );
     $available_placeholders = array(
         'user_display_name'        => 'Naam van de gebruiker',
@@ -253,6 +255,16 @@ function ggr_portal_render_email_template_metabox( $post ) {
         'contract_link'            => 'Link naar contract in onboarding',
         'rejection_feedback'       => 'Feedback bij afkeuring',
         'verification_link'        => 'Verificatielink',
+        'ibkr_run_timestamp'       => 'Datum/tijd van IBKR Flex run',
+        'ibkr_report_date'         => 'Rapportdatum (IBKR NAV)',
+        'ibkr_nav_per_participation' => 'NAV per participatie',
+        'ibkr_total'               => 'Totaal uit IBKR',
+        'ibkr_participations'      => 'Aantal participaties',
+        'dividend_imported_count'  => 'Aantal opgeslagen dividendtransacties',
+        'dividend_report_date'     => 'Laatste rapportdatum dividendtransacties',
+        'dividend_total_count'     => 'Aantal transacties in Flex statement',
+        'dividend_duplicate_count' => 'Aantal duplicates in Flex statement',
+        'dividend_statement_url'   => 'Link naar Flex statement',        
     );
     ?>
     <p>
@@ -405,7 +417,17 @@ function ggr_portal_save_email_template_meta( $post_id ) {
                     'melding_author'           => 'Test deelnemer',                
                     'referrer_name'            => 'Test verwijzer',
                     'referrer_email'           => 'verwijzer@example.com',
-                    'referral_link'            => home_url( '/investeerder-worden/' ),                    
+                    'referral_link'            => home_url( '/investeerder-worden/' ),   
+                    'ibkr_run_timestamp'       => date_i18n( 'Y-m-d H:i:s' ),
+                    'ibkr_report_date'         => date_i18n( 'Y-m-d' ),
+                    'ibkr_nav_per_participation' => '96,705867',
+                    'ibkr_total'               => '34.999,83',
+                    'ibkr_participations'      => '361,9060',
+                    'dividend_imported_count'  => '12',
+                    'dividend_report_date'     => date_i18n( 'Y-m-d' ),
+                    'dividend_total_count'     => '15',
+                    'dividend_duplicate_count' => '3',
+                    'dividend_statement_url'   => home_url( '/flex-statement-test/' ),                    
                 ];
 
                 $replacements = [];
