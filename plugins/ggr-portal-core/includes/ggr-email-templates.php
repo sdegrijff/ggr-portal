@@ -219,6 +219,8 @@ function ggr_portal_render_email_template_metabox( $post ) {
         'feedback_thanks'              => 'Bedankt voor je feedback',        
         'documents_approved'           => 'Documenten goedgekeurd',
         'documents_rejected'           => 'Documenten afgekeurd',
+        'application_approved'         => 'Inschrijfformulier goedgekeurd',
+        'onboarding_extra_info_needed' => 'Aanvullende informatie gevraagd',        
         'onboarding_email_verification'=> 'Onboarding e-mailverificatie',
         'referral_invite'              => 'Verwijs-vriend uitnodiging',
         'admin_new_melding'            => 'Admin: nieuwe melding',
