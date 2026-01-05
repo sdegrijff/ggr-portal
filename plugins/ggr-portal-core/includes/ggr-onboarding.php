@@ -77,7 +77,10 @@ function ggr_onboarding_update_status( $user_id, $status ) {
 
     update_user_meta( $user_id, 'ggr_onboarding_status', $status );
     update_user_meta( $user_id, 'ggr_onboarding_updated_at', current_time( 'mysql' ) );
-
+    if ( 'active_participant' === $status && ! get_user_meta( $user_id, 'ggr_participant_enrolled_at', true ) ) {
+        update_user_meta( $user_id, 'ggr_participant_enrolled_at', current_time( 'mysql' ) );
+    }
+    
     if ( function_exists( 'ggr_hubspot_sync_user' ) ) {
         ggr_hubspot_sync_user( $user_id, $status );
     }
@@ -1267,214 +1270,263 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
             }
         </style>
     </head>
-    <body>
-    <?php if ( 'application' === $type ) : ?>
-        <div class="top-bar"></div>
-        <div class="bottom-bar"></div>
+ <body>
+<?php if ( 'application' === $type ) : ?>
+	<?php
+	// =========================
+	// Helpers / derived values
+	// =========================
+	$profile_raw   = (string) get_user_meta( $user_id, 'ggr_participation_profile', true ); // verwacht: 'prive' of 'zakelijk' (pas aan indien andere waarden)
+	$is_private    = ( 'prive' === strtolower( $profile_raw ) ) || ( 'privé' === strtolower( $profile_raw ) ) || ( 'private' === strtolower( $profile_raw ) );
+	$is_business   = ( 'zakelijk' === strtolower( $profile_raw ) ) || ( 'business' === strtolower( $profile_raw ) );
 
-        <div class="watermark">
-            <img src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GGR%20Icon%20-%20Blue%20-%20Black.png" alt="GGR Icon" />
-        </div>
+	$place_raw     = (string) get_user_meta( $user_id, 'ggr_kyc_city', true );
+	if ( ! $place_raw ) {
+		$place_raw = (string) get_user_meta( $user_id, 'ggr_kyc_place', true ); // optioneel meta veld
+	}
 
-        <div class="page-content">
-            <div class="header-row">
-                <div class="header-logo">
-                    <img src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20full%20logo%20-%20Blue%20-%20Black.png" alt="GGR Income Fund" />
-                </div>
-                <div class="header-contact">
-                    +31 85 080 50 35<br />
-                    info@ggrincome.com<br />
-                    Alexanderstraat 90, 6812BH Arnhem
-                </div>
-            </div>
+	$origin_notes  = get_user_meta( $user_id, 'ggr_origin_notes', true ); // algemene toelichting (pas meta key aan indien nodig)
+	?>
 
-            <div class="header-divider"></div>
+	<div class="top-bar"></div>
+	<div class="bottom-bar"></div>
 
-            <span class="pill">Inschrijfformulier</span>
-            <h1>Verzoek om uitgifte participaties</h1>
-            <p class="lead">Ondergetekende (de “Participant”) wil participaties aankopen in het GGR Monthly Income Fund voor een bedrag van <strong><?php echo esc_html( $amount_display ); ?></strong>.</p>
-            <p class="muted">Dit bedrag zal worden overgemaakt naar de bankrekening van Stichting Bewaarder GGR Monthly Income Fund (de “Juridisch Eigenaar”), zoals vermeld op pagina 5 van dit formulier.</p>
+	<div class="watermark">
+		<img src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GGR%20Icon%20-%20Blue%20-%20Black.png" alt="GGR Icon" />
+	</div>
 
-            <div class="section">
-                <div class="section-title">1. Verzoek om uitgifte Participaties</div>
-                <p class="muted">Beoogd investeringsbedrag en bevestiging van deelname.</p>
-            </div>
+	<div class="page-content">
+		<div class="header-row">
+			<div class="header-logo">
+				<img src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20full%20logo%20-%20Blue%20-%20Black.png" alt="GGR Income Fund" />
+			</div>
+			<div class="header-contact">
+				+31 85 080 50 35<br />
+				info@ggrincome.com<br />
+				Alexanderstraat 90, 6812BH Arnhem
+			</div>
+		</div>
 
-            <div class="section">
-                <div class="section-title">2. Wordt er vanaf zakelijk of privé geparticipeerd</div>
-                <p>Profiel: <strong><?php echo esc_html( $profile_label ); ?></strong></p>
-                <p class="muted">Vul persoonlijke gegevens in als contactpersoon van het bedrijf indien zakelijk wordt geparticipeerd.</p>
-            </div>
+		<div class="header-divider"></div>
 
-            <div class="section">
-                <div class="section-title">3. Persoonlijke gegevens</div>
-                <table class="info-table">
-                    <thead>
-                        <tr>
-                            <th>Gegevens</th>
-                            <th>Participant</th>
-                            <th>Mede-participant</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Volledige naam</td>
-                            <td><?php echo esc_html( $participant_name ? $participant_name : '—' ); ?></td>
-                            <td><?php echo $co_name ? esc_html( $co_name ) : 'Niet van toepassing'; ?></td>
-                        </tr>
-                        <tr>
-                            <td>Geboortedatum</td>
-                            <td><?php echo esc_html( ggr_onboarding_format_datetime_label( get_user_meta( $user_id, 'ggr_kyc_birth_date', true ), false ) ?: '—' ); ?></td>
-                            <td><?php echo esc_html( ggr_onboarding_format_datetime_label( get_user_meta( $user_id, 'ggr_co_birth_date', true ), false ) ?: '—' ); ?></td>
-                        </tr>
-                        <tr>
-                            <td>Adres</td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_address', true ) ?: '—' ); ?></td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_address', true ) ?: '—' ); ?></td>
-                        </tr>
-                        <tr>
-                            <td>Postcode</td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_postcode', true ) ?: '—' ); ?></td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_postcode', true ) ?: '—' ); ?></td>
-                        </tr>
-                        <tr>
-                            <td>Woonplaats + Land</td>
-                            <td><?php echo esc_html( $address_line ? $address_line : '—' ); ?></td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_city_country', true ) ?: '—' ); ?></td>
-                        </tr>
-                        <tr>
-                            <td>Burgerservicenummer</td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_bsn', true ) ?: '—' ); ?></td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_bsn', true ) ?: '—' ); ?></td>
-                        </tr>
-                        <tr>
-                            <td>Telefoonnummer</td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_phone', true ) ?: '—' ); ?></td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_phone', true ) ?: '—' ); ?></td>
-                        </tr>
-                        <tr>
-                            <td>E-mail</td>
-                            <td><?php echo esc_html( $user->user_email ); ?></td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_email', true ) ?: '—' ); ?></td>
-                        </tr>
-                        <tr>
-                            <td>Nationaliteit</td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_nationality', true ) ?: '—' ); ?></td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_nationality', true ) ?: '—' ); ?></td>
-                        </tr>
-                        <tr>
-                            <td>Tenaamstelling IBAN</td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_iban_name', true ) ?: '—' ); ?></td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_iban_name', true ) ?: '—' ); ?></td>
-                        </tr>
-                        <tr>
-                            <td>IBAN</td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_iban', true ) ?: '—' ); ?></td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_iban', true ) ?: '—' ); ?></td>
-                        </tr>
-                        <tr>
-                            <td>Bedrijfsnaam (optioneel)</td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_company', true ) ?: '—' ); ?></td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_company', true ) ?: '—' ); ?></td>
-                        </tr>
-                        <tr>
-                            <td>KVK nummer (optioneel)</td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_kvk', true ) ?: '—' ); ?></td>
-                            <td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_kvk', true ) ?: '—' ); ?></td>
-                        </tr>
-                        <tr>
-                            <td>Politiek Prominent Persoon</td>
-                            <td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_kyc_pep', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
-                            <td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_co_pep', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
-                        </tr>
-                        <tr>
-                            <td>US person</td>
-                            <td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_kyc_us_person', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
-                            <td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_co_us_person', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
-                        </tr>
-                        <?php if ( $co_name || $co_investment_note ) : ?>
-                        <tr>
-                            <td>Toelichting mede-participant</td>
-                            <td>—</td>
-                            <td><?php echo $co_investment_note ? esc_html( $co_investment_note ) : '—'; ?></td>
-                        </tr>
-                        <?php endif; ?>                        
-                    </tbody>
-                </table>
-            </div>
+		<span class="pill">Inschrijfformulier</span>
 
-            <?php
-            $origin_options = ggr_onboarding_get_origin_options();
-            $origin_sources = get_user_meta( $user_id, 'ggr_origin_sources', true );
-            $origin_sources = is_array( $origin_sources ) ? $origin_sources : array();
-            ?>
-            <div class="section">
-                <div class="section-title">4. Herkomst van het in het Fonds te beleggen geld</div>
-                <p class="muted">Wij vragen hiernaar om te voldoen aan onze verplichtingen uit hoofde van de Wwft. De informatie wordt vertrouwelijk behandeld volgens de privacyverklaring.</p>
-                <div class="origin-grid">
-                    <?php foreach ( $origin_options as $key => $option ) :
-                        $is_selected = in_array( $key, $origin_sources, true );
-                        $notes       = get_user_meta( $user_id, $option['meta_key'], true );
-                        ?>
-                        <div class="origin-item">
-                            <div class="origin-label">
-                                <span class="checkmark"><?php echo $is_selected ? '&#10003;' : '&#9634;'; ?></span>
-                                <?php echo esc_html( $option['label'] ); ?>
-                            </div>
-                            <?php if ( $notes ) : ?>
-                                <div class="muted">Toelichting: <?php echo esc_html( $notes ); ?></div>
-                            <?php else : ?>
-                                <div class="muted">Geen nadere toelichting opgegeven.</div>
-                            <?php endif; ?>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-                <p style="margin-top: 2mm;">Algemene toelichting: <?php echo $origin_notes ? esc_html( $origin_notes ) : '—'; ?></p>
-                <p class="muted">Het is mogelijk dat wij, ter voldoening van onze wettelijke verificatieplicht, ondersteunende documenten bij u opvragen.</p>
-            </div>
+		<div class="section">
+			<div class="section-title">1. Verzoek om uitgifte Participaties</div>
+			<p class="lead">
+				Ondergetekende (de “Participant”) wil Participaties aankopen in het GGR Monthly Income Fund (het “Fonds”)
+				voor een bedrag van <strong><?php echo esc_html( $amount_display ); ?></strong>.
+			</p>
+		</div>
 
-            <div class="section">
-                <div class="section-title">7. Overige verklaringen en ondertekeningen</div>
-                <ul style="margin: 0 0 3mm 4mm; padding-left: 2mm;">
-                    <li>Ik ben bekend met de inhoud van het Investment Memorandum van het Fonds.</li>
-                    <li>Ik aanvaard de rechten en verplichtingen als participant zoals beschreven in het Informatie Memorandum &amp; voorwaarden.</li>
-                    <li>Ik voldoe aan het beleggersprofiel: bereid tot risico op waardevermindering, geen inkomsten uit deze belegging nodig, uittreding eenmaal per maand, beleggingshorizon minimaal 5 jaar.</li>
-                    <li>Ik ga ermee akkoord dat verstrekte gegevens worden gebruikt door de Beheerder voor administratie en wettelijke verplichtingen.</li>
-                    <li>Ik informeer de Beheerder onmiddellijk bij wijzigingen in de verstrekte gegevens.</li>
-                </ul>
+		<div class="section">
+			<div class="section-title">2. Wordt er vanaf zakelijk of privé geparticipeerd</div>
 
-                <p class="muted">Plaats en datum</p>
-                <div class="info-table" style="margin-top: 0;">
-                    <table class="info-table" aria-label="Plaats en datum">
-                        <tr>
-                            <td style="width: 50%;">Plaats: ___________________________</td>
-                            <td>Datum: <?php echo $signature_label ? esc_html( $signature_label ) : '___________________________'; ?></td>
-                        </tr>
-                    </table>
-                </div>
+			<!-- Weergave zoals op formulier met keuzevakjes -->
+			<p style="margin: 0 0 2mm 0;">
+				<span class="checkmark"><?php echo $is_private ? '&#10003;' : '&#9634;'; ?></span> Privé
+				&nbsp;&nbsp;&nbsp;
+				<span class="checkmark"><?php echo $is_business ? '&#10003;' : '&#9634;'; ?></span> Zakelijk
+				<span class="muted">(Vul persoonlijke gegevens in als contactpersoon van het bedrijf)</span>
+			</p>
 
-                <div class="signature-blocks">
-                    <div class="signature-box">
-                        <strong>Handtekening Participant</strong>
-                        <?php if ( $signature_image ) : ?>
-                            <img src="<?php echo esc_url( $signature_image ); ?>" alt="Handtekening participant" />
-                        <?php endif; ?>
-                        <div class="signature-line"></div>
-                        <div class="signature-name"><?php echo esc_html( $signature_text ? $signature_text : $participant_name ); ?></div>
-                    </div>
-                    <div class="signature-box">
-                        <strong>Handtekening Mede-participant</strong>
-                        <?php if ( $co_signature_image ) : ?>
-                            <img src="<?php echo esc_url( $co_signature_image ); ?>" alt="Handtekening mede-participant" />
-                        <?php endif; ?>                        
-                        <div class="signature-line"></div>
-                        <div class="signature-name"><?php echo esc_html( $co_signature_text ? $co_signature_text : ( $co_name ? $co_name : '—' ) ); ?></div>
-                    </div>
-                </div>
-            </div>
+			<!-- behoud eventueel label -->
+			<?php if ( ! empty( $profile_label ) ) : ?>
+				<p class="muted" style="margin: 0;">Geselecteerd profiel: <strong><?php echo esc_html( $profile_label ); ?></strong></p>
+			<?php endif; ?>
+		</div>
 
-            <div class="footer-note">Dit inschrijfformulier is automatisch gegenereerd op basis van de onboarding-gegevens en wordt gebruikt in de ondertekenfase.</div>
-        </div>
+		<div class="section">
+			<div class="section-title">3. Persoonlijke gegevens</div>
+			<table class="info-table">
+				<thead>
+					<tr>
+						<th>Gegevens</th>
+						<th>Participant</th>
+						<th>Mede-participant</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Volledige naam</td>
+						<td><?php echo esc_html( $participant_name ? $participant_name : '—' ); ?></td>
+						<td><?php echo $co_name ? esc_html( $co_name ) : 'Niet van toepassing'; ?></td>
+					</tr>
+					<tr>
+						<td>Geboortedatum</td>
+						<td><?php echo esc_html( ggr_onboarding_format_datetime_label( get_user_meta( $user_id, 'ggr_kyc_birth_date', true ), false ) ?: '—' ); ?></td>
+						<td><?php echo esc_html( ggr_onboarding_format_datetime_label( get_user_meta( $user_id, 'ggr_co_birth_date', true ), false ) ?: '—' ); ?></td>
+					</tr>
+					<tr>
+						<td>Adres</td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_address', true ) ?: '—' ); ?></td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_address', true ) ?: '—' ); ?></td>
+					</tr>
+					<tr>
+						<td>Postcode</td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_postcode', true ) ?: '—' ); ?></td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_postcode', true ) ?: '—' ); ?></td>
+					</tr>
+					<tr>
+						<td>Woonplaats + Land</td>
+						<td><?php echo esc_html( $address_line ? $address_line : '—' ); ?></td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_city_country', true ) ?: '—' ); ?></td>
+					</tr>
+					<tr>
+						<td>Burgerservicenummer</td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_bsn', true ) ?: '—' ); ?></td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_bsn', true ) ?: '—' ); ?></td>
+					</tr>
+					<tr>
+						<td>Telefoonnummer</td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_phone', true ) ?: '—' ); ?></td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_phone', true ) ?: '—' ); ?></td>
+					</tr>
+					<tr>
+						<td>E-mail</td>
+						<td><?php echo esc_html( $user->user_email ); ?></td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_email', true ) ?: '—' ); ?></td>
+					</tr>
+					<tr>
+						<td>Nationaliteit</td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_nationality', true ) ?: '—' ); ?></td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_nationality', true ) ?: '—' ); ?></td>
+					</tr>
+					<tr>
+						<td>Tenaamstelling IBAN</td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_iban_name', true ) ?: '—' ); ?></td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_iban_name', true ) ?: '—' ); ?></td>
+					</tr>
+					<tr>
+						<td>IBAN</td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_iban', true ) ?: '—' ); ?></td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_iban', true ) ?: '—' ); ?></td>
+					</tr>
+					<tr>
+						<td>Bedrijfsnaam (optioneel)</td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_company', true ) ?: '—' ); ?></td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_company', true ) ?: '—' ); ?></td>
+					</tr>
+					<tr>
+						<td>KVK nummer (optioneel)</td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_kvk', true ) ?: '—' ); ?></td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_kvk', true ) ?: '—' ); ?></td>
+					</tr>
+					<tr>
+						<td>Politiek Prominent Persoon</td>
+						<td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_kyc_pep', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
+						<td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_co_pep', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
+					</tr>
+					<tr>
+						<td>US person</td>
+						<td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_kyc_us_person', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
+						<td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_co_us_person', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
+					</tr>
+
+					<?php if ( $co_name || $co_investment_note ) : ?>
+						<tr>
+							<td>Toelichting mede-participant</td>
+							<td>—</td>
+							<td><?php echo $co_investment_note ? esc_html( $co_investment_note ) : '—'; ?></td>
+						</tr>
+					<?php endif; ?>
+				</tbody>
+			</table>
+		</div>
+
+		<?php
+		$origin_options = ggr_onboarding_get_origin_options();
+		$origin_sources = get_user_meta( $user_id, 'ggr_origin_sources', true );
+		$origin_sources = is_array( $origin_sources ) ? $origin_sources : array();
+
+		// Filter: alleen aangevinkte herkomstbronnen tonen
+		$selected_origin_options = array();
+		foreach ( $origin_options as $key => $option ) {
+			if ( in_array( $key, $origin_sources, true ) ) {
+				$selected_origin_options[ $key ] = $option;
+			}
+		}
+		?>
+
+		<div class="section">
+			<div class="section-title">4. Herkomst van het in het Fonds te beleggen geld</div>
+
+			<p class="muted">
+				Wij vragen hiernaar om te voldoen aan onze verplichtingen uit hoofde van de Wet ter voorkoming van witwassen en financiering van terrorisme (de “Wwft”).
+				Uiteraard zullen wij de door u verschafte informatie vertrouwelijk behandelen en alleen gebruiken voor de doeleinden zoals vermeld in onze privacyverklaring.
+			</p>
+
+			<?php if ( ! empty( $selected_origin_options ) ) : ?>
+				<!-- Alleen aangevinkte opties -->
+				<div class="origin-grid">
+					<?php foreach ( $selected_origin_options as $key => $option ) :
+						$notes = get_user_meta( $user_id, $option['meta_key'], true );
+						?>
+						<div class="origin-item">
+							<div class="origin-label">
+								<span class="checkmark">&#10003;</span>
+								<?php echo esc_html( $option['label'] ); ?>
+							</div>
+
+							<?php if ( $notes ) : ?>
+								<div class="muted">Toelichting: <?php echo esc_html( $notes ); ?></div>
+							<?php endif; ?>
+						</div>
+					<?php endforeach; ?>
+				</div>
+			<?php else : ?>
+				<p>—</p>
+			<?php endif; ?>
+
+			<!-- Toelichtingblok zoals op formulier -->
+			<p style="margin-top: 2mm;"><strong>Toelichting</strong> (in te vullen door Participant en, indien van toepassing, mede-Participant)</p>
+			<p><?php echo $origin_notes ? nl2br( esc_html( $origin_notes ) ) : '—'; ?></p>
+
+			<p class="muted">Het is mogelijk dat wij, ter voldoening van onze wettelijke verificatieplicht, ondersteunende documenten bij u opvragen.</p>
+		</div>
+
+		<div class="section">
+			<div class="section-title">7. Overige verklaringen en ondertekeningen</div>
+			<ul style="margin: 0 0 3mm 4mm; padding-left: 2mm;">
+				<li>Ik ben bekend met de inhoud van het Investment Memorandum van het Fonds.</li>
+				<li>Door toetreding tot het Fonds aanvaard ik de rechten en verplichtingen als participant zoals beschreven in het Informatie Memorandum &amp; voorwaarden en ben ik gebonden aan de inhoud daarvan.</li>
+				<li>Ik voldoe aan het volgende beleggersprofiel: bereid en in staat om het risico van (aanzienlijke) waardevermindering te nemen; geen inkomsten uit deze belegging nodig; uittreding slechts eenmaal per maand mogelijk; lange beleggingshorizon (minimaal 5 jaar).</li>
+				<li>Ik ben ermee akkoord dat de door mij verstrekte gegevens gebruikt worden door de Beheerder in verband met de administratie en bewaking van mijn rechten en plichten en ter voldoening aan wettelijke verplichtingen.</li>
+				<li>Als er een wijziging optreedt in de door mij in dit formulier verstrekte gegevens, zal ik de beheerder daarvan onmiddellijk op de hoogte stellen.</li>
+			</ul>
+
+			<div class="info-table" style="margin-top: 0;">
+				<table class="info-table" aria-label="Plaats en datum">
+					<tr>
+						<td style="width: 50%;">Plaats: <?php echo $place_raw ? esc_html( $place_raw ) : '___________________________'; ?></td>
+						<td>Datum: <?php echo $signature_label ? esc_html( $signature_label ) : '___________________________'; ?></td>
+					</tr>
+				</table>
+			</div>
+
+			<div class="signature-blocks">
+				<div class="signature-box">
+					<strong>Handtekening Participant</strong>
+					<?php if ( $signature_image ) : ?>
+						<img src="<?php echo esc_url( $signature_image ); ?>" alt="Handtekening participant" />
+					<?php endif; ?>
+					<div class="signature-line"></div>
+					<div class="signature-name"><?php echo esc_html( $signature_text ? $signature_text : $participant_name ); ?></div>
+				</div>
+
+				<div class="signature-box">
+					<strong>Handtekening Mede-participant</strong>
+					<?php if ( $co_signature_image ) : ?>
+						<img src="<?php echo esc_url( $co_signature_image ); ?>" alt="Handtekening mede-participant" />
+					<?php endif; ?>
+					<div class="signature-line"></div>
+					<div class="signature-name"><?php echo esc_html( $co_signature_text ? $co_signature_text : ( $co_name ? $co_name : '—' ) ); ?></div>
+				</div>
+			</div>
+		</div>
+
+		<div class="footer-note">Dit inschrijfformulier is automatisch gegenereerd op basis van de onboarding-gegevens en wordt gebruikt in de ondertekenfase.</div>
+	</div>
     <?php elseif ( 'memorandum' === $type ) : ?>
         <span class="pill">Informatie memorandum</span>
         <h1>Informatie memorandum</h1>
