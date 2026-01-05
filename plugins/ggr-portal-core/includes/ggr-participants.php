@@ -1961,7 +1961,7 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
                         <div class="ggr-admin-inline-field">
                             <label for="ggr_marketing_optin">
                                 <input type="checkbox" name="ggr_marketing_optin" id="ggr_marketing_optin" value="1" <?php checked( 1, $marketing_optin ); ?> />
-                                Marketing- en investeringsupdates toegestaan
+                                        Marketing Opt-in
                             </label>
                         </div>
 
@@ -3406,7 +3406,6 @@ function ggr_portal_render_participant_profile_page() {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
                 gap: 16px;
-                margin-bottom: 20px;
             }
             .ggr-admin-summary-item,
             .ggr-admin-crm-summary-item {
@@ -3431,18 +3430,28 @@ function ggr_portal_render_participant_profile_page() {
             .ggr-admin-lead-grid {
                 display: grid;
                 grid-template-columns: minmax(0, 1fr) minmax(0, 4fr);
-                gap: 16px;
+                gap: 10px;
                 margin-bottom: 20px;
             }
-            .ggr-admin-lead-sidebar {
-                display: grid;
-                gap: 16px;
-                align-content: start;
+            .ggr-admin-lead-panel-right h3.title {
+                margin: 0px;
             }            
-            .ggr-admin-lead-panel {
-                border: 1px solid #e5e7eb;
-                border-radius: 12px;
+            .ggr-admin-lead-left {
+                display: grid;
+                align-content: start;
+                border: 1px solid #e5e7eb!important;
+                border-radius: 5px;                
+            }   
+            
+            .ggr-admin-lead-panel-right {
+                border: 1px solid #e5e7eb !important;
+                border-radius: 5px;
                 padding: 16px;
+            }
+            
+            .ggr-admin-lead-panel {
+                padding: 16px;
+                border-bottom: 1px solid #e5e7eb!important;              
             }
             .ggr-admin-lead-panel h3 {
                 margin-top: 0;
@@ -3552,7 +3561,7 @@ function ggr_portal_render_participant_profile_page() {
                 display: flex;
                 flex-wrap: wrap;
                 gap: 8px;
-                margin: 8px 0 20px;
+                margin: 20px 0 20px;
             }
             .ggr-admin-onboarding-bar button {
                 border: 1px solid rgba(113, 154, 168, 0.2);
@@ -3656,14 +3665,29 @@ function ggr_portal_render_participant_profile_page() {
             ?>
             <?php if ( $is_lead ) : ?>
                 <div class="ggr-admin-lead-grid">
-                    <div class="ggr-admin-lead-sidebar">
+                    <div class="ggr-admin-lead-left">
                         <section class="ggr-admin-lead-panel">
                             <h3>Contactgegevens</h3>
                             <div class="ggr-admin-summary-grid ggr-admin-summary-grid--compact">
+                                <div class="ggr-admin-summary-item">
+                                    <span>Voornaam</span>
+                                    <strong><?php echo esc_html( $kyc_first_name ? $kyc_first_name : '—' ); ?></strong>
+                                </div>
+                                <div class="ggr-admin-summary-item">
+                                    <span>Achternaam</span>
+                                    <strong><?php echo esc_html( $kyc_last_name ? $kyc_last_name : '—' ); ?></strong>
+                                </div>
+                                <div class="ggr-admin-summary-item">
+                                    <span>E-mailadres</span>
+                                    <strong><?php echo esc_html( $user->user_email ); ?></strong>
+                                </div>
+                                <div class="ggr-admin-summary-item">
+                                    <span>Telefoonnummer</span>
+                                    <strong><?php echo esc_html( $kyc_phone ? $kyc_phone : '—' ); ?></strong>
+                                </div>                                
                             </div>
                         </section>                        
                         <section class="ggr-admin-lead-panel">
-                            <h3>Stap info</h3>
                             <div class="ggr-admin-lead-stack">
                                 <div class="ggr-admin-inline-field">
                                     <label for="ggr_onboarding_status">Onboarding status</label>
@@ -3680,31 +3704,28 @@ function ggr_portal_render_participant_profile_page() {
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
-                                </div>
-                                <div class="ggr-admin-inline-field">
-                                    <label for="ggr_participation_type">Deelname-type</label>
-                                    <select name="ggr_participation_type" id="ggr_participation_type">
-                                        <option value="">Automatisch (op basis van bedrag)</option>
-                                        <option value="mif" <?php selected( $participation_type, 'mif' ); ?>>MIF (onder € 100.000)</option>
-                                        <option value="if" <?php selected( $participation_type, 'if' ); ?>>IF (≥ € 100.000)</option>
-                                    </select>
-                                    <p class="description">Standaardkeuze: onder € 100.000 = MIF, vanaf € 100.000 = IF. Handmatig aanpassen kan hier.</p>
-                                </div>
-                                <div class="ggr-admin-inline-field">
-                                    <label>
-                                        <input type="checkbox" name="ggr_marketing_optin" id="ggr_marketing_optin" value="1" <?php checked( 1, $marketing_optin ); ?> />
-                                        Marketing- en investeringsupdates toegestaan
-                                    </label>
-                                </div>
-                                <div class="ggr-admin-inline-field">
-                                    <label for="ggr_locale">Interface taal</label>
-                                    <select name="ggr_locale" id="ggr_locale">
-                                        <option value="" <?php selected( $locale_meta, '' ); ?>>Site standaard</option>
-                                        <option value="nl_NL" <?php selected( $locale_meta, 'nl_NL' ); ?>>Nederlands</option>
-                                        <option value="en_US" <?php selected( $locale_meta, 'en_US' ); ?>>Engels (US)</option>
-                                    </select>
-                                </div>
                             </div>
+                        </section>
+                        <section class="ggr-admin-lead-panel">
+                            <h3>Activiteit</h3>    
+                            <div class="ggr-admin-summary-grid ggr-admin-summary-grid--compact">
+                                    <div class="ggr-admin-summary-item">
+                                        <span>Datum aanmaak</span>
+                                        <strong><?php echo esc_html( $created_label ? $created_label : '—' ); ?></strong>
+                                    </div>
+                                    <div class="ggr-admin-summary-item">
+                                        <span>Onboarding bijgewerkt</span>
+                                        <strong><?php echo esc_html( $onboarding_updated_label ? $onboarding_updated_label : '—' ); ?></strong>
+                                    </div>
+                                    <div class="ggr-admin-summary-item">
+                                        <span>Profiel bijgewerkt</span>
+                                        <strong><?php echo esc_html( $profile_updated_label ? $profile_updated_label : '—' ); ?></strong>
+                                    </div> 
+                                    <div class="ggr-admin-summary-item">
+                                        <span>Laatste login</span>
+                                        <strong><?php echo esc_html( $last_login_label ? $last_login_label : '—' ); ?></strong>
+                                    </div>                                     
+                                </div>
                         </section>
                         <section class="ggr-admin-lead-panel">
                             <h3>Standaard info</h3>
@@ -3722,50 +3743,28 @@ function ggr_portal_render_participant_profile_page() {
                                     <strong><?php echo esc_html( $format_money( $investment_target ) ); ?></strong>
                                 </div>
                                 <div class="ggr-admin-summary-item">
-                                    <span>Voornaam</span>
-                                    <strong><?php echo esc_html( $kyc_first_name ? $kyc_first_name : '—' ); ?></strong>
-                                </div>
-                                <div class="ggr-admin-summary-item">
-                                    <span>Achternaam</span>
-                                    <strong><?php echo esc_html( $kyc_last_name ? $kyc_last_name : '—' ); ?></strong>
-                                </div>
-                                <div class="ggr-admin-summary-item">
-                                    <span>E-mailadres</span>
-                                    <strong><?php echo esc_html( $user->user_email ); ?></strong>
-                                </div>
-                                <div class="ggr-admin-summary-item">
-                                    <span>Telefoonnummer</span>
-                                    <strong><?php echo esc_html( $kyc_phone ? $kyc_phone : '—' ); ?></strong>
-                                </div>
-                                <div class="ggr-admin-summary-item">
                                     <span>Marketing consent</span>
                                     <strong><?php echo esc_html( $marketing_optin ? 'Ja' : 'Nee' ); ?></strong>
                                 </div>
                                 <?php if ( 'register' !== $onboarding_status ) : ?>
                                     <div class="ggr-admin-summary-item">
-                                        <span>Taal</span>
-                                        <strong><?php echo esc_html( $language_label ); ?></strong>
-                                    </div>
-                                    <div class="ggr-admin-summary-item">
                                         <span>Deelname-type</span>
                                         <strong><?php echo esc_html( $participation_type_label ); ?></strong>
                                     </div>
-                                    <div class="ggr-admin-summary-item">
-                                        <span>Datum aanmaak</span>
-                                        <strong><?php echo esc_html( $created_label ? $created_label : '—' ); ?></strong>
-                                    </div>
-                                    <div class="ggr-admin-summary-item">
-                                        <span>Onboarding bijgewerkt</span>
-                                        <strong><?php echo esc_html( $onboarding_updated_label ? $onboarding_updated_label : '—' ); ?></strong>
-                                    </div>
-                                    <div class="ggr-admin-summary-item">
-                                        <span>Profiel bijgewerkt</span>
-                                        <strong><?php echo esc_html( $profile_updated_label ? $profile_updated_label : '—' ); ?></strong>
-                                    </div>
-                                    <div class="ggr-admin-summary-item">
-                                        <span>Laatste login</span>
-                                        <strong><?php echo esc_html( $last_login_label ? $last_login_label : '—' ); ?></strong>
-                                    </div>                                    
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_locale">Interface taal</label>
+                                    <select name="ggr_locale" id="ggr_locale">
+                                        <option value="" <?php selected( $locale_meta, '' ); ?>>Site standaard</option>
+                                        <option value="nl_NL" <?php selected( $locale_meta, 'nl_NL' ); ?>>Nederlands</option>
+                                        <option value="en_US" <?php selected( $locale_meta, 'en_US' ); ?>>Engels (US)</option>
+                                    </select>
+                                </div>         
+                                <div class="ggr-admin-inline-field">
+                                    <label>
+                                        <input type="checkbox" name="ggr_marketing_optin" id="ggr_marketing_optin" value="1" <?php checked( 1, $marketing_optin ); ?> />
+                                        Marketing Opt-in
+                                    </label>
+                                </div>                                
                                 <?php endif; ?>
                             </div>
                         </section>                            
@@ -3779,7 +3778,7 @@ function ggr_portal_render_participant_profile_page() {
                             </div>                            
                         </section>
                     </div>
-                    <section class="ggr-admin-lead-panel">
+                    <section class="ggr-admin-lead-panel-right">
                         <h3 class="title">Onboarding stappen</h3>
                         <div class="ggr-admin-onboarding-bar" data-current-status="<?php echo esc_attr( $onboarding_status ); ?>">
                             <?php foreach ( $stages as $key => $label ) : ?>
@@ -3919,7 +3918,7 @@ function ggr_portal_render_participant_profile_page() {
                                     <div class="ggr-admin-inline-field">
                                         <label>
                                             <input type="checkbox" name="ggr_marketing_optin" id="ggr_marketing_optin" value="1" <?php checked( 1, $marketing_optin ); ?> />
-                                            Marketing- en investeringsupdates toegestaan
+                                        Marketing Opt-in
                                         </label>
                                     </div>
                                 </div>
