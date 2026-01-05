@@ -2448,7 +2448,13 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     if ( $doc_action ) {
         if ( 'approve' === $doc_action ) {
             $status_override = ( 'validating' === $current_status ) ? 'transfer_completed' : 'sign_contract';
-
+            if ( 'collecting' === $current_status ) {
+                $documents_submitted_at = get_user_meta( $user_id, 'ggr_documents_submitted_at', true );
+                if ( ! $documents_submitted_at ) {
+                    update_user_meta( $user_id, 'ggr_documents_submitted_at', $profile_timestamp );
+                }
+            }
+            
             if ( function_exists( 'ggr_portal_send_templated_email' ) ) {
                 if ( 'validating' === $current_status ) {
                     ggr_portal_send_templated_email(
@@ -3117,6 +3123,8 @@ function ggr_portal_render_participant_profile_page() {
     $payment_received   = isset( $meta['ggr_payment_received'][0] ) ? (int) $meta['ggr_payment_received'][0] : 0;
     $payment_received_at = isset( $meta['ggr_payment_received_at'][0] ) ? $meta['ggr_payment_received_at'][0] : '';
     $collecting_intake_done = ! empty( $meta['ggr_collecting_intake_done'][0] );    
+    $documents_submitted_at = isset( $meta['ggr_documents_submitted_at'][0] ) ? $meta['ggr_documents_submitted_at'][0] : '';
+    $participant_enrolled_at = isset( $meta['ggr_participant_enrolled_at'][0] ) ? $meta['ggr_participant_enrolled_at'][0] : '';    
 
     if ( $investment_amount === '' ) {
         $investment_amount = $investment;
@@ -3168,10 +3176,10 @@ function ggr_portal_render_participant_profile_page() {
     $payment_details = apply_filters(
         'ggr_portal_investeren_payment_details',
         array(
-            'iban'         => '',
-            'tenaam'       => '',
-            'bank'         => '',
-            'omschrijving' => '',
+            'iban'         => 'Nader te bepalen',
+            'tenaam'       => 'GGR Investeringen B.V.',
+            'bank'         => 'Vul de bankgegevens hier aan.',
+            'omschrijving' => 'Gebruik je naam en referentie als omschrijving.',
         )
     );
     $payment_details = is_array( $payment_details ) ? $payment_details : array();
@@ -3263,6 +3271,8 @@ function ggr_portal_render_participant_profile_page() {
     $profile_updated_label    = $format_datetime( $profile_updated_raw );
     $last_login_label        = $format_datetime( $last_login_raw );
     $email_verified_label    = $format_date_only( $email_verified_at );
+    $documents_submitted_label = $format_datetime( $documents_submitted_at );
+    $participant_enrolled_label = $format_date_only( $participant_enrolled_at );
     
         // Onboarding documenten
     $document_labels = array(
@@ -4436,13 +4446,12 @@ function ggr_portal_render_participant_profile_page() {
                             </div>
                             <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
                                 <label style="display:block; margin-bottom:8px;">
-                                    <input type="checkbox" name="ggr_doc_approve" id="ggr_doc_approve_collecting" value="1" />
-                                    Documentatie goedkeuren (door naar geld overmaken)
+                                    <input type="checkbox" name="ggr_doc_approve" id="ggr_doc_approve_collecting" value="1" <?php checked( (bool) $documents_submitted_at, true ); ?> />
+                                    Documentatie ingediend
                                 </label>
-                                <label style="display:block;">
-                                    <input type="checkbox" name="ggr_doc_reject" id="ggr_doc_reject_collecting" value="1" />
-                                    Documentatie afkeuren (meer informatie opvragen)
-                                </label>
+                                <?php if ( $documents_submitted_label ) : ?>
+                                    <p class="ggr-admin-meta-note">Ingediend op: <?php echo esc_html( $documents_submitted_label ); ?>.</p>
+                                <?php endif; ?>
                             </div>
                         </div>                            
                     </td>
@@ -4455,7 +4464,7 @@ function ggr_portal_render_participant_profile_page() {
             <?php if ( $is_lead ) : ?>
                 <div class="ggr-admin-onboarding-section" data-onboarding-statuses="validating">
             <?php endif; ?>
-            <h4 class="title">Stap 6: Inschrijfformulier controleren</h4>
+            <h2 class="title">Informatie controleren</h2>
             <table class="form-table" role="presentation">
                 <tr>
                     <td>
@@ -4469,9 +4478,19 @@ function ggr_portal_render_participant_profile_page() {
                                 <?php endif; ?>
                             </div>
                             <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
-                                <label for="ggr_doc_feedback">Opmerking voor lead (bij afkeuren)</label>
-                                <textarea name="ggr_doc_feedback" id="ggr_doc_feedback" rows="3" style="width:100%;"><?php echo esc_textarea( $doc_feedback ); ?></textarea>
-                                <p class="description">Wordt meegenomen in de toelichting en kan gebruikt worden als extra context.</p>
+                                <h4> Documentatie</h4>
+                                <?php if ( ! empty( $uploaded_documents ) ) : ?>
+                                    <ul class="ggr-admin-doc-list">
+                                        <?php foreach ( $uploaded_documents as $doc ) : ?>
+                                            <li>
+                                                <strong><?php echo esc_html( $doc['label'] ); ?>:</strong>
+                                                <a href="<?php echo esc_url( $doc['url'] ); ?>" target="_blank" rel="noopener noreferrer">Bekijken</a>
+                                            </li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                <?php else : ?>
+                                    <p>Er zijn nog geen documenten geüpload.</p>
+                                <?php endif; ?>
                             </div>
                             <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
                                 <label style="display:block; margin-bottom:8px;">
@@ -4677,17 +4696,10 @@ function ggr_portal_render_participant_profile_page() {
                         <tr>
                             <th scope="row"><label for="ggr_role">Rol</label></th>
                             <td>
-                                <?php if ( current_user_can( 'promote_users' ) ) : ?>
-                                    <select name="ggr_role" id="ggr_role">
-                                        <?php foreach ( $all_roles as $role_key => $role_info ) : ?>
-                                            <option value="<?php echo esc_attr( $role_key ); ?>" <?php selected( $role_key, $current_role ); ?>>
-                                                <?php echo esc_html( $role_info['name'] ); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                <?php else : ?>
-                                    <p><?php echo esc_html( ucfirst( $current_role ) ); ?></p>
-                                    <p class="description">Je hebt geen rechten om rollen te wijzigen.</p>
+                                <p><?php echo esc_html( $all_roles[ $current_role ]['name'] ?? ucfirst( $current_role ) ); ?></p>
+                                <p class="description">Rol kan niet worden aangepast.</p>
+                                <?php if ( $participant_enrolled_label ) : ?>
+                                    <p class="ggr-admin-meta-note">Participant geworden op: <?php echo esc_html( $participant_enrolled_label ); ?>.</p>
                                 <?php endif; ?>
                             </td>
                         </tr>
