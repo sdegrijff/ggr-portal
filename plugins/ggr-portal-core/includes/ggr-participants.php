@@ -3410,10 +3410,7 @@ function ggr_portal_render_participant_profile_page() {
             }
             .ggr-admin-summary-item,
             .ggr-admin-crm-summary-item {
-                background: #fff;
-                border: 1px solid #e5e7eb;
-                border-radius: 8px;
-                padding: 12px 14px;
+                
             }
             .ggr-admin-summary-item span,
             .ggr-admin-crm-summary-item span {
@@ -3425,6 +3422,7 @@ function ggr_portal_render_participant_profile_page() {
             .ggr-admin-summary-item strong,
             .ggr-admin-crm-summary-item strong {
                 font-size: 14px;
+                font-weight: 400;
             }
             .ggr-admin-summary-grid--compact {
                 grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -3442,7 +3440,6 @@ function ggr_portal_render_participant_profile_page() {
                 align-content: start;
             }            
             .ggr-admin-lead-panel {
-                background: #fff;
                 border: 1px solid #e5e7eb;
                 border-radius: 12px;
                 padding: 16px;
@@ -3661,6 +3658,11 @@ function ggr_portal_render_participant_profile_page() {
                 <div class="ggr-admin-lead-grid">
                     <div class="ggr-admin-lead-sidebar">
                         <section class="ggr-admin-lead-panel">
+                            <h3>Contactgegevens</h3>
+                            <div class="ggr-admin-summary-grid ggr-admin-summary-grid--compact">
+                            </div>
+                        </section>                        
+                        <section class="ggr-admin-lead-panel">
                             <h3>Stap info</h3>
                             <div class="ggr-admin-lead-stack">
                                 <div class="ggr-admin-inline-field">
@@ -3678,15 +3680,6 @@ function ggr_portal_render_participant_profile_page() {
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
-                                    <?php if ( $onboarding_updated_label ) : ?>
-                                        <p class="description">Onboarding bijgewerkt: <?php echo esc_html( $onboarding_updated_label ); ?></p>
-                                    <?php endif; ?>
-                                    <?php if ( $profile_updated_label ) : ?>
-                                        <p class="description">Profiel bijgewerkt: <?php echo esc_html( $profile_updated_label ); ?></p>
-                                    <?php endif; ?>
-                                    <?php if ( $last_login_label ) : ?>
-                                        <p class="description">Laatste login: <?php echo esc_html( $last_login_label ); ?></p>
-                                    <?php endif; ?>
                                 </div>
                                 <div class="ggr-admin-inline-field">
                                     <label for="ggr_participation_type">Deelname-type</label>
@@ -3710,7 +3703,6 @@ function ggr_portal_render_participant_profile_page() {
                                         <option value="nl_NL" <?php selected( $locale_meta, 'nl_NL' ); ?>>Nederlands</option>
                                         <option value="en_US" <?php selected( $locale_meta, 'en_US' ); ?>>Engels (US)</option>
                                     </select>
-                                    <p class="description">Deze voorkeur bepaalt de taal van het portal.</p>
                                 </div>
                             </div>
                         </section>
@@ -3762,8 +3754,22 @@ function ggr_portal_render_participant_profile_page() {
                                         <span>Datum aanmaak</span>
                                         <strong><?php echo esc_html( $created_label ? $created_label : '—' ); ?></strong>
                                     </div>
+                                    <div class="ggr-admin-summary-item">
+                                        <span>Onboarding bijgewerkt</span>
+                                        <strong><?php echo esc_html( $onboarding_updated_label ? $onboarding_updated_label : '—' ); ?></strong>
+                                    </div>
+                                    <div class="ggr-admin-summary-item">
+                                        <span>Profiel bijgewerkt</span>
+                                        <strong><?php echo esc_html( $profile_updated_label ? $profile_updated_label : '—' ); ?></strong>
+                                    </div>
+                                    <div class="ggr-admin-summary-item">
+                                        <span>Laatste login</span>
+                                        <strong><?php echo esc_html( $last_login_label ? $last_login_label : '—' ); ?></strong>
+                                    </div>                                    
                                 <?php endif; ?>
                             </div>
+                        </section>                            
+                        <section class="ggr-admin-lead-panel">
                             <h4>Wachtwoord beheer</h4>
                             <div class="ggr-admin-inline-field">
                                 <label for="ggr_new_password">Nieuw wachtwoord</label>
@@ -3846,6 +3852,10 @@ function ggr_portal_render_participant_profile_page() {
                                 <span>Laatste participatie</span>
                                 <strong><?php echo esc_html( $latest_history_date ? $latest_history_date : '—' ); ?></strong>
                             </div>
+                            <div>
+                                <span>Datum aanmaak</span>
+                                <strong><?php echo esc_html( $created_label ? $created_label : '—' ); ?></strong>
+                            </div>                            
                         </div>
                     </section>
                     </div>
@@ -3891,18 +3901,16 @@ function ggr_portal_render_participant_profile_page() {
                                         <?php endif; ?>
                                     </div>
                                     <div class="ggr-admin-inline-field">
-                                        <label for="ggr_participation_type">Deelname-type</label>
-                                        <select name="ggr_participation_type" id="ggr_participation_type">
-                                            <option value="">Automatisch (op basis van bedrag)</option>
-                                            <option value="mif" <?php selected( $participation_type, 'mif' ); ?>>MIF (onder € 100.000)</option>
-                                            <option value="if" <?php selected( $participation_type, 'if' ); ?>>IF (≥ € 100.000)</option>
-                                        </select>
-                                        <p class="description">Standaardkeuze: onder € 100.000 = MIF, vanaf € 100.000 = IF. Handmatig aanpassen kan hier.</p>
-                                    </div>
-                                    <div class="ggr-admin-inline-field">
-                                        <label for="ggr_distribution_strategy">Dividendstrategie</label>
-                                        <select name="ggr_distribution_strategy" id="ggr_distribution_strategy">
-                                            <option value=""><?php esc_html_e( 'Maak een keuze', 'ggr-portal' ); ?></option>
+                                    <select name="ggr_participation_type" id="ggr_participation_type">
+                                        <option value="">Automatisch (op basis van bedrag)</option>
+                                        <option value="mif" <?php selected( $participation_type, 'mif' ); ?>>MIF (onder € 100.000)</option>
+                                        <option value="if" <?php selected( $participation_type, 'if' ); ?>>IF (≥ € 100.000)</option>
+                                    </select>
+                                </div>
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_distribution_strategy">Dividendstrategie</label>
+                                    <select name="ggr_distribution_strategy" id="ggr_distribution_strategy">
+                                        <option value=""><?php esc_html_e( 'Maak een keuze', 'ggr-portal' ); ?></option>
                                             <option value="herbeleggen" <?php selected( $distribution_strategy, 'herbeleggen' ); ?>>Herbeleggen</option>
                                             <option value="uitkeren" <?php selected( $distribution_strategy, 'uitkeren' ); ?>>Uitkeren</option>
                                         </select>
@@ -3924,7 +3932,6 @@ function ggr_portal_render_participant_profile_page() {
                                             <option value="en_US" <?php selected( $locale_meta, 'en_US' ); ?>>Engels (US)</option>
                                         </select>
                                     </div>
-                                    <p class="description">Deze voorkeur bepaalt de taal van het portal.</p>
                                 </div>
                             </div>
                         </td>
