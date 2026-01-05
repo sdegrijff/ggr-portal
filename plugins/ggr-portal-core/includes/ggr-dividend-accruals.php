@@ -1360,6 +1360,18 @@ function ggr_ibkr_accruals_fetch_and_store() {
     );
     ggr_ibkr_accruals_clear_last_error();
 
+    if ( function_exists( 'ggr_portal_send_admin_templated_email' ) ) {
+        $placeholders = array(
+            'dividend_imported_count'  => (string) $store_result['imported'],
+            'dividend_report_date'     => $store_result['report_date'],
+            'dividend_total_count'     => (string) $result['total_count'],
+            'dividend_duplicate_count' => (string) $result['duplicate_count'],
+            'dividend_statement_url'   => $result['statement_url'],
+        );
+
+        ggr_portal_send_admin_templated_email( 'admin_dividend_import', $placeholders );
+    }
+
     return $store_result;
 }
 add_action( 'ggr_ibkr_accruals_fetch_event', 'ggr_ibkr_accruals_fetch_and_store' );
