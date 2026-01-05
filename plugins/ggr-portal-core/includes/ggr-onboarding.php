@@ -3527,10 +3527,14 @@ function ggr_onboarding_dashboard_shortcode() {
                                         Gebruik als omschrijving: <strong><?php echo esc_html( $payment_reference ); ?></strong>.
                                     </p>
                                     <ul class="ggr-onboarding-side-list" style="margin-top:8px;">
-                                        <li>Bedrag: <?php echo esc_html( $amount_display ); ?></li>
-                                        <li>Rekeningnummer: <?php echo esc_html( $payment_details['iban'] ?? '—' ); ?></li>
+                                        <li>Inschrijfbedrag: <?php echo esc_html( $amount_display ); ?></li>
+                                        <li>IBAN: <?php echo esc_html( $payment_details['iban'] ?? '—' ); ?></li>
                                         <li>Tenaamstelling: <?php echo esc_html( $payment_details['tenaam'] ?? '—' ); ?></li>
-                                        <li>Transactie kenmerk: <?php echo esc_html( $payment_reference ); ?></li>
+                                        <li>Bank: <?php echo esc_html( $payment_details['bank'] ?? '—' ); ?></li>
+                                        <?php if ( ! empty( $payment_details['omschrijving'] ) ) : ?>
+                                            <li>Omschrijving: <?php echo esc_html( $payment_details['omschrijving'] ); ?></li>
+                                        <?php endif; ?>
+                                        <li>Kenmerk: <?php echo esc_html( $payment_reference ); ?></li>
                                     </ul>
                                 </div>
                                 <form method="post" class="ggr-onboarding-form">
