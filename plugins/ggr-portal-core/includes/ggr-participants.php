@@ -2208,8 +2208,22 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
         ? ggr_onboarding_get_status( $user_id )
         : get_user_meta( $user_id, 'ggr_onboarding_status', true );
         
-    $doc_action   = isset( $_POST['ggr_doc_action'] ) ? sanitize_key( wp_unslash( $_POST['ggr_doc_action'] ) ) : '';
+    $doc_action   = '';
+    $doc_approve  = ! empty( $_POST['ggr_doc_approve'] );
+    $doc_reject   = ! empty( $_POST['ggr_doc_reject'] );
+    if ( $doc_reject ) {
+        $doc_action = 'reject';
+    } elseif ( $doc_approve ) {
+        $doc_action = 'approve';
+    }
     $doc_feedback = isset( $_POST['ggr_doc_feedback'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_doc_feedback'] ) ) : '';
+
+    if ( 'approve' === $doc_action && in_array( $current_status, array( 'transfer_completed', 'active_participant' ), true ) ) {
+        $doc_action = '';
+    }
+    if ( 'reject' === $doc_action && 'collecting' === $current_status ) {
+        $doc_action = '';
+    }
     
     $doc_to_delete = isset( $_POST['ggr_delete_document'] ) ? sanitize_key( wp_unslash( $_POST['ggr_delete_document'] ) ) : '';
     if ( $doc_to_delete ) {
@@ -2336,8 +2350,19 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     update_user_meta( $user_id, 'ggr_marketing_optin', $marketing_optin );
 
     // Aanvullende stap in onboarding
-    $extra_required = ! empty( $_POST['ggr_collecting_extra_required'] ) ? 1 : 0;
+    $previous_extra_required = (bool) get_user_meta( $user_id, 'ggr_collecting_extra_required', true );
+    $extra_required          = ! empty( $_POST['ggr_collecting_extra_required'] ) ? 1 : 0;
     update_user_meta( $user_id, 'ggr_collecting_extra_required', $extra_required );
+
+    if ( $extra_required && ! $previous_extra_required && function_exists( 'ggr_portal_send_templated_email' ) ) {
+        ggr_portal_send_templated_email(
+            'onboarding_extra_info_needed',
+            $user_id,
+            array(
+                'portal_link' => home_url( '/onboarding/' ),
+            )
+        );
+    }
 
     if ( isset( $_POST['ggr_collecting_extra_step_label'] ) ) {
         update_user_meta(
@@ -2419,14 +2444,24 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
         if ( 'approve' === $doc_action ) {
             $status_override = ( 'validating' === $current_status ) ? 'transfer_completed' : 'sign_contract';
 
-            if ( 'validating' !== $current_status && function_exists( 'ggr_portal_send_templated_email' ) ) {
-                ggr_portal_send_templated_email(
-                    'documents_approved',
-                    $user_id,
-                    array(
-                        'contract_link' => home_url( '/onboarding/' ),
-                    )
-                );
+            if ( function_exists( 'ggr_portal_send_templated_email' ) ) {
+                if ( 'validating' === $current_status ) {
+                    ggr_portal_send_templated_email(
+                        'application_approved',
+                        $user_id,
+                        array(
+                            'portal_link' => home_url( '/onboarding/' ),
+                        )
+                    );
+                } else {
+                    ggr_portal_send_templated_email(
+                        'documents_approved',
+                        $user_id,
+                        array(
+                            'contract_link' => home_url( '/onboarding/' ),
+                        )
+                    );
+                }
             }
 
             if ( function_exists( 'ggr_meldingen_add' ) ) {
@@ -2469,9 +2504,9 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
             }
 
         } elseif ( 'reject' === $doc_action ) {
-            $status_override = 'collecting';
+            $status_override = ( 'validating' === $current_status ) ? 'validating' : 'collecting';
 
-            if ( function_exists( 'ggr_portal_send_templated_email' ) ) {
+            if ( 'validating' !== $current_status && function_exists( 'ggr_portal_send_templated_email' ) ) {
                 ggr_portal_send_templated_email(
                     'documents_rejected',
                     $user_id,
@@ -2482,25 +2517,36 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
                 );
             }
 
-                    if ( function_exists( 'ggr_meldingen_add' ) ) {
-                        ggr_meldingen_add(
-                            'Documentatie afgekeurd',
-                            sprintf(
-                                'De documentatie van %s (%s) is afgekeurd met feedback: %s',
-                                ggr_portal_get_nice_user_name( $user_id ),
-                                esc_html( $participant_email ),
-                                $doc_feedback ? $doc_feedback : '—'
-                            ),
-                            $user_id,
-                            array( 'onboarding_status' => 'collecting' )
-                        );
+            if ( function_exists( 'ggr_meldingen_add' ) ) {
+                $melding_title = ( 'validating' === $current_status ) ? 'Inschrijfformulier afgekeurd' : 'Documentatie afgekeurd';
+                $melding_body  = ( 'validating' === $current_status )
+                    ? sprintf(
+                        'Het inschrijfformulier van %s (%s) is afgekeurd. Feedback: %s',
+                        ggr_portal_get_nice_user_name( $user_id ),
+                        esc_html( $participant_email ),
+                        $doc_feedback ? $doc_feedback : '—'
+                    )
+                    : sprintf(
+                        'De documentatie van %s (%s) is afgekeurd met feedback: %s',
+                        ggr_portal_get_nice_user_name( $user_id ),
+                        esc_html( $participant_email ),
+                        $doc_feedback ? $doc_feedback : '—'
+                    );
+
+                ggr_meldingen_add(
+                    $melding_title,
+                    $melding_body,
+                    $user_id,
+                    array( 'onboarding_status' => $status_override )
+                );
             }
 
             if ( function_exists( 'ggr_portal_log_participant_action' ) ) {
+                $log_title = ( 'validating' === $current_status ) ? 'Inschrijfformulier afgekeurd' : 'Documenten afgekeurd';                
                 ggr_portal_log_participant_action(
                     $user_id,
                     'document_review',
-                    'Documenten afgekeurd',
+                    $log_title,
                     array(
                         'changes' => array(
                             'Documentstatus: "goedgekeurd" → "afgekeurd"',
@@ -2777,7 +2823,12 @@ function ggr_portal_render_participant_profile_page() {
         echo '<div class="wrap"><h1>Profiel</h1><p>Gebruiker niet gevonden.</p></div>';
         return;
     }
-
+    
+    $all_roles     = get_editable_roles();
+    $current_roles = (array) $user->roles;
+    $current_role  = reset( $current_roles );
+    $is_lead       = in_array( 'lead', $current_roles, true );
+    
     if (
         isset( $_POST['ggr_import_nonce'] )
         && wp_verify_nonce( $_POST['ggr_import_nonce'], 'ggr_import_history' )
@@ -3233,6 +3284,13 @@ function ggr_portal_render_participant_profile_page() {
         }
     }
 
+    $application_pdf_url = function_exists( 'ggr_onboarding_get_pdf_download_url' )
+        ? ggr_onboarding_get_pdf_download_url( 'application', $user_id )
+        : '';
+    $application_pdf_embed_url = $application_pdf_url
+        ? $application_pdf_url . '#toolbar=0&navpanes=0&scrollbar=0&zoom=page-width'
+        : '';
+
 
     $history_rows = function_exists( 'ggr_portal_get_history_for_user' )
         ? ggr_portal_get_history_for_user( $user_id )
@@ -3301,11 +3359,6 @@ function ggr_portal_render_participant_profile_page() {
 
         $rows_for_table = array_reverse( $rows_for_table );
     }
-
-    $all_roles     = get_editable_roles();
-    $current_roles = (array) $user->roles;
-    $current_role  = reset( $current_roles );
-    $is_lead       = in_array( 'lead', $current_roles, true );
 
     $language_label = 'Nederlands';
     if ( $locale_meta && 'nl_NL' !== $locale_meta ) {
@@ -3655,7 +3708,9 @@ function ggr_portal_render_participant_profile_page() {
             <input type="hidden" name="ggr_participant_user_id" value="<?php echo (int) $user_id; ?>" />
             <div class="ggr-admin-header-actions">
                 <a class="ggr-admin-back-link" href="<?php echo esc_url( admin_url( 'users.php?page=ggr-participant-overzicht' ) ); ?>">← Terug</a>
-                <button type="submit" class="button button-primary">Wijzigingen opslaan</button>
+                <?php if ( ! $is_lead ) : ?>
+                    <button type="submit" class="button button-primary">Wijzigingen opslaan</button>
+                <?php endif; ?>
             </div>
         <!-- Snel wisselen -->
         <form method="get" class="ggr-participant-switcher" style="margin: 10px 0 20px;">
@@ -4011,7 +4066,7 @@ function ggr_portal_render_participant_profile_page() {
                     <h2 class="title">Account bevestigd</h2>
                     <p class="ggr-admin-meta-note">E-mailadres bevestigd op: <?php echo esc_html( $email_verified_label ? $email_verified_label : '—' ); ?></p>
                 </div>
-                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="collecting validating">
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="collecting">
                     <h2 class="title">Documentatie aanleveren</h2>
                 </div>
             <?php endif; ?>
@@ -4374,17 +4429,20 @@ function ggr_portal_render_participant_profile_page() {
                                     <p>Er zijn nog geen documenten geüpload.</p>
                                 <?php endif; ?>
                             </div>
-
                             <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
-                                <label for="ggr_doc_feedback">Opmerking voor lead (bij afkeuren)</label>
-                                <textarea name="ggr_doc_feedback" id="ggr_doc_feedback" rows="3" style="width:100%;"><?php echo esc_textarea( $doc_feedback ); ?></textarea>
-                                <p class="description">Wordt meegenomen in de afwijs-e-mail en kan gebruikt worden als toelichting.</p>
+                                <label style="display:block; margin-bottom:8px;">
+                                    <input type="checkbox" name="ggr_doc_approve" id="ggr_doc_approve_collecting" value="1" />
+                                    Documentatie goedgekeurd (door naar overeenkomst tekenen)
+                                </label>
+                                <label style="display:block;">
+                                    <input type="checkbox" name="ggr_doc_reject" id="ggr_doc_reject_collecting" value="1" />
+                                    Documentatie afkeuren (terug naar documentatie)
+                                </label>
                             </div>
-
                             <div class="ggr-admin-inline-actions ggr-admin-inline-field--full">
-                                <button type="submit" name="ggr_doc_action" value="approve" class="button button-primary">Inschrijving gecontroleerd</button>
-                                <button type="submit" name="ggr_doc_action" value="reject" class="button">Afkeuren en terug naar documentatie</button>
+                                <button type="submit" class="button button-primary">Documentatie opslaan</button>
                             </div>
+                        </div>                            
                     </td>
                 </tr>
             </table>
@@ -4395,41 +4453,128 @@ function ggr_portal_render_participant_profile_page() {
             <?php if ( $is_lead ) : ?>
                 <div class="ggr-admin-onboarding-section" data-onboarding-statuses="validating">
             <?php endif; ?>
-            <h4 class="title">Stap 6: Aanvullende informatie na ondertekening</h4>
+            <h4 class="title">Stap 6: Inschrijfformulier controleren</h4>
             <table class="form-table" role="presentation">
                 <tr>
                     <td>
-                        <div class="ggr-admin-inline-field">
-                            <label for="ggr_collecting_extra_required">
-                                <input type="checkbox" id="ggr_collecting_extra_required" name="ggr_collecting_extra_required" value="1" <?php checked( $extra_step_required, true ); ?> />
-                                Toon aanvullende stap na ondertekening
-                            </label>
-                            <p class="description">Activeer deze optie als er na ondertekening aanvullende informatie of een upload gevraagd moet worden.</p>
+                        <div class="ggr-admin-docs-grid">
+                            <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
+                                <h4>Inschrijfformulier (PDF)</h4>
+                                <?php if ( $application_pdf_url ) : ?>
+                                    <div style="border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; background:#f8fafc; margin-bottom:12px;">
+                                        <iframe src="<?php echo esc_url( $application_pdf_embed_url ); ?>" title="Inschrijfformulier" style="width:100%; height:520px; border:0;" loading="lazy"></iframe>
+                                    </div>
+                                    <a class="button" href="<?php echo esc_url( $application_pdf_url ); ?>" target="_blank" rel="noopener noreferrer">Bekijk inschrijfformulier</a>
+                                <?php else : ?>
+                                    <p class="description">Het inschrijfformulier is nog niet beschikbaar.</p>
+                                <?php endif; ?>
+                            </div>
+                            <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
+                                <h4>Aangeleverde documenten</h4>
+                                <?php if ( ! empty( $uploaded_documents ) ) : ?>
+                                    <ul class="ggr-admin-doc-list">
+                                        <?php foreach ( $uploaded_documents as $doc ) : ?>
+                                            <li>
+                                                <strong><?php echo esc_html( $doc['label'] ); ?>:</strong>
+                                                <a href="<?php echo esc_url( $doc['url'] ); ?>" target="_blank" rel="noopener noreferrer">Bekijken</a>
+                                            </li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                <?php else : ?>
+                                    <p>Er zijn nog geen documenten geüpload.</p>
+                                <?php endif; ?>
+                            </div>
+                            <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
+                                <label for="ggr_doc_feedback">Opmerking voor lead (bij afkeuren)</label>
+                                <textarea name="ggr_doc_feedback" id="ggr_doc_feedback" rows="3" style="width:100%;"><?php echo esc_textarea( $doc_feedback ); ?></textarea>
+                                <p class="description">Wordt meegenomen in de toelichting en kan gebruikt worden als extra context.</p>
+                            </div>
+                            <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
+                                <label style="display:block; margin-bottom:8px;">
+                                    <input type="checkbox" name="ggr_doc_approve" id="ggr_doc_approve" value="1" />
+                                    Inschrijfformulier goedgekeurd (stuur goedkeuringsmail en ga door naar geld overmaken)
+                                </label>
+                                <label style="display:block;">
+                                    <input type="checkbox" name="ggr_doc_reject" id="ggr_doc_reject" value="1" />
+                                    Inschrijfformulier afkeuren (aanvullende informatie opvragen)
+                                </label>
+                            </div>
+                            <div class="ggr-admin-inline-actions ggr-admin-inline-field--full">
+                                <button type="submit" class="button button-primary">Beoordeling opslaan</button>
+                            </div>
                         </div>
-                        <div class="ggr-admin-inline-field">
-                            <label for="ggr_collecting_extra_step_label">Staplabel</label>
-                            <input type="text" id="ggr_collecting_extra_step_label" name="ggr_collecting_extra_step_label" value="<?php echo esc_attr( $extra_step_label ); ?>" placeholder="Aanvullende informatie" />
-                        </div>                        
-                        <div class="ggr-admin-inline-field">
-                            <label for="ggr_collecting_extra_label">Vraaglabel</label>
-                            <input type="text" id="ggr_collecting_extra_label" name="ggr_collecting_extra_label" value="<?php echo esc_attr( $extra_question_label ); ?>" placeholder="Aanvullende informatie" />
-                        </div>
-                        <div class="ggr-admin-inline-field">
-                            <label for="ggr_collecting_extra_upload_label">Upload label</label>
-                            <input type="text" id="ggr_collecting_extra_upload_label" name="ggr_collecting_extra_upload_label" value="<?php echo esc_attr( $extra_upload_label ); ?>" placeholder="Upload aanvullende documentatie (optioneel)" />
-                        </div>
-                        <div class="ggr-admin-inline-field">
-                            <label for="ggr_collecting_extra_comment">Commentaar boven veld</label>
-                            <textarea name="ggr_collecting_extra_comment" id="ggr_collecting_extra_comment" rows="3" style="width:100%;"><?php echo esc_textarea( $extra_comment_text ); ?></textarea>
-                        </div>
-                        <div class="ggr-admin-inline-field">
-                            <label>Ingevulde toelichting (alleen-lezen)</label>
-                            <textarea readonly rows="3" style="width:100%; background:#f9fafb;"><?php echo esc_textarea( $extra_response ); ?></textarea>
-                            <p class="description">Weergave van de aanvullende informatie die de participant heeft opgegeven.</p>
-                        </div>
-                        <?php if ( $extra_upload_url ) : ?>
-                            <p class="ggr-admin-meta-note">Upload van participant: <a href="<?php echo esc_url( $extra_upload_url ); ?>" target="_blank" rel="noopener noreferrer">Bekijken</a></p>
-                        <?php endif; ?>
+
+                        <details class="ggr-admin-crm-section ggr-admin-crm-section--primary" data-extra-info-details <?php echo $extra_step_required ? 'open' : ''; ?>>
+                            <summary>Aanvullende informatie opvragen</summary>
+                            <div class="ggr-admin-crm-body">
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_collecting_extra_required">
+                                        <input type="checkbox" id="ggr_collecting_extra_required" name="ggr_collecting_extra_required" value="1" <?php checked( $extra_step_required, true ); ?> />
+                                        Toon aanvullende stap na ondertekening
+                                    </label>
+                                    <p class="description">Activeer deze optie om extra informatie op te vragen bij de participant.</p>
+                                </div>
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_collecting_extra_step_label">Staplabel</label>
+                                    <input type="text" id="ggr_collecting_extra_step_label" name="ggr_collecting_extra_step_label" value="<?php echo esc_attr( $extra_step_label ); ?>" placeholder="Aanvullende informatie" />
+                                </div>                        
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_collecting_extra_label">Vraaglabel</label>
+                                    <input type="text" id="ggr_collecting_extra_label" name="ggr_collecting_extra_label" value="<?php echo esc_attr( $extra_question_label ); ?>" placeholder="Aanvullende informatie" />
+                                </div>
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_collecting_extra_upload_label">Upload label</label>
+                                    <input type="text" id="ggr_collecting_extra_upload_label" name="ggr_collecting_extra_upload_label" value="<?php echo esc_attr( $extra_upload_label ); ?>" placeholder="Upload aanvullende documentatie (optioneel)" />
+                                </div>
+                                <div class="ggr-admin-inline-field">
+                                    <label for="ggr_collecting_extra_comment">Commentaar boven veld</label>
+                                    <textarea name="ggr_collecting_extra_comment" id="ggr_collecting_extra_comment" rows="3" style="width:100%;"><?php echo esc_textarea( $extra_comment_text ); ?></textarea>
+                                </div>
+                                <div class="ggr-admin-inline-field">
+                                    <label>Ingevulde toelichting (alleen-lezen)</label>
+                                    <textarea readonly rows="3" style="width:100%; background:#f9fafb;"><?php echo esc_textarea( $extra_response ); ?></textarea>
+                                    <p class="description">Weergave van de aanvullende informatie die de participant heeft opgegeven.</p>
+                                </div>
+                                <?php if ( $extra_upload_url ) : ?>
+                                    <p class="ggr-admin-meta-note">Upload van participant: <a href="<?php echo esc_url( $extra_upload_url ); ?>" target="_blank" rel="noopener noreferrer">Bekijken</a></p>
+                                <?php endif; ?>
+                            </div>
+                        </details>
+
+                        <script>
+                        (function() {
+                            var approve = document.getElementById('ggr_doc_approve');
+                            var reject = document.getElementById('ggr_doc_reject');
+                            var extraDetails = document.querySelector('[data-extra-info-details]');
+
+                            if (!approve || !reject) {
+                                return;
+                            }
+
+                            var syncDetails = function() {
+                                if (!extraDetails) {
+                                    return;
+                                }
+                                if (reject.checked) {
+                                    extraDetails.open = true;
+                                }
+                            };
+
+                            approve.addEventListener('change', function() {
+                                if (approve.checked) {
+                                    reject.checked = false;
+                                }
+                            });
+                            reject.addEventListener('change', function() {
+                                if (reject.checked) {
+                                    approve.checked = false;
+                                }
+                                syncDetails();
+                            });
+
+                            syncDetails();
+                        })();
+                        </script>
                     </td>
                 </tr>
             </table>
@@ -4445,51 +4590,54 @@ function ggr_portal_render_participant_profile_page() {
             <table class="form-table" role="presentation">
                 <tr>
                     <td>
-                        <p class="description">Betaalgegevens voor deze lead:</p>
-                        <ul class="ggr-admin-meta-list">
-                            <li>Inschrijfbedrag: <?php echo esc_html( $participation_amount ? $format_money( $participation_amount ) : '—' ); ?></li>
-                            <li>IBAN: <?php echo esc_html( $payment_details['iban'] ?? '—' ); ?></li>
-                            <li>Tenaamstelling: <?php echo esc_html( $payment_details['tenaam'] ?? '—' ); ?></li>
-                            <li>Bank: <?php echo esc_html( $payment_details['bank'] ?? '—' ); ?></li>
-                            <?php if ( ! empty( $payment_details['omschrijving'] ) ) : ?>
-                                <li>Omschrijving: <?php echo esc_html( $payment_details['omschrijving'] ); ?></li>
+                        <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
+                            <h4>Inschrijfformulier (PDF)</h4>
+                            <?php if ( $application_pdf_url ) : ?>
+                                <div style="border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; background:#f8fafc; margin-bottom:12px;">
+                                    <iframe src="<?php echo esc_url( $application_pdf_embed_url ); ?>" title="Inschrijfformulier" style="width:100%; height:520px; border:0;" loading="lazy"></iframe>
+                                </div>
+                                <a class="button" href="<?php echo esc_url( $application_pdf_url ); ?>" target="_blank" rel="noopener noreferrer">Bekijk inschrijfformulier</a>
+                            <?php else : ?>
+                                <p class="description">Het inschrijfformulier is nog niet beschikbaar.</p>
                             <?php endif; ?>
-                            <li>Kenmerk: <?php echo esc_html( $payment_reference ? $payment_reference : '—' ); ?></li>
-                        </ul>                        
+                        </div>                   
                         <label style="display:block; margin-bottom:8px;">
                             <input type="checkbox" name="ggr_contract_signed_admin" value="1" <?php checked( (bool) $contract_signed_at, true ); ?> />
                             Contract ondertekend
                         </label>
-                        <div class="ggr-admin-inline-field">
-                            <label for="ggr_contract_signature_admin">Handtekening / notitie</label>
-                            <textarea name="ggr_contract_signature_admin" id="ggr_contract_signature_admin" rows="3" style="width:100%;"><?php echo esc_textarea( get_user_meta( $user_id, 'ggr_contract_signature_admin', true ) ); ?></textarea>
-                            <p class="description">Gebruik dit veld voor een opgeslagen handtekening of referentie naar het ondertekende document.</p>
-                        </div>
-
                         <?php if ( $contract_signed_label ) : ?>
                             <p class="ggr-admin-meta-note">Lead heeft de overeenkomst bevestigd op: <?php echo esc_html( $contract_signed_label ); ?>.</p>
                         <?php endif; ?>
 
-                        <?php if ( $contract_preview_url ) : ?>
-                            <p class="ggr-admin-meta-note">Ondertekend document: <a href="<?php echo esc_url( $contract_preview_url ); ?>" target="_blank" rel="noopener noreferrer">bekijk document</a>.</p>                            
-                            <?php if ( $existing_signature_image = get_user_meta( $user_id, 'ggr_contract_signature', true ) ) : ?>
-                                <p class="ggr-admin-meta-note">Opgeslagen handtekening van deelnemer:</p>
-                                <img src="<?php echo esc_url( $existing_signature_image ); ?>" alt="Handtekening" style="max-width:320px; border:1px solid #e5e7eb; padding:6px; border-radius:4px; background:#fff;">
+                        <?php
+                        $signature_name = trim( $kyc_first_name . ' ' . $kyc_last_name );
+                        if ( '' === $signature_name ) {
+                            $signature_name = $user->display_name;
+                        }
+                        $co_signature_name = trim( $co_first_name . ' ' . $co_last_name );
+                        $existing_signature_image    = get_user_meta( $user_id, 'ggr_contract_signature', true );
+                        $existing_signature_text     = get_user_meta( $user_id, 'ggr_contract_signature_text', true );
+                        $existing_co_signature_image = get_user_meta( $user_id, 'ggr_co_contract_signature', true );
+                        $existing_co_signature_text  = get_user_meta( $user_id, 'ggr_co_contract_signature_text', true );
+                        ?>
+                        <div class="ggr-admin-docs-grid" style="margin-top:12px;">
+                            <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
+                                <strong>Ondertekend door participant</strong>
+                                <p class="ggr-admin-meta-note"><?php echo esc_html( $existing_signature_text ? $existing_signature_text : $signature_name ); ?></p>
+                                <?php if ( $existing_signature_image ) : ?>
+                                    <img src="<?php echo esc_url( $existing_signature_image ); ?>" alt="Handtekening participant" style="max-width:320px; border:1px solid #e5e7eb; padding:6px; border-radius:4px; background:#fff;">
+                                <?php endif; ?>
+                            </div>
+                            <?php if ( $co_signature_name || $existing_co_signature_image || $existing_co_signature_text ) : ?>
+                                <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
+                                    <strong>Ondertekend door mede-participant</strong>
+                                    <p class="ggr-admin-meta-note"><?php echo esc_html( $existing_co_signature_text ? $existing_co_signature_text : ( $co_signature_name ? $co_signature_name : '—' ) ); ?></p>
+                                    <?php if ( $existing_co_signature_image ) : ?>
+                                        <img src="<?php echo esc_url( $existing_co_signature_image ); ?>" alt="Handtekening mede-participant" style="max-width:320px; border:1px solid #e5e7eb; padding:6px; border-radius:4px; background:#fff;">
+                                    <?php endif; ?>
+                                </div>
                             <?php endif; ?>
-
-                            <?php if ( $existing_signature_text = get_user_meta( $user_id, 'ggr_contract_signature_text', true ) ) : ?>
-                                <p class="ggr-admin-meta-note">Getypte handtekening: <?php echo esc_html( $existing_signature_text ); ?></p>
-                            <?php endif; ?>
-
-                            <?php if ( $existing_co_signature_image = get_user_meta( $user_id, 'ggr_co_contract_signature', true ) ) : ?>
-                                <p class="ggr-admin-meta-note">Opgeslagen handtekening mede-participant:</p>
-                                <img src="<?php echo esc_url( $existing_co_signature_image ); ?>" alt="Handtekening mede-participant" style="max-width:320px; border:1px solid #e5e7eb; padding:6px; border-radius:4px; background:#fff;">
-                            <?php endif; ?>
-
-                            <?php if ( $existing_co_signature_text = get_user_meta( $user_id, 'ggr_co_contract_signature_text', true ) ) : ?>
-                                <p class="ggr-admin-meta-note">Getypte handtekening mede-participant: <?php echo esc_html( $existing_co_signature_text ); ?></p>
-                            <?php endif; ?>
-                        <?php endif; ?>                        
+                        </div>                     
                     </td>
                 </tr>
             </table>
@@ -4502,6 +4650,17 @@ function ggr_portal_render_participant_profile_page() {
             <table class="form-table" role="presentation">
                 <tr>
                     <td>
+                        <p class="description">Betaalgegevens voor deze lead:</p>
+                        <ul class="ggr-admin-meta-list">
+                            <li>Inschrijfbedrag: <?php echo esc_html( $participation_amount ? $format_money( $participation_amount ) : '—' ); ?></li>
+                            <li>IBAN: <?php echo esc_html( $payment_details['iban'] ?? '—' ); ?></li>
+                            <li>Tenaamstelling: <?php echo esc_html( $payment_details['tenaam'] ?? '—' ); ?></li>
+                            <li>Bank: <?php echo esc_html( $payment_details['bank'] ?? '—' ); ?></li>
+                            <?php if ( ! empty( $payment_details['omschrijving'] ) ) : ?>
+                                <li>Omschrijving: <?php echo esc_html( $payment_details['omschrijving'] ); ?></li>
+                            <?php endif; ?>
+                            <li>Kenmerk: <?php echo esc_html( $payment_reference ? $payment_reference : '—' ); ?></li>
+                        </ul>                        
                         <label style="display:block; margin-bottom:8px;">
                             <input type="checkbox" name="ggr_payment_received" value="1" <?php checked( $payment_received, 1 ); ?> /> Betaling ontvangen en gecontroleerd
                         </label>
