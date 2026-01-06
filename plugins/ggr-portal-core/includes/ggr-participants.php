@@ -2194,6 +2194,8 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
 add_action( 'personal_options_update', 'ggr_portal_save_account_fields_in_profile' );
 add_action( 'edit_user_profile_update', 'ggr_portal_save_account_fields_in_profile' );
 add_action( 'admin_init', 'ggr_portal_handle_participant_profile_save' );
+add_action( 'admin_init', 'ggr_portal_handle_participant_onboarding_save' );
+add_action( 'admin_init', 'ggr_portal_handle_participant_account_save' );
 
 function ggr_portal_store_participant_profile_data( $user_id ) {
     $profile_timestamp = current_time( 'mysql' );
@@ -2785,6 +2787,110 @@ function ggr_portal_handle_participant_profile_save() {
             'page'    => 'ggr-participant-profiel',
             'user_id' => $user_id,
             'updated' => 1,
+        ],
+        admin_url( 'users.php' )
+    );
+    wp_safe_redirect( $redirect );
+    exit;
+}
+
+function ggr_portal_handle_participant_onboarding_save() {
+    if (
+        ! isset( $_POST['ggr_participant_onboarding_nonce'], $_POST['ggr_participant_user_id'] )
+        || ! wp_verify_nonce( $_POST['ggr_participant_onboarding_nonce'], 'ggr_participant_onboarding_save' )
+    ) {
+        return;
+    }
+
+    if ( ! current_user_can( 'list_users' ) ) {
+        return;
+    }
+
+    $user_id = (int) $_POST['ggr_participant_user_id'];
+    $user    = get_user_by( 'ID', $user_id );
+
+    if ( ! $user ) {
+        return;
+    }
+
+    $before_snapshot = function_exists( 'ggr_portal_get_participant_audit_snapshot' )
+        ? ggr_portal_get_participant_audit_snapshot( $user_id )
+        : array();
+
+    ggr_portal_store_participant_profile_data( $user_id );
+
+    if ( function_exists( 'ggr_portal_log_participant_profile_changes' ) ) {
+        ggr_portal_log_participant_profile_changes( $user_id, $before_snapshot );
+    }
+
+    $redirect = add_query_arg(
+        [
+            'page'    => 'ggr-participant-profiel',
+            'user_id' => $user_id,
+            'updated' => 'onboarding',
+        ],
+        admin_url( 'users.php' )
+    );
+    wp_safe_redirect( $redirect );
+    exit;
+}
+
+function ggr_portal_handle_participant_account_save() {
+    if (
+        ! isset( $_POST['ggr_participant_account_nonce'], $_POST['ggr_participant_user_id'] )
+        || ! wp_verify_nonce( $_POST['ggr_participant_account_nonce'], 'ggr_participant_account_save' )
+    ) {
+        return;
+    }
+
+    if ( ! current_user_can( 'list_users' ) ) {
+        return;
+    }
+
+    $user_id = (int) $_POST['ggr_participant_user_id'];
+    $user    = get_user_by( 'ID', $user_id );
+
+    if ( ! $user ) {
+        return;
+    }
+
+    $before_snapshot = function_exists( 'ggr_portal_get_participant_audit_snapshot' )
+        ? ggr_portal_get_participant_audit_snapshot( $user_id )
+        : array();
+
+    if ( ! empty( $_POST['ggr_new_password'] ) ) {
+        $new_pass = (string) wp_unslash( $_POST['ggr_new_password'] );
+        wp_update_user( [
+            'ID'        => $user_id,
+            'user_pass' => $new_pass,
+        ] );
+
+        if ( function_exists( 'ggr_portal_log_participant_action' ) ) {
+            ggr_portal_log_participant_action( $user_id, 'password_reset', 'Wachtwoord aangepast.', array() );
+        }
+    }
+
+    if ( current_user_can( 'promote_users' ) && isset( $_POST['ggr_role'] ) ) {
+        $new_role       = sanitize_text_field( wp_unslash( $_POST['ggr_role'] ) );
+        $editable_roles = get_editable_roles();
+        if ( isset( $editable_roles[ $new_role ] ) ) {
+            $user_obj = new WP_User( $user_id );
+            foreach ( $user_obj->roles as $role ) {
+                $user_obj->remove_role( $role );
+            }
+            $user_obj->add_role( $new_role );
+        }
+    }
+
+    if ( function_exists( 'ggr_portal_log_participant_profile_changes' ) ) {
+        ggr_portal_log_participant_profile_changes( $user_id, $before_snapshot );
+    }
+
+    $redirect = add_query_arg(
+        [
+            'page'    => 'ggr-participant-profiel',
+            'user_id' => $user_id,
+            'updated' => 'account',
         ],
         admin_url( 'users.php' )
     );
@@ -3719,10 +3825,23 @@ function ggr_portal_render_participant_profile_page() {
             }            
         </style>
 
-        <?php if ( isset( $_GET['updated'] ) && (int) $_GET['updated'] === 1 ) : ?>
-            <div class="notice notice-success is-dismissible">
-                <p>Profielgegevens opgeslagen.</p>
-            </div>
+        <?php if ( isset( $_GET['updated'] ) ) : ?>
+            <?php
+            $updated = sanitize_text_field( wp_unslash( $_GET['updated'] ) );
+            $updated_message = '';
+            if ( 'onboarding' === $updated ) {
+                $updated_message = __( 'Onboarding details opgeslagen.', 'ggr-portal' );
+            } elseif ( 'account' === $updated ) {
+                $updated_message = __( 'Account beheer opgeslagen.', 'ggr-portal' );
+            } elseif ( (int) $updated === 1 ) {
+                $updated_message = __( 'Profielgegevens opgeslagen.', 'ggr-portal' );
+            }
+            ?>
+            <?php if ( $updated_message ) : ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><?php echo esc_html( $updated_message ); ?></p>
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
 
         <?php
@@ -3759,13 +3878,15 @@ function ggr_portal_render_participant_profile_page() {
         })();
         </script>        
         
-        <form method="post" class="ggr-participant-form">
-            <?php wp_nonce_field( 'ggr_participant_profile_save', 'ggr_participant_profile_nonce' ); ?>
-            <input type="hidden" name="ggr_participant_user_id" value="<?php echo (int) $user_id; ?>" />
+        <?php if ( $is_lead ) : ?>
+            <form method="post" class="ggr-participant-form">
+                <?php wp_nonce_field( 'ggr_participant_profile_save', 'ggr_participant_profile_nonce' ); ?>
+                <input type="hidden" name="ggr_participant_user_id" value="<?php echo (int) $user_id; ?>" />
+        <?php endif; ?>
             <div class="ggr-admin-header-actions">
                 <a class="ggr-admin-back-link" href="<?php echo esc_url( admin_url( 'users.php?page=ggr-participant-overzicht' ) ); ?>">← Terug</a>
-                <?php if ( ! $is_lead ) : ?>
-                    <button type="submit" class="button button-primary">Wijzigingen opslaan</button>
+                <?php if ( $is_lead ) : ?>
+                    <button type="submit" class="button button-primary">Profiel opslaan</button>
                 <?php endif; ?>
             </div>
             
@@ -3968,9 +4089,12 @@ function ggr_portal_render_participant_profile_page() {
             <?php endif; ?>
 
             <?php if ( ! $is_lead ) : ?>
-                <details class="ggr-admin-crm-section">
-                    <summary>Onboarding details</summary>
-                    <div class="ggr-admin-crm-body">
+                <form method="post" class="ggr-participant-onboarding-form">
+                    <?php wp_nonce_field( 'ggr_participant_onboarding_save', 'ggr_participant_onboarding_nonce' ); ?>
+                    <input type="hidden" name="ggr_participant_user_id" value="<?php echo (int) $user_id; ?>" />
+                    <details class="ggr-admin-crm-section">
+                        <summary>Onboarding details</summary>
+                        <div class="ggr-admin-crm-body">
             <?php endif; ?>
 
             <?php if ( ! $is_lead ) : ?>
@@ -4713,8 +4837,12 @@ function ggr_portal_render_participant_profile_page() {
             </div>            
             <?php if ( ! $is_lead ) : ?>
             
+                        <div class="ggr-admin-crm-actions" style="margin-top:16px;">
+                            <button type="submit" class="button button-primary">Onboarding details opslaan</button>
+                        </div>
                     </div>
                 </details>
+                </form>
             <?php endif; ?>
 
             <?php if ( ! $is_lead ) : ?>
@@ -4993,9 +5121,12 @@ function ggr_portal_render_participant_profile_page() {
             <?php endif; ?>
 
             <?php if ( ! $is_lead ) : ?>
-                <details class="ggr-admin-crm-section">
-                    <summary>Account beheer</summary>
-                    <div class="ggr-admin-crm-body">
+                <form method="post" class="ggr-participant-account-form">
+                    <?php wp_nonce_field( 'ggr_participant_account_save', 'ggr_participant_account_nonce' ); ?>
+                    <input type="hidden" name="ggr_participant_user_id" value="<?php echo (int) $user_id; ?>" />
+                    <details class="ggr-admin-crm-section">
+                        <summary>Account beheer</summary>
+                        <div class="ggr-admin-crm-body">
 
                         <!-- WACHTWOORD -->
                         <h2 class="title">Wachtwoord beheer</h2>
@@ -5031,11 +5162,17 @@ function ggr_portal_render_participant_profile_page() {
                                 </td>
                             </tr>
                         </table>
+                        <div class="ggr-admin-crm-actions" style="margin-top:16px;">
+                            <button type="submit" class="button button-primary">Account beheer opslaan</button>
+                        </div>
                     </div>
                 </details>
+                </form>
             <?php endif; ?>
 
-            <?php submit_button( 'Profiel opslaan' ); ?>
+            <?php if ( $is_lead ) : ?>
+                <?php submit_button( 'Profiel opslaan' ); ?>
+            <?php endif; ?>
 
             <?php if ( $is_lead ) : ?>
                 <script>
@@ -5082,7 +5219,9 @@ function ggr_portal_render_participant_profile_page() {
                 })();
                 </script>
             <?php endif; ?>
-        </form>
+            <?php if ( $is_lead ) : ?>
+                </form>
+            <?php endif; ?>
     </div>
     <?php
 }
