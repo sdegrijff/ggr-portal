@@ -18,7 +18,7 @@ if ( ! defined( 'GGR_DIVIDEND_ACCRUAL_DB_VERSION' ) ) {
 add_action( 'plugins_loaded', 'ggr_maybe_create_dividend_accrual_table' );
 
 if ( ! defined( 'GGR_DIVIDEND_ACCRUAL_HISTORY_DB_VERSION' ) ) {
-    define( 'GGR_DIVIDEND_ACCRUAL_HISTORY_DB_VERSION', '1.3' );
+    define( 'GGR_DIVIDEND_ACCRUAL_HISTORY_DB_VERSION', '1.4' );
 }
 
 add_action( 'plugins_loaded', 'ggr_maybe_create_dividend_accrual_history_table' );
@@ -157,6 +157,13 @@ function ggr_upgrade_dividend_accrual_history_table( $installed_version ) {
             if ( ! in_array( 'code', $columns, true ) ) {
                 $wpdb->query( "ALTER TABLE {$table_name} ADD COLUMN code VARCHAR(10) DEFAULT NULL" );
             }
+        }
+    }
+
+    if ( version_compare( $installed_version, '1.4', '<' ) ) {
+        $columns = $wpdb->get_col( "SHOW COLUMNS FROM {$table_name}", 0 );
+        if ( is_array( $columns ) && ! in_array( 'statement_url', $columns, true ) ) {
+            $wpdb->query( "ALTER TABLE {$table_name} ADD COLUMN statement_url TEXT DEFAULT NULL" );
         }
     }
 }
@@ -1392,7 +1399,7 @@ function ggr_ibkr_accruals_store_entries( array $entries, $statement_url = '' ) 
             $entry['code'] ?? ''
         );
 
-        if ( $saved ) {
+        if ( ! is_wp_error( $saved ) ) {
             $imported++;
         }
 
