@@ -2885,7 +2885,7 @@ function ggr_onboarding_dashboard_shortcode() {
     }
 
     // Betaling doorgegeven door lead.
-    if ( 'transfer_completed' === $status && isset( $_POST['ggr_payment_confirm'] ) ) {
+    if ( in_array( $status, array( 'transfer_funds', 'transfer_review', 'transfer_completed' ), true ) && isset( $_POST['ggr_payment_confirm'] ) ) {
         if ( ! isset( $_POST['ggr_payment_confirm_nonce'] ) || ! wp_verify_nonce( $_POST['ggr_payment_confirm_nonce'], 'ggr_payment_confirm' ) ) {
             $messages['error'][] = 'Je bevestiging kon niet worden opgeslagen. Probeer het opnieuw.';
         } else {
@@ -2895,13 +2895,19 @@ function ggr_onboarding_dashboard_shortcode() {
             $updated = current_time( 'mysql' );
             update_user_meta( $user_id, 'ggr_onboarding_updated_at', $updated );
             $updated_label = ggr_onboarding_format_datetime_label( $updated );
+
+            if ( 'transfer_funds' === $status || 'transfer_completed' === $status ) {
+                ggr_onboarding_update_status( $user_id, 'transfer_review' );
+                $status       = 'transfer_review';
+                $status_label = isset( $stages[ $status ] ) ? $stages[ $status ] : $status;
+            }
             
             if ( function_exists( 'ggr_meldingen_add' ) ) {
                 ggr_meldingen_add(
                     'Betaling bevestigd door lead',
                     sprintf( 'Gebruiker %s geeft aan het investeringsbedrag te hebben overgemaakt.', $user->display_name ),
                     $user_id,
-                    array( 'onboarding_status' => 'transfer_completed' )
+                    array( 'onboarding_status' => 'transfer_review' )
                 );
             }
 
@@ -2910,7 +2916,7 @@ function ggr_onboarding_dashboard_shortcode() {
     }
 
     // Aanvullende informatie na ondertekening.
-    if ( 'validating' === $status && isset( $_POST['ggr_collecting_extra_submit'] ) ) {
+    if ( in_array( $status, array( 'validating', 'extra_info' ), true ) && isset( $_POST['ggr_collecting_extra_submit'] ) ) {
         $extra_action = sanitize_text_field( wp_unslash( $_POST['ggr_collecting_extra_submit'] ) );
 
         if ( ! $extra_step_required ) {
@@ -3169,10 +3175,16 @@ function ggr_onboarding_dashboard_shortcode() {
                         'confirmed',
                         'collecting',
                         'sign_contract',
-                        'validating',                        
-                        'transfer_completed',
-                        'active_participant',
+                        'validating',
                     );
+
+                    if ( $extra_step_required || 'extra_info' === $status ) {
+                        $order[] = 'extra_info';
+                    }
+
+                    $order[] = 'transfer_funds';
+                    $order[] = 'transfer_review';
+                    $order[] = 'active_participant';
 
                     $current_index = array_search( $status, $order, true );
                     if ( $current_index === false ) {
@@ -3247,8 +3259,14 @@ function ggr_onboarding_dashboard_shortcode() {
                                             case 'sign_contract':
                                                 echo 'Je inschrijfformulier staat klaar om te controleren en te ondertekenen.';
                                                 break;
-                                            case 'transfer_completed':
-                                                echo 'Je storting is ontvangen en wordt verwerkt.';
+                                            case 'extra_info':
+                                                echo 'We hebben extra informatie nodig. Lever deze aan zodat we verder kunnen.';
+                                                break;
+                                            case 'transfer_funds':
+                                                echo 'Maak het investeringsbedrag over en bevestig je betaling.';
+                                                break;
+                                            case 'transfer_review':
+                                                echo 'We controleren je betaling en verwerken de eerste storting.';
                                                 break;
                                             case 'active_participant':
                                                 echo 'Je onboarding is afgerond. Je krijgt toegang tot het volledige GGR Portal.';
@@ -3337,11 +3355,11 @@ function ggr_onboarding_dashboard_shortcode() {
                             </div>
                         <?php endif; ?>
 
-                        <?php if ( 'validating' === $status ) : ?>
-                            <?php if ( $extra_step_required ) : ?>
+                        <?php if ( in_array( $status, array( 'validating', 'extra_info' ), true ) ) : ?>
+                            <?php if ( 'extra_info' === $status && $extra_step_required ) : ?>
                                 <div class="ggr-onboarding-step-card">
                                     <div class="ggr-onboarding-step-text">
-                                        <h3 class="ggr-onboarding-step-heading">Aanvullende informatie aanleveren</h3>
+                                        <h3 class="ggr-onboarding-step-heading"><?php echo esc_html( $extra_step_label ); ?></h3>
                                         <p class="ggr-onboarding-step-description">We hebben nog aanvullende informatie nodig om je inschrijfformulier te kunnen controleren.</p>
                                     </div>
                                     <form method="post" enctype="multipart/form-data" class="ggr-onboarding-form">
@@ -3524,10 +3542,12 @@ function ggr_onboarding_dashboard_shortcode() {
                                     <button type="submit" name="ggr_sign_contract_confirm" value="1" class="ggr-onboarding-button ggr-onboarding-button--primary">Ik heb gecontroleerd en teken</button>
                                 </form>
                             </div>
-                        <?php elseif ( 'transfer_completed' === $status ) : ?>
+                        <?php elseif ( 'transfer_funds' === $status || 'transfer_review' === $status ) : ?>
                             <div class="ggr-onboarding-step-card">
                                 <div class="ggr-onboarding-step-text">
-                                    <h3 class="ggr-onboarding-step-heading">Rond de betaling af</h3>
+                                    <h3 class="ggr-onboarding-step-heading">
+                                        <?php echo ( 'transfer_review' === $status ) ? 'Betaling wordt gecontroleerd' : 'Rond de betaling af'; ?>
+                                    </h3>
                                    <p class="ggr-onboarding-step-description">Maak het overeengekomen bedrag van <strong><?php echo esc_html( $amount_display ); ?></strong> over naar onze rekening. Zodra we de betaling hebben gecontroleerd, staat het bedrag definitief in je profiel.</p>
                                 </div>
                                 <div class="ggr-onboarding-alert">
@@ -3548,8 +3568,10 @@ function ggr_onboarding_dashboard_shortcode() {
                                     </ul>
                                 </div>
                                 <form method="post" class="ggr-onboarding-form">
-                                    <?php wp_nonce_field( 'ggr_payment_confirm', 'ggr_payment_confirm_nonce' ); ?>
-                                    <button type="submit" name="ggr_payment_confirm" value="1" class="ggr-onboarding-button ggr-onboarding-button--primary">Ik heb het bedrag overgemaakt</button>
+                                    <?php if ( 'transfer_funds' === $status ) : ?>
+                                        <?php wp_nonce_field( 'ggr_payment_confirm', 'ggr_payment_confirm_nonce' ); ?>
+                                        <button type="submit" name="ggr_payment_confirm" value="1" class="ggr-onboarding-button ggr-onboarding-button--primary">Ik heb het bedrag overgemaakt</button>
+                                    <?php endif; ?>
                                     <?php if ( $payment_confirmation_label ) : ?>
                                         <p class="ggr-onboarding-muted" style="margin-top:8px;">Laatste bevestiging: <?php echo esc_html( $payment_confirmation_label ); ?>.</p>
                                     <?php endif; ?>
@@ -3557,6 +3579,8 @@ function ggr_onboarding_dashboard_shortcode() {
                                         <p class="ggr-onboarding-muted" style="margin-top:4px;">
                                             Betaling ontvangen<?php echo $payment_received_at_label ? ' op ' . esc_html( $payment_received_at_label ) : ''; ?>. De eerste handelsdag wordt binnenkort bevestigd.
                                         </p>
+                                    <?php elseif ( 'transfer_review' === $status ) : ?>
+                                        <p class="ggr-onboarding-muted" style="margin-top:4px;">We controleren je betaling. Je ontvangt bericht zodra deze is verwerkt.</p>                                        
                                     <?php endif; ?>
                                 </form>
                             </div>
@@ -5130,9 +5154,27 @@ if ( ! function_exists( 'ggr_onboarding_get_side_block_content' ) ) {
                 );
                 break;
 
-            case 'transfer_completed':
-                $content['title']       = 'Je storting wordt verwerkt';
-                $content['description'] = 'De storting is gedaan en wordt verwerkt in onze administratie.';
+            case 'extra_info':
+                $content['title']       = 'Aanvullende informatie nodig';
+                $content['description'] = 'We hebben extra informatie nodig om je onboarding af te ronden.';
+                $content['bullets']     = array(
+                    'Vul de gevraagde toelichting in.',
+                    'Upload eventuele aanvullende documenten.',
+                );
+                break;
+
+            case 'transfer_funds':
+                $content['title']       = 'Maak het investeringsbedrag over';
+                $content['description'] = 'Maak het bedrag over volgens de betaalinstructies en bevestig je betaling.';
+                $content['bullets']     = array(
+                    'Gebruik het juiste kenmerk/omschrijving.',
+                    'Bevestig je betaling in het portal.',
+                );
+                break;
+
+            case 'transfer_review':
+                $content['title']       = 'Je betaling wordt gecontroleerd';
+                $content['description'] = 'We controleren je betaling en verwerken de storting.';
                 $content['bullets']     = array(
                     'Bewaar je betalingsbewijs voor je eigen administratie.',
                     'Zodra alles verwerkt is, verschijnt je positie in het portal.',
