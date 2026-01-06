@@ -175,7 +175,22 @@ function ggr_dividend_accruals_parse_date( $raw_date ) {
         return ggr_portal_parse_date_to_mysql( $raw_date );
     }
 
-    $timestamp = strtotime( (string) $raw_date );
+    $raw_date = trim( (string) $raw_date );
+
+    if ( $raw_date !== '' ) {
+        if ( preg_match( '/^(\d{8})(?:\D.*)?$/', $raw_date, $matches ) ) {
+            $date_string = $matches[1];
+            $year  = (int) substr( $date_string, 0, 4 );
+            $month = (int) substr( $date_string, 4, 2 );
+            $day   = (int) substr( $date_string, 6, 2 );
+
+            if ( checkdate( $month, $day, $year ) ) {
+                return sprintf( '%04d-%02d-%02d', $year, $month, $day );
+            }
+        }
+    }
+
+    $timestamp = strtotime( $raw_date );
     return $timestamp ? date( 'Y-m-d', $timestamp ) : '';
 }
 
@@ -773,17 +788,12 @@ function ggr_ibkr_accruals_set_last_run( $imported, $latest_report_date = '', $s
         $total_count = $imported;
     }
 
-    if ( $duplicate_count === null ) {
-        $duplicate_count = 0;
-    }
-
     update_option(
         'ggr_ibkr_accruals_last_run',
         array(
             'timestamp'     => current_time( 'timestamp' ),
             'count'         => (int) $total_count,
             'imported'      => (int) $imported,
-            'duplicates'    => (int) $duplicate_count,
             'report_date'   => $latest_report_date,
             'statement_url' => $statement_url ? esc_url_raw( $statement_url ) : '',
         ),
@@ -960,9 +970,6 @@ function ggr_ibkr_accruals_refresh_last_run_from_history() {
         if ( isset( $existing['statement_url'] ) ) {
             $last_run['statement_url'] = $existing['statement_url'];
         }
-        if ( isset( $existing['duplicates'] ) ) {
-            $last_run['duplicates'] = $existing['duplicates'];
-        }
         if ( isset( $existing['imported'] ) ) {
             $last_run['imported'] = $existing['imported'];
         }
@@ -1118,7 +1125,6 @@ function ggr_ibkr_accruals_parse_statement_dom( $body, $statement_date ) {
 
     $entries = array();
     $total_count = 0;
-    $duplicate_count = 0;
 
     foreach ( $nodes as $node ) {
         if ( ! $node instanceof DOMElement ) {
@@ -1152,18 +1158,13 @@ function ggr_ibkr_accruals_parse_statement_dom( $body, $statement_date ) {
 
         $total_count++;
 
-        if ( isset( $entries[ $entry['action_id'] ] ) ) {
-            $duplicate_count++;
-            continue;
-        }
-
-        $entries[ $entry['action_id'] ] = $entry;
+        $entries[] = $entry;
     }
 
     return array(
-        'entries'         => array_values( $entries ),
+        'entries'         => $entries,
         'total_count'     => $total_count,
-        'duplicate_count' => $duplicate_count,
+        'duplicate_count' => 0,
     );
 }
 
@@ -1182,7 +1183,6 @@ function ggr_ibkr_accruals_parse_statement_regex( $body, $statement_date ) {
 
     $entries = array();
     $total_count = 0;
-    $duplicate_count = 0;
 
     foreach ( $matches[1] as $attribute_block ) {
         $attr_matches = array();
@@ -1229,18 +1229,13 @@ function ggr_ibkr_accruals_parse_statement_regex( $body, $statement_date ) {
 
         $total_count++;
 
-        if ( isset( $entries[ $entry['action_id'] ] ) ) {
-            $duplicate_count++;
-            continue;
-        }
-
-        $entries[ $entry['action_id'] ] = $entry;
+        $entries[] = $entry;
     }
 
     return array(
-        'entries'         => array_values( $entries ),
+        'entries'         => $entries,
         'total_count'     => $total_count,
-        'duplicate_count' => $duplicate_count,
+        'duplicate_count' => 0,
     );
 }
 
@@ -1280,7 +1275,6 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
 
     $entries = array();
     $total_count = 0;
-    $duplicate_count = 0;
 
     foreach ( $nodes_to_parse as $node ) {
         if ( ! $node instanceof SimpleXMLElement ) {
@@ -1314,12 +1308,7 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
 
         $total_count++;
 
-        if ( isset( $entries[ $entry['action_id'] ] ) ) {
-            $duplicate_count++;
-            continue;
-        }
-
-        $entries[ $entry['action_id'] ] = $entry;
+        $entries[] = $entry;
     }
 
     if ( $total_count === 0 ) {
@@ -1339,9 +1328,9 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
     }
 
     return array(
-        'entries'         => array_values( $entries ),
+        'entries'         => $entries,
         'total_count'     => $total_count,
-        'duplicate_count' => $duplicate_count,
+        'duplicate_count' => 0,
     );
 }
 
@@ -1444,7 +1433,6 @@ function ggr_ibkr_accruals_fetch_and_store() {
             'dividend_imported_count'  => (string) $store_result['imported'],
             'dividend_report_date'     => $store_result['report_date'],
             'dividend_total_count'     => (string) $result['total_count'],
-            'dividend_duplicate_count' => (string) $result['duplicate_count'],
             'dividend_statement_url'   => $result['statement_url'],
         );
 
@@ -1948,9 +1936,8 @@ function ggr_render_dividend_accrual_page() {
             $store_result = ggr_ibkr_accruals_store_entries( $result['entries'], $result['statement_url'] );
             ggr_ibkr_accruals_set_last_run( $store_result['imported'], $store_result['report_date'], $result['statement_url'] );
             $history_notice = sprintf(
-                'IBKR dividend accruals historie geïmporteerd: %d items gevonden, %d duplicates uitgesloten, %d items opgeslagen.',
+                'IBKR dividend accruals historie geïmporteerd: %d items gevonden, %d items opgeslagen.',
                 (int) $result['total_count'],
-                (int) $result['duplicate_count'],
                 (int) $store_result['imported']
             );
             ggr_ibkr_accruals_clear_last_error();
@@ -2246,14 +2233,11 @@ function ggr_render_dividend_accrual_page() {
                     <p>
                         <strong>Laatste Dividend Accruals: </strong><?php echo esc_html( wp_date( 'd-m-Y H:i', (int) $ibkr_accruals_status['last_run']['timestamp'] ) ); ?>
                         (<?php echo esc_html( (int) $ibkr_accruals_status['last_run']['count'] ); ?> items gevonden
-                        <?php if ( isset( $ibkr_accruals_status['last_run']['duplicates'] ) ) : ?>
-                            , <?php echo esc_html( (int) $ibkr_accruals_status['last_run']['duplicates'] ); ?> duplicates
-                        <?php endif; ?>
                         <?php if ( isset( $ibkr_accruals_status['last_run']['imported'] ) ) : ?>
                             , <?php echo esc_html( (int) $ibkr_accruals_status['last_run']['imported'] ); ?> opgeslagen
                         <?php endif; ?>
                         <?php if ( ! empty( $ibkr_accruals_status['last_run']['report_date'] ) ) : ?>
-                            , reportdatum: <?php echo esc_html( wp_date( 'd-m-Y', strtotime( $ibkr_accruals_status['last_run']['report_date'] ) ) ); ?>
+                            , ex-date: <?php echo esc_html( wp_date( 'd-m-Y', strtotime( $ibkr_accruals_status['last_run']['report_date'] ) ) ); ?>
                         <?php endif; ?>
                         ).
                         <?php if ( ! empty( $ibkr_accruals_status['last_run']['statement_url'] ) ) : ?>
