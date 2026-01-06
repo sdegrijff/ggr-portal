@@ -18,7 +18,7 @@ if ( ! defined( 'GGR_DIVIDEND_ACCRUAL_DB_VERSION' ) ) {
 add_action( 'plugins_loaded', 'ggr_maybe_create_dividend_accrual_table' );
 
 if ( ! defined( 'GGR_DIVIDEND_ACCRUAL_HISTORY_DB_VERSION' ) ) {
-    define( 'GGR_DIVIDEND_ACCRUAL_HISTORY_DB_VERSION', '1.2' );
+    define( 'GGR_DIVIDEND_ACCRUAL_HISTORY_DB_VERSION', '1.3' );
 }
 
 add_action( 'plugins_loaded', 'ggr_maybe_create_dividend_accrual_history_table' );
@@ -81,9 +81,11 @@ function ggr_create_dividend_accrual_history_table() {
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             action_id VARCHAR(100) NOT NULL,
             report_date DATE NOT NULL,
+            currency VARCHAR(10) DEFAULT NULL,            
             gross_value DECIMAL(20,4) NOT NULL,
             tax_value DECIMAL(20,4) NOT NULL,
             net_amount DECIMAL(20,4) NOT NULL,
+            code VARCHAR(10) DEFAULT NULL,            
             statement_url TEXT DEFAULT NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
@@ -110,10 +112,6 @@ function ggr_maybe_create_dividend_accrual_history_table() {
 }
 
 function ggr_upgrade_dividend_accrual_history_table( $installed_version ) {
-    if ( version_compare( $installed_version, '1.1', '>=' ) ) {
-        return;
-    }
-
     global $wpdb;
     $table_name = $wpdb->prefix . 'ggr_dividend_accrual_history';
 
@@ -125,29 +123,41 @@ function ggr_upgrade_dividend_accrual_history_table( $installed_version ) {
         return;
     }
 
-    $duplicates = $wpdb->get_results(
-        "SELECT action_id, MAX(id) AS keep_id, COUNT(*) AS total
-         FROM {$table_name}
-         GROUP BY action_id
-         HAVING COUNT(*) > 1",
-        ARRAY_A
-    );
+    if ( version_compare( $installed_version, '1.1', '<' ) ) {
+        $duplicates = $wpdb->get_results(
+            "SELECT action_id, MAX(id) AS keep_id, COUNT(*) AS total
+             FROM {$table_name}
+             GROUP BY action_id
+             HAVING COUNT(*) > 1",
+            ARRAY_A
+        );
 
-    if ( empty( $duplicates ) ) {
-        return;
+        if ( ! empty( $duplicates ) ) {
+            foreach ( $duplicates as $duplicate ) {
+                $action_id = $duplicate['action_id'];
+                $keep_id   = (int) $duplicate['keep_id'];
+
+                $wpdb->query(
+                    $wpdb->prepare(
+                        "DELETE FROM {$table_name} WHERE action_id = %s AND id <> %d",
+                        $action_id,
+                        $keep_id
+                    )
+                );
+            }
+        }
     }
 
-    foreach ( $duplicates as $duplicate ) {
-        $action_id = $duplicate['action_id'];
-        $keep_id   = (int) $duplicate['keep_id'];
-
-        $wpdb->query(
-            $wpdb->prepare(
-                "DELETE FROM {$table_name} WHERE action_id = %s AND id <> %d",
-                $action_id,
-                $keep_id
-            )
-        );
+    if ( version_compare( $installed_version, '1.3', '<' ) ) {
+        $columns = $wpdb->get_col( "SHOW COLUMNS FROM {$table_name}", 0 );
+        if ( is_array( $columns ) ) {
+            if ( ! in_array( 'currency', $columns, true ) ) {
+                $wpdb->query( "ALTER TABLE {$table_name} ADD COLUMN currency VARCHAR(10) DEFAULT NULL" );
+            }
+            if ( ! in_array( 'code', $columns, true ) ) {
+                $wpdb->query( "ALTER TABLE {$table_name} ADD COLUMN code VARCHAR(10) DEFAULT NULL" );
+            }
+        }
     }
 }
 
@@ -404,15 +414,26 @@ function ggr_dividend_accruals_upsert( $date, $gross_total, $total_participation
     return $inserted ? (int) $wpdb->insert_id : new WP_Error( 'insert_failed', 'Opslaan is mislukt.' );
 }
 
-function ggr_dividend_accrual_history_upsert( $action_id, $report_date, $gross_value, $tax_value, $net_amount, $statement_url = '' ) {
+function ggr_dividend_accrual_history_upsert(
+    $action_id,
+    $report_date,
+    $gross_value,
+    $tax_value,
+    $net_amount,
+    $statement_url = '',
+    $currency = '',
+    $code = ''
+) {
     global $wpdb;
 
     $table_name  = $wpdb->prefix . 'ggr_dividend_accrual_history';
     $action_id   = trim( (string) $action_id );
     $report_date = ggr_dividend_accruals_parse_date( $report_date );
+    $currency    = ggr_dividend_accruals_normalize_currency( $currency );
+    $code        = strtoupper( trim( (string) $code ) );    
 
     if ( ! $action_id || ! $report_date ) {
-        return new WP_Error( 'invalid_data', 'Transaction ID en reportdate zijn verplicht.' );
+        return new WP_Error( 'invalid_data', 'Action ID en ex-date zijn verplicht.' );
     }
 
     $gross_value = (float) $gross_value;
@@ -433,14 +454,16 @@ function ggr_dividend_accrual_history_upsert( $action_id, $report_date, $gross_v
             $table_name,
             array(
                 'report_date' => $report_date,
+                'currency'    => $currency,
                 'gross_value' => $gross_value,
                 'tax_value'   => $tax_value,
                 'net_amount'  => $net_amount,
+                'code'        => $code,
                 'statement_url' => $statement_url,
                 'updated_at'  => $now,
             ),
             array( 'id' => (int) $existing_id ),
-            array( '%s', '%f', '%f', '%f', '%s', '%s' ),
+            array( '%s', '%s', '%f', '%f', '%f', '%s', '%s', '%s' ),
             array( '%d' )
         );
 
@@ -452,14 +475,16 @@ function ggr_dividend_accrual_history_upsert( $action_id, $report_date, $gross_v
         array(
             'action_id'     => $action_id,
             'report_date'   => $report_date,
+            'currency'      => $currency,
             'gross_value'   => $gross_value,
             'tax_value'     => $tax_value,
             'net_amount'    => $net_amount,
+            'code'          => $code,
             'statement_url' => $statement_url,
             'created_at'    => $now,
             'updated_at'    => $now,
         ),
-        array( '%s', '%s', '%f', '%f', '%f', '%s', '%s', '%s' )
+        array( '%s', '%s', '%s', '%f', '%f', '%f', '%s', '%s', '%s', '%s' )
     );
 
     return $inserted ? (int) $wpdb->insert_id : new WP_Error( 'insert_failed', 'Opslaan is mislukt.' );
@@ -1017,6 +1042,50 @@ function ggr_ibkr_accruals_dom_get_attribute( DOMElement $node, array $keys ) {
     return '';
 }
 
+function ggr_ibkr_accruals_format_entry(
+    $action_id_raw,
+    $ex_date_raw,
+    $report_raw,
+    $currency_raw,
+    $gross_raw,
+    $tax_raw,
+    $net_raw,
+    $code_raw,
+    $statement_date
+) {
+    $action_id = $action_id_raw ? trim( $action_id_raw ) : '';
+    if ( ! $action_id ) {
+        return null;
+    }
+
+    $code = strtoupper( trim( (string) $code_raw ) );
+    if ( 'PO' !== $code ) {
+        return null;
+    }
+
+    $ex_date = $ex_date_raw ? ggr_dividend_accruals_parse_date( $ex_date_raw ) : '';
+    $report_date = $ex_date ? $ex_date : ( $report_raw ? ggr_dividend_accruals_parse_date( $report_raw ) : $statement_date );
+
+    if ( ! $report_date ) {
+        return null;
+    }
+
+    $currency = ggr_dividend_accruals_normalize_currency( $currency_raw );
+    $gross_value = ggr_dividend_accruals_parse_float( $gross_raw );
+    $tax_value   = $tax_raw !== '' ? ggr_dividend_accruals_parse_float( $tax_raw ) : 0.0;
+    $net_amount  = $net_raw !== '' ? ggr_dividend_accruals_parse_float( $net_raw ) : 0.0;
+
+    return array(
+        'action_id'   => $action_id,
+        'report_date' => $report_date,
+        'currency'    => $currency,
+        'gross_value' => $gross_value,
+        'tax_value'   => $tax_value,
+        'net_amount'  => $net_amount,
+        'code'        => $code,
+    );
+}
+
 function ggr_ibkr_accruals_parse_statement_dom( $body, $statement_date ) {
     $dom = new DOMDocument();
     $previous = libxml_use_internal_errors( true );
@@ -1057,33 +1126,38 @@ function ggr_ibkr_accruals_parse_statement_dom( $body, $statement_date ) {
         }
 
         $action_id_raw = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'transactionID', 'transactionId', 'transaction_id', 'actionID', 'actionId', 'action_id', 'id' ) );
-        $report_raw    = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'reportDate', 'report_date', 'date' ) );
-        $gross_raw     = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'amount', 'grossValue', 'grossAmount', 'gross' ) );
+        $ex_date_raw  = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'exDate', 'ex_date', 'ex-date' ) );
+        $report_raw   = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'reportDate', 'report_date', 'date' ) );
+        $currency_raw = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'currency', 'currencyCode', 'currency_code' ) );
+        $gross_raw    = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'grossAmount', 'grossValue', 'gross', 'amount' ) );
+        $tax_raw      = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'tax', 'taxAmount', 'withholdingTax', 'withholdingTaxAmount' ) );
+        $net_raw      = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'netAmount', 'net', 'netValue' ) );
+        $code_raw     = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'code', 'transactionType', 'type' ) );
 
-        $action_id = $action_id_raw ? trim( $action_id_raw ) : '';
-        $report_date = $report_raw ? ggr_dividend_accruals_parse_date( $report_raw ) : $statement_date;
-        $gross_value = ggr_dividend_accruals_parse_float( $gross_raw );
-        $tax_value   = round( $gross_value * 0.15, 4 );
-        $net_amount  = round( $gross_value - $tax_value, 4 );
+        $entry = ggr_ibkr_accruals_format_entry(
+            $action_id_raw,
+            $ex_date_raw,
+            $report_raw,
+            $currency_raw,
+            $gross_raw,
+            $tax_raw,
+            $net_raw,
+            $code_raw,
+            $statement_date
+        );
 
-        if ( ! $action_id || ! $report_date ) {
+        if ( ! $entry ) {
             continue;
         }
 
         $total_count++;
 
-        if ( isset( $entries[ $action_id ] ) ) {
+        if ( isset( $entries[ $entry['action_id'] ] ) ) {
             $duplicate_count++;
             continue;
         }
 
-        $entries[ $action_id ] = array(
-            'action_id'   => $action_id,
-            'report_date' => $report_date,
-            'gross_value' => $gross_value,
-            'tax_value'   => $tax_value,
-            'net_amount'  => $net_amount,
-        );
+        $entries[ $entry['action_id'] ] = $entry;
     }
 
     return array(
@@ -1129,33 +1203,38 @@ function ggr_ibkr_accruals_parse_statement_regex( $body, $statement_date ) {
         }
 
         $action_id_raw = $attributes['transactionid'] ?? $attributes['transaction_id'] ?? $attributes['actionid'] ?? $attributes['action_id'] ?? $attributes['id'] ?? '';
+        $ex_date_raw   = $attributes['exdate'] ?? $attributes['ex_date'] ?? $attributes['ex-date'] ?? '';        
         $report_raw    = $attributes['reportdate'] ?? $attributes['report_date'] ?? $attributes['date'] ?? '';
-        $gross_raw     = $attributes['amount'] ?? $attributes['grossvalue'] ?? $attributes['grossamount'] ?? $attributes['gross'] ?? '';
+        $currency_raw  = $attributes['currency'] ?? $attributes['currencycode'] ?? $attributes['currency_code'] ?? '';
+        $gross_raw     = $attributes['grossamount'] ?? $attributes['grossvalue'] ?? $attributes['gross'] ?? $attributes['amount'] ?? '';
+        $tax_raw       = $attributes['tax'] ?? $attributes['taxamount'] ?? $attributes['withholdingtax'] ?? $attributes['withholdingtaxamount'] ?? '';
+        $net_raw       = $attributes['netamount'] ?? $attributes['net'] ?? $attributes['netvalue'] ?? '';
+        $code_raw      = $attributes['code'] ?? $attributes['transactiontype'] ?? $attributes['type'] ?? '';
 
-        $action_id = $action_id_raw ? trim( $action_id_raw ) : '';
-        $report_date = $report_raw ? ggr_dividend_accruals_parse_date( $report_raw ) : $statement_date;
-        $gross_value = ggr_dividend_accruals_parse_float( $gross_raw );
-        $tax_value   = round( $gross_value * 0.15, 4 );
-        $net_amount  = round( $gross_value - $tax_value, 4 );
+        $entry = ggr_ibkr_accruals_format_entry(
+            $action_id_raw,
+            $ex_date_raw,
+            $report_raw,
+            $currency_raw,
+            $gross_raw,
+            $tax_raw,
+            $net_raw,
+            $code_raw,
+            $statement_date
+        );
 
-        if ( ! $action_id || ! $report_date ) {
+        if ( ! $entry ) {
             continue;
         }
 
         $total_count++;
 
-        if ( isset( $entries[ $action_id ] ) ) {
+        if ( isset( $entries[ $entry['action_id'] ] ) ) {
             $duplicate_count++;
             continue;
         }
 
-        $entries[ $action_id ] = array(
-            'action_id'   => $action_id,
-            'report_date' => $report_date,
-            'gross_value' => $gross_value,
-            'tax_value'   => $tax_value,
-            'net_amount'  => $net_amount,
-        );
+        $entries[ $entry['action_id'] ] = $entry;
     }
 
     return array(
@@ -1192,19 +1271,12 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
         $nodes = $xml->xpath( '//*[local-name()!=""]' );
     }
 
-    $cash_nodes = $xml->xpath( '//CashTransaction' );
     $accrual_nodes = $xml->xpath( '//ChangeInDividendAccrual' );
 
-    if ( empty( $cash_nodes ) ) {
-        $cash_nodes = $xml->xpath( '//*[local-name()="CashTransaction"]' );
-    }
-    
     if ( empty( $accrual_nodes ) ) {
         $accrual_nodes = $xml->xpath( '//*[local-name()="ChangeInDividendAccrual"]' );
     }
-    $nodes_to_parse = ! empty( $cash_nodes )
-        ? $cash_nodes
-        : ( ! empty( $accrual_nodes ) ? $accrual_nodes : $nodes );
+    $nodes_to_parse = ! empty( $accrual_nodes ) ? $accrual_nodes : $nodes;
 
     $entries = array();
     $total_count = 0;
@@ -1216,33 +1288,38 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
         }
 
         $action_id_raw = ggr_ibkr_accruals_get_value( $node, array( 'transactionID', 'transactionId', 'transaction_id', 'actionID', 'actionId', 'action_id', 'id' ) );
+        $ex_date_raw   = ggr_ibkr_accruals_get_value( $node, array( 'exDate', 'ex_date', 'ex-date' ) );        
         $report_raw    = ggr_ibkr_accruals_get_value( $node, array( 'reportDate', 'report_date', 'date' ) );
-        $gross_raw     = ggr_ibkr_accruals_get_value( $node, array( 'amount', 'grossValue', 'grossAmount', 'gross' ) );
+        $currency_raw  = ggr_ibkr_accruals_get_value( $node, array( 'currency', 'currencyCode', 'currency_code' ) );
+        $gross_raw     = ggr_ibkr_accruals_get_value( $node, array( 'grossAmount', 'grossValue', 'gross', 'amount' ) );
+        $tax_raw       = ggr_ibkr_accruals_get_value( $node, array( 'tax', 'taxAmount', 'withholdingTax', 'withholdingTaxAmount' ) );
+        $net_raw       = ggr_ibkr_accruals_get_value( $node, array( 'netAmount', 'net', 'netValue' ) );
+        $code_raw      = ggr_ibkr_accruals_get_value( $node, array( 'code', 'transactionType', 'type' ) );
 
-        $action_id = $action_id_raw ? trim( $action_id_raw ) : '';
-        $report_date = $report_raw ? ggr_dividend_accruals_parse_date( $report_raw ) : $statement_date;
-        $gross_value = ggr_dividend_accruals_parse_float( $gross_raw );
-        $tax_value   = round( $gross_value * 0.15, 4 );
-        $net_amount  = round( $gross_value - $tax_value, 4 );
+        $entry = ggr_ibkr_accruals_format_entry(
+            $action_id_raw,
+            $ex_date_raw,
+            $report_raw,
+            $currency_raw,
+            $gross_raw,
+            $tax_raw,
+            $net_raw,
+            $code_raw,
+            $statement_date
+        );
 
-        if ( ! $action_id || ! $report_date ) {
+        if ( ! $entry ) {
             continue;
         }
 
         $total_count++;
 
-        if ( isset( $entries[ $action_id ] ) ) {
+        if ( isset( $entries[ $entry['action_id'] ] ) ) {
             $duplicate_count++;
             continue;
         }
 
-        $entries[ $action_id ] = array(
-            'action_id'   => $action_id,
-            'report_date' => $report_date,
-            'gross_value' => $gross_value,
-            'tax_value'   => $tax_value,
-            'net_amount'  => $net_amount,
-        );
+        $entries[ $entry['action_id'] ] = $entry;
     }
 
     if ( $total_count === 0 ) {
@@ -1321,7 +1398,9 @@ function ggr_ibkr_accruals_store_entries( array $entries, $statement_url = '' ) 
             $entry['gross_value'],
             $entry['tax_value'],
             $entry['net_amount'],
-            $statement_url
+            $statement_url,
+            $entry['currency'] ?? '',
+            $entry['code'] ?? ''
         );
 
         if ( $saved ) {
@@ -1552,7 +1631,7 @@ function ggr_render_dividend_accrual_page() {
         if ( $_GET['history_msg'] === 'deleted' ) {
             $history_notice = 'Transactie historie verwijderd.';
         } elseif ( $_GET['history_msg'] === 'deleted_all' ) {
-            $history_notice = 'Alle transactie historie is verwijderd.';
+            $history_notice = 'Alle dividend accruals historie is verwijderd.';
         } elseif ( $_GET['history_msg'] === 'delete_failed' ) {
             $history_error = 'Verwijderen is mislukt of record bestond niet meer.';
         } elseif ( $_GET['history_msg'] === 'delete_all_failed' ) {
@@ -1735,6 +1814,10 @@ function ggr_render_dividend_accrual_page() {
     $history_form_action_id   = '';
     $history_form_report_date = $today;
     $history_form_gross        = '';
+    $history_form_tax          = '';
+    $history_form_net          = '';
+    $history_form_currency     = 'USD';
+    $history_form_code         = 'PO';    
     $history_edit_id           = 0;
     $history_is_edit           = false;
 
@@ -1753,6 +1836,10 @@ function ggr_render_dividend_accrual_page() {
             $history_form_action_id   = $history_row['action_id'];
             $history_form_report_date = $history_row['report_date'];
             $history_form_gross        = number_format( (float) $history_row['gross_value'], 2, ',', '' );
+            $history_form_tax          = number_format( (float) $history_row['tax_value'], 2, ',', '' );
+            $history_form_net          = number_format( (float) $history_row['net_amount'], 2, ',', '' );
+            $history_form_currency     = $history_row['currency'] ? (string) $history_row['currency'] : $history_form_currency;
+            $history_form_code         = $history_row['code'] ? (string) $history_row['code'] : $history_form_code;            
             $history_is_edit           = true;
         }
     }
@@ -1763,6 +1850,10 @@ function ggr_render_dividend_accrual_page() {
         $history_action_id_raw = isset( $_POST['history_action_id'] ) ? sanitize_text_field( wp_unslash( $_POST['history_action_id'] ) ) : '';
         $history_date_raw      = isset( $_POST['history_report_date'] ) ? sanitize_text_field( wp_unslash( $_POST['history_report_date'] ) ) : '';
         $history_gross_raw     = isset( $_POST['history_gross_value'] ) ? sanitize_text_field( wp_unslash( $_POST['history_gross_value'] ) ) : '';
+        $history_tax_raw       = isset( $_POST['history_tax_value'] ) ? sanitize_text_field( wp_unslash( $_POST['history_tax_value'] ) ) : '';
+        $history_net_raw       = isset( $_POST['history_net_amount'] ) ? sanitize_text_field( wp_unslash( $_POST['history_net_amount'] ) ) : '';
+        $history_currency_raw  = isset( $_POST['history_currency'] ) ? sanitize_text_field( wp_unslash( $_POST['history_currency'] ) ) : '';
+        $history_code_raw      = isset( $_POST['history_code'] ) ? sanitize_text_field( wp_unslash( $_POST['history_code'] ) ) : '';        
         $history_edit_id       = isset( $_POST['history_id'] ) ? (int) $_POST['history_id'] : 0;
 
         $history_form_action_id   = $history_action_id_raw;
@@ -1770,13 +1861,17 @@ function ggr_render_dividend_accrual_page() {
         $history_form_gross        = $history_gross_raw;
         $history_date_mysql = ggr_dividend_accruals_parse_date( $history_date_raw );
         $history_gross      = ggr_dividend_accruals_parse_float( $history_gross_raw );
-        $history_tax        = round( $history_gross * 0.15, 4 );
-        $history_net        = round( $history_gross - $history_tax, 4 );
+        $history_form_tax          = $history_tax_raw;
+        $history_form_net          = $history_net_raw;
+        $history_form_currency     = $history_currency_raw ? $history_currency_raw : $history_form_currency;
+        $history_form_code         = $history_code_raw ? $history_code_raw : $history_form_code;        
+        $history_tax        = ggr_dividend_accruals_parse_float( $history_tax_raw );
+        $history_net        = ggr_dividend_accruals_parse_float( $history_net_raw );
 
         if ( ! $history_action_id_raw || ! $history_date_mysql ) {
-            $history_error = 'Transaction ID en reportdate zijn verplicht.';
+            $history_error = 'Action ID en ex-date zijn verplicht.';
         } elseif ( $history_gross_raw === '' ) {
-            $history_error = 'Gross value is verplicht.';
+            $history_error = 'Gross amount is verplicht.';
         } else {
             $existing_action = $wpdb->get_var(
                 $wpdb->prepare(
@@ -1786,7 +1881,7 @@ function ggr_render_dividend_accrual_page() {
             );
 
             if ( $history_edit_id && $existing_action && (int) $existing_action !== $history_edit_id ) {
-                $history_error = 'Er bestaat al een transactie historie met deze Transaction ID.';
+                $history_error = 'Er bestaat al een dividend accrual met deze Action ID.';
             } else {
                 if ( $history_edit_id ) {
                     $updated = $wpdb->update(
@@ -1794,13 +1889,15 @@ function ggr_render_dividend_accrual_page() {
                         array(
                             'action_id'   => $history_action_id_raw,
                             'report_date' => $history_date_mysql,
+                            'currency'    => ggr_dividend_accruals_normalize_currency( $history_currency_raw ),
                             'gross_value' => $history_gross,
                             'tax_value'   => $history_tax,
                             'net_amount'  => $history_net,
+                            'code'        => strtoupper( trim( (string) $history_code_raw ) ),
                             'updated_at'  => current_time( 'mysql' ),
                         ),
                         array( 'id' => $history_edit_id ),
-                        array( '%s', '%s', '%f', '%f', '%f', '%s' ),
+                        array( '%s', '%s', '%s', '%f', '%f', '%f', '%s', '%s' ),
                         array( '%d' )
                     );
 
@@ -1820,7 +1917,10 @@ function ggr_render_dividend_accrual_page() {
                         $history_date_mysql,
                         $history_gross,
                         $history_tax,
-                        $history_net
+                        $history_net,
+                        '',
+                        $history_currency_raw,
+                        $history_code_raw
                     );
 
                     if ( is_wp_error( $saved ) ) {
@@ -1848,7 +1948,7 @@ function ggr_render_dividend_accrual_page() {
             $store_result = ggr_ibkr_accruals_store_entries( $result['entries'], $result['statement_url'] );
             ggr_ibkr_accruals_set_last_run( $store_result['imported'], $store_result['report_date'], $result['statement_url'] );
             $history_notice = sprintf(
-                'IBKR transactie historie geïmporteerd: %d items gevonden, %d duplicates uitgesloten, %d items opgeslagen.',
+                'IBKR dividend accruals historie geïmporteerd: %d items gevonden, %d duplicates uitgesloten, %d items opgeslagen.',
                 (int) $result['total_count'],
                 (int) $result['duplicate_count'],
                 (int) $store_result['imported']
@@ -2118,8 +2218,8 @@ function ggr_render_dividend_accrual_page() {
 
         <hr />
 
-        <h2>Dividend Transactie historie</h2>
-        <p>Beheer de IBKR dividend transacties (Transaction ID, reportdate, gross value, tax en net amount).</p>
+        <h2>Dividend accruals historie</h2>
+        <p>Beheer de IBKR dividend accruals (Action ID, ex-date, currency, gross amount, tax, net amount en code).</p>
 
         <?php if ( $history_notice ) : ?>
             <div class="notice notice-success"><p><?php echo esc_html( $history_notice ); ?></p></div>
@@ -2179,26 +2279,41 @@ function ggr_render_dividend_accrual_page() {
             <?php endif; ?>
         <?php endif; ?>
 
-        <h3><?php echo $history_is_edit ? 'Transactie historie bewerken' : 'Nieuwe transactie historie'; ?></h3>
+        <h3><?php echo $history_is_edit ? 'Dividend accrual bewerken' : 'Nieuwe dividend accrual'; ?></h3>
         <form method="post" style="max-width: 720px;">
             <?php wp_nonce_field( 'ggr_save_accrual_history' ); ?>
             <input type="hidden" name="history_id" value="<?php echo esc_attr( $history_edit_id ); ?>" />
             <table class="form-table">
                 <tr>
-                    <th scope="row"><label for="history_action_id">Transaction ID</label></th>
+                    <th scope="row"><label for="history_action_id">Action ID</label></th>
                     <td><input type="text" id="history_action_id" name="history_action_id" value="<?php echo esc_attr( $history_form_action_id ); ?>" required /></td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="history_report_date">Reportdate</label></th>
+                    <th scope="row"><label for="history_report_date">Exdate</label></th>
                     <td><input type="date" id="history_report_date" name="history_report_date" value="<?php echo esc_attr( $history_form_report_date ); ?>" required /></td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="history_gross_value">Gross value ($)</label></th>
+                    <th scope="row"><label for="history_currency">Valuta</label></th>
+                    <td><input type="text" id="history_currency" name="history_currency" value="<?php echo esc_attr( $history_form_currency ); ?>" /></td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="history_gross_value">Gross amount</label></th>
                     <td>
                         <input type="text" id="history_gross_value" name="history_gross_value" value="<?php echo esc_attr( $history_form_gross ); ?>" required />
-                        <p class="description">Tax (15%) en netto worden automatisch berekend op basis van het bedrag.</p>
                     </td>
                 </tr>
+                <tr>
+                    <th scope="row"><label for="history_tax_value">Tax</label></th>
+                    <td><input type="text" id="history_tax_value" name="history_tax_value" value="<?php echo esc_attr( $history_form_tax ); ?>" /></td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="history_net_amount">Net amount</label></th>
+                    <td><input type="text" id="history_net_amount" name="history_net_amount" value="<?php echo esc_attr( $history_form_net ); ?>" /></td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="history_code">Code</label></th>
+                    <td><input type="text" id="history_code" name="history_code" value="<?php echo esc_attr( $history_form_code ); ?>" /></td>
+                </tr>                
             </table>
             <p>
                 <button type="submit" class="button button-primary" name="ggr_accrual_history_submit">
@@ -2210,9 +2325,9 @@ function ggr_render_dividend_accrual_page() {
             <?php wp_nonce_field( 'ggr_ibkr_accruals_fetch' ); ?>
             <?php submit_button( 'Handmatig ophalen via IBKR API', 'secondary', 'ggr_ibkr_accruals_fetch_submit' ); ?>
         </form>
-        <h3>Overzicht dividend transactie historie</h3>
+        <h3>Overzicht dividend accruals historie</h3>
         <?php if ( empty( $history_rows ) ) : ?>
-            <p>Nog geen dividend transactie historie opgeslagen.</p>
+            <p>Nog geen dividend accruals historie opgeslagen.</p>
         <?php else : ?>
             <form method="post" style="margin: 0 0 12px;">
                 <?php wp_nonce_field( 'ggr_delete_dividend_accrual_history_all' ); ?>
@@ -2220,7 +2335,7 @@ function ggr_render_dividend_accrual_page() {
                     type="submit"
                     class="button button-secondary"
                     name="ggr_dividend_accrual_history_delete_all"
-                    onclick="return confirm('Weet je zeker dat je alle transactie historie wilt verwijderen?');"
+                    onclick="return confirm('Weet je zeker dat je alle dividend accruals historie wilt verwijderen?');"
                 >
                     Alle historie verwijderen
                 </button>
@@ -2228,11 +2343,13 @@ function ggr_render_dividend_accrual_page() {
             <table class="widefat striped">
                 <thead>
                     <tr>
-                        <th>Transaction ID</th>
-                        <th>Reportdate</th>
-                        <th>Gross value</th>
+                        <th>Action ID</th>
+                        <th>Ex-date</th>
+                        <th>Valuta</th>
+                        <th>Gross amount</th>
                         <th>Tax</th>
                         <th>Net amount</th>
+                        <th>Code</th>
                         <th>Flex statement</th>
                         <th>Aangemaakt</th>
                         <th>Bijgewerkt</th>
@@ -2263,9 +2380,12 @@ function ggr_render_dividend_accrual_page() {
                         );
 
                         $history_report = $history_row['report_date'] ? date_i18n( 'd-m-Y', strtotime( $history_row['report_date'] ) ) : '';
-                        $history_gross_disp = '$ ' . number_format( (float) $history_row['gross_value'], 2, ',', '.' );
-                        $history_tax_disp   = '$ ' . number_format( (float) $history_row['tax_value'], 2, ',', '.' );
-                        $history_net_disp   = '$ ' . number_format( (float) $history_row['net_amount'], 2, ',', '.' );
+                        $history_currency = isset( $history_row['currency'] ) ? strtoupper( (string) $history_row['currency'] ) : '';
+                        $history_code = isset( $history_row['code'] ) ? strtoupper( (string) $history_row['code'] ) : '';
+                        $amount_prefix = $history_currency ? $history_currency . ' ' : '';
+                        $history_gross_disp = $amount_prefix . number_format( (float) $history_row['gross_value'], 2, ',', '.' );
+                        $history_tax_disp   = $amount_prefix . number_format( (float) $history_row['tax_value'], 2, ',', '.' );
+                        $history_net_disp   = $amount_prefix . number_format( (float) $history_row['net_amount'], 2, ',', '.' );
                         $history_statement_url = isset( $history_row['statement_url'] ) ? trim( (string) $history_row['statement_url'] ) : '';
                         $history_created    = $history_row['created_at'] ? date_i18n( 'd-m-Y H:i', strtotime( $history_row['created_at'] ) ) : '';
                         $history_updated    = $history_row['updated_at'] ? date_i18n( 'd-m-Y H:i', strtotime( $history_row['updated_at'] ) ) : '';
@@ -2273,9 +2393,11 @@ function ggr_render_dividend_accrual_page() {
                         <tr>
                             <td><?php echo esc_html( $history_row['action_id'] ); ?></td>
                             <td><?php echo esc_html( $history_report ); ?></td>
+                            <td><?php echo esc_html( $history_currency ? $history_currency : '—' ); ?></td>
                             <td><?php echo esc_html( $history_gross_disp ); ?></td>
                             <td><?php echo esc_html( $history_tax_disp ); ?></td>
                             <td><?php echo esc_html( $history_net_disp ); ?></td>
+                            <td><?php echo esc_html( $history_code ? $history_code : '—' ); ?></td>
                             <td>
                                 <?php if ( $history_statement_url ) : ?>
                                     <a href="<?php echo esc_url( $history_statement_url ); ?>" target="_blank" rel="noopener noreferrer">
@@ -2290,7 +2412,7 @@ function ggr_render_dividend_accrual_page() {
                             <td>
                                 <a href="<?php echo esc_url( $history_edit_url ); ?>">Bewerken</a> |
                                 <a href="<?php echo esc_url( $history_delete_url ); ?>"
-                                   onclick="return confirm('Weet je zeker dat je deze transactie historie wilt verwijderen?');">
+                                   onclick="return confirm('Weet je zeker dat je deze dividend accrual wilt verwijderen?');">
                                     Verwijderen
                                 </a>
                             </td>
@@ -2431,7 +2553,7 @@ function ggr_api_get_dividend_accrual_history( WP_REST_Request $request ) {
 
     $rows = $wpdb->get_results(
         $wpdb->prepare(
-            "SELECT action_id, report_date, gross_value, tax_value, net_amount
+            "SELECT action_id, report_date, currency, gross_value, tax_value, net_amount, code
              FROM {$table_name}
              WHERE report_date = %s
              ORDER BY action_id ASC, id ASC",
