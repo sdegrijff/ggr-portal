@@ -1992,7 +1992,7 @@ function ggr_portal_show_account_fields_in_profile( $user ) {
                         <div class="ggr-admin-inline-field">
                             <label for="ggr_collecting_extra_required">
                                 <input type="checkbox" id="ggr_collecting_extra_required" name="ggr_collecting_extra_required" value="1" <?php checked( $extra_step_required, true ); ?> />
-                                Extra informatie opvragen (na ondertekening)
+                                Extra informatie opvragen (na afkeuring)
                             </label>
                         </div>
 
@@ -2211,17 +2211,25 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     $doc_action   = '';
     $doc_approve  = ! empty( $_POST['ggr_doc_approve'] );
     $doc_reject   = ! empty( $_POST['ggr_doc_reject'] );
+    $docs_submitted = false;    
     if ( $doc_reject ) {
         $doc_action = 'reject';
     } elseif ( $doc_approve ) {
         $doc_action = 'approve';
     }
     $doc_feedback = isset( $_POST['ggr_doc_feedback'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_doc_feedback'] ) ) : '';
+    $extra_required_request = ! empty( $_POST['ggr_collecting_extra_required'] );
+    
+    if ( $doc_approve && 'collecting' === $current_status ) {
+        $docs_submitted = true;
+        $doc_action     = '';
+    }
 
-    if ( 'approve' === $doc_action && in_array( $current_status, array( 'transfer_completed', 'active_participant' ), true ) ) {
+    if ( 'approve' === $doc_action && ! in_array( $current_status, array( 'validating', 'extra_info' ), true ) ) {
         $doc_action = '';
     }
-    if ( 'reject' === $doc_action && 'collecting' === $current_status ) {
+    
+    if ( 'reject' === $doc_action && ! in_array( $current_status, array( 'validating', 'extra_info' ), true ) ) {
         $doc_action = '';
     }
     
@@ -2352,16 +2360,19 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     // Aanvullende stap in onboarding
     $previous_extra_required = (bool) get_user_meta( $user_id, 'ggr_collecting_extra_required', true );
     $extra_required          = ! empty( $_POST['ggr_collecting_extra_required'] ) ? 1 : 0;
+    $extra_required          = $extra_required_request ? 1 : 0;    
     update_user_meta( $user_id, 'ggr_collecting_extra_required', $extra_required );
 
     if ( $extra_required && ! $previous_extra_required && function_exists( 'ggr_portal_send_templated_email' ) ) {
-        ggr_portal_send_templated_email(
-            'onboarding_extra_info_needed',
-            $user_id,
-            array(
-                'portal_link' => home_url( '/onboarding/' ),
-            )
-        );
+        if ( ! ( 'reject' === $doc_action && 'validating' === $current_status ) ) {
+            ggr_portal_send_templated_email(
+                'onboarding_extra_info_needed',
+                $user_id,
+                array(
+                    'portal_link' => home_url( '/onboarding/' ),
+                )
+            );
+        }
     }
 
     if ( isset( $_POST['ggr_collecting_extra_step_label'] ) ) {
@@ -2413,6 +2424,9 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     if ( ! empty( $_POST['ggr_payment_confirm_admin'] ) ) {
         update_user_meta( $user_id, 'ggr_payment_confirmation_at', $profile_timestamp );
         update_user_meta( $user_id, 'ggr_onboarding_updated_at', $profile_timestamp );
+        if ( in_array( $current_status, array( 'transfer_funds', 'transfer_review' ), true ) ) {
+            $status_override = 'transfer_review';
+        }        
     }
     
     $payment_received = ! empty( $_POST['ggr_payment_received'] ) ? 1 : 0;
@@ -2444,52 +2458,36 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     }
 
     // Onboarding status
+    if ( $docs_submitted ) {
+        $documents_submitted_at = get_user_meta( $user_id, 'ggr_documents_submitted_at', true );
+        if ( ! $documents_submitted_at ) {
+            update_user_meta( $user_id, 'ggr_documents_submitted_at', $profile_timestamp );
+        }
+        $status_override = $status_override ? $status_override : 'sign_contract';
+    }
+    
     // Documentcontrole: override status en trigger e-mails.
     if ( $doc_action ) {
         if ( 'approve' === $doc_action ) {
-            $status_override = ( 'validating' === $current_status ) ? 'transfer_completed' : 'sign_contract';
-            if ( 'collecting' === $current_status ) {
-                $documents_submitted_at = get_user_meta( $user_id, 'ggr_documents_submitted_at', true );
-                if ( ! $documents_submitted_at ) {
-                    update_user_meta( $user_id, 'ggr_documents_submitted_at', $profile_timestamp );
-                }
-            }
-            
+            $status_override = 'transfer_funds';
+
             if ( function_exists( 'ggr_portal_send_templated_email' ) ) {
-                if ( 'validating' === $current_status ) {
-                    ggr_portal_send_templated_email(
-                        'application_approved',
-                        $user_id,
-                        array(
-                            'portal_link' => home_url( '/onboarding/' ),
-                        )
-                    );
-                } else {
-                    ggr_portal_send_templated_email(
-                        'documents_approved',
-                        $user_id,
-                        array(
-                            'contract_link' => home_url( '/onboarding/' ),
-                        )
-                    );
-                }
+                ggr_portal_send_templated_email(
+                    'application_approved',
+                    $user_id,
+                    array(
+                        'portal_link' => home_url( '/onboarding/' ),
+                    )
+                );
             }
 
             if ( function_exists( 'ggr_meldingen_add' ) ) {
-                $melding_title = ( 'validating' === $current_status )
-                    ? 'Inschrijfformulier gecontroleerd'
-                    : 'Documentatie goedgekeurd';
-                $melding_body = ( 'validating' === $current_status )
-                    ? sprintf(
-                        'Het inschrijfformulier van %s (%s) is gecontroleerd. Status is bijgewerkt naar geld overmaken.',
-                        ggr_portal_get_nice_user_name( $user_id ),
-                        esc_html( $participant_email )
-                    )
-                    : sprintf(
-                        'De documentatie van %s (%s) is goedgekeurd. Status is bijgewerkt naar overeenkomst tekenen.',
-                        ggr_portal_get_nice_user_name( $user_id ),
-                        esc_html( $participant_email )
-                    );
+                $melding_title = 'Documentatie goedgekeurd';
+                $melding_body  = sprintf(
+                    'De documentatie van %s (%s) is goedgekeurd. Status is bijgewerkt naar geld overmaken.',
+                    ggr_portal_get_nice_user_name( $user_id ),
+                    esc_html( $participant_email )
+                );
 
                 ggr_meldingen_add(
                     $melding_title,
@@ -2500,11 +2498,10 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
             }
 
             if ( function_exists( 'ggr_portal_log_participant_action' ) ) {
-                $log_title = ( 'validating' === $current_status ) ? 'Inschrijfformulier gecontroleerd' : 'Documenten goedgekeurd';                
                 ggr_portal_log_participant_action(
                     $user_id,
                     'document_review',
-                    $log_title,
+                    'Documentatie goedgekeurd',
                     array(
                         'changes' => array(
                             'Documentstatus: "afgekeurd" → "goedgekeurd"',
@@ -2513,13 +2510,23 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
                     )
                 );
             }
-
         } elseif ( 'reject' === $doc_action ) {
-            $status_override = ( 'validating' === $current_status ) ? 'validating' : 'collecting';
+            $status_override = 'extra_info';
 
-            if ( 'validating' !== $current_status && function_exists( 'ggr_portal_send_templated_email' ) ) {
+            if ( 'validating' === $current_status && $extra_required_request && function_exists( 'ggr_portal_send_templated_email' ) ) {
                 ggr_portal_send_templated_email(
-                    'documents_rejected',
+                    'application_additional_info',
+                    $user_id,
+                    array(
+                        'rejection_feedback' => $doc_feedback,
+                        'portal_link'        => home_url( '/onboarding/' ),
+                    )
+                );
+            }
+
+            if ( function_exists( 'ggr_portal_send_templated_email' ) ) {
+                ggr_portal_send_templated_email(
+                    'onboarding_extra_info_needed',
                     $user_id,
                     array(
                         'rejection_feedback' => $doc_feedback,
@@ -2529,20 +2536,13 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
             }
 
             if ( function_exists( 'ggr_meldingen_add' ) ) {
-                $melding_title = ( 'validating' === $current_status ) ? 'Inschrijfformulier afgekeurd' : 'Documentatie afgekeurd';
-                $melding_body  = ( 'validating' === $current_status )
-                    ? sprintf(
-                        'Het inschrijfformulier van %s (%s) is afgekeurd. Feedback: %s',
-                        ggr_portal_get_nice_user_name( $user_id ),
-                        esc_html( $participant_email ),
-                        $doc_feedback ? $doc_feedback : '—'
-                    )
-                    : sprintf(
-                        'De documentatie van %s (%s) is afgekeurd met feedback: %s',
-                        ggr_portal_get_nice_user_name( $user_id ),
-                        esc_html( $participant_email ),
-                        $doc_feedback ? $doc_feedback : '—'
-                    );
+                $melding_title = 'Aanvullende informatie opgevraagd';
+                $melding_body  = sprintf(
+                    'De documentatie van %s (%s) is afgekeurd met feedback: %s. Status is bijgewerkt naar aanvullende informatie aanleveren.',
+                    ggr_portal_get_nice_user_name( $user_id ),
+                    esc_html( $participant_email ),
+                    $doc_feedback ? $doc_feedback : '—'
+                );
 
                 ggr_meldingen_add(
                     $melding_title,
@@ -2553,11 +2553,10 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
             }
 
             if ( function_exists( 'ggr_portal_log_participant_action' ) ) {
-                $log_title = ( 'validating' === $current_status ) ? 'Inschrijfformulier afgekeurd' : 'Documenten afgekeurd';                
                 ggr_portal_log_participant_action(
                     $user_id,
                     'document_review',
-                    $log_title,
+                    'Aanvullende informatie opgevraagd',
                     array(
                         'changes' => array(
                             'Documentstatus: "goedgekeurd" → "afgekeurd"',
@@ -4447,7 +4446,7 @@ function ggr_portal_render_participant_profile_page() {
                             <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
                                 <label style="display:block; margin-bottom:8px;">
                                     <input type="checkbox" name="ggr_doc_approve" id="ggr_doc_approve_collecting" value="1" <?php checked( (bool) $documents_submitted_at, true ); ?> />
-                                    Documentatie ingediend
+                                    Documentatie ingediend (door naar inschrijfformulier tekenen)
                                 </label>
                                 <?php if ( $documents_submitted_label ) : ?>
                                     <p class="ggr-admin-meta-note">Ingediend op: <?php echo esc_html( $documents_submitted_label ); ?>.</p>
@@ -4462,9 +4461,11 @@ function ggr_portal_render_participant_profile_page() {
             <?php endif; ?>
 
             <?php if ( $is_lead ) : ?>
-                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="validating">
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="validating extra_info">
             <?php endif; ?>
-            <h2 class="title">Informatie controleren</h2>
+            <h2 class="title">
+                <?php echo ( 'extra_info' === $onboarding_status ) ? 'Aanvullende informatie' : 'Informatie controleren'; ?>
+            </h2>
             <table class="form-table" role="presentation">
                 <tr>
                     <td>
@@ -4495,11 +4496,11 @@ function ggr_portal_render_participant_profile_page() {
                             <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
                                 <label style="display:block; margin-bottom:8px;">
                                     <input type="checkbox" name="ggr_doc_approve" id="ggr_doc_approve" value="1" />
-                                    Inschrijfformulier goedgekeurd (stuur goedkeuringsmail en ga door naar geld overmaken)
+                                    Documentatie goedgekeurd (stuur goedkeuringsmail en ga door naar geld overmaken)
                                 </label>
                                 <label style="display:block;">
                                     <input type="checkbox" name="ggr_doc_reject" id="ggr_doc_reject" value="1" />
-                                    Inschrijfformulier afkeuren (aanvullende informatie opvragen)
+                                    Documentatie afkeuren (aanvullende informatie opvragen)
                                 </label>
                             </div>
                         </div>
@@ -4510,7 +4511,7 @@ function ggr_portal_render_participant_profile_page() {
                                 <div class="ggr-admin-inline-field">
                                     <label for="ggr_collecting_extra_required">
                                         <input type="checkbox" id="ggr_collecting_extra_required" name="ggr_collecting_extra_required" value="1" <?php checked( $extra_step_required, true ); ?> />
-                                        Toon aanvullende stap na ondertekening
+                                        Toon aanvullende stap na afkeuring
                                     </label>
                                     <p class="description">Activeer deze optie om extra informatie op te vragen bij de participant.</p>
                                 </div>
@@ -4586,7 +4587,7 @@ function ggr_portal_render_participant_profile_page() {
                 <div class="ggr-admin-onboarding-section" data-onboarding-statuses="sign_contract">
             <?php endif; ?>
             
-            <h2 class="title">Contract ondertekend</h2>
+            <h2 class="title">Inschrijfformulier tekenen</h2>
             <table class="form-table" role="presentation">
                 <tr>
                     <td>
@@ -4603,10 +4604,10 @@ function ggr_portal_render_participant_profile_page() {
                         </div>                   
                         <label style="display:block; margin-bottom:8px;">
                             <input type="checkbox" name="ggr_contract_signed_admin" value="1" <?php checked( (bool) $contract_signed_at, true ); ?> />
-                            Contract ondertekend
+                            Inschrijfformulier ondertekend
                         </label>
                         <?php if ( $contract_signed_label ) : ?>
-                            <p class="ggr-admin-meta-note">Lead heeft de overeenkomst bevestigd op: <?php echo esc_html( $contract_signed_label ); ?>.</p>
+                            <p class="ggr-admin-meta-note">Lead heeft de inschrijfformulier getekend op: <?php echo esc_html( $contract_signed_label ); ?>.</p>
                         <?php endif; ?>
 
                         <?php
@@ -4643,7 +4644,7 @@ function ggr_portal_render_participant_profile_page() {
             </table>
 
             <?php if ( $is_lead ) : ?>
-                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="transfer_completed">
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="transfer_funds transfer_review">
             <?php endif; ?>
             
             <h2 class="title">Betaling & start</h2>
@@ -4673,7 +4674,7 @@ function ggr_portal_render_participant_profile_page() {
                         <ul class="ggr-admin-meta-list">
                             <li>Markeer de betaling als ontvangen (bovenstaande checkbox).</li>
                             <li>Bij het opslaan wordt de eerste storting als transactie vastgelegd (als er nog geen historie is).</li>
-                            <li>De onboarding status gaat automatisch naar “Achterover leunen”.</li>
+                            <li>De onboarding status gaat automatisch naar “Actieve participant”.</li>
                         </ul>                        
                         <?php if ( $payment_confirmation_label ) : ?>
                             <p class="ggr-admin-meta-note">Lead gaf aan betaald te hebben op: <?php echo esc_html( $payment_confirmation_label ); ?>.</p>
