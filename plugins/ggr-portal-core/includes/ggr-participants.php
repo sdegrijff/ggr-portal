@@ -2511,9 +2511,13 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
                 );
             }
         } elseif ( 'reject' === $doc_action ) {
-            $status_override = 'extra_info';
+            if ( $extra_required_request ) {
+                $status_override = 'extra_info';
+            } else {
+                $status_override = $status_override ? $status_override : 'validating';
+            }
 
-            if ( 'validating' === $current_status && $extra_required_request && function_exists( 'ggr_portal_send_templated_email' ) ) {
+            if ( $extra_required_request && 'validating' === $current_status && function_exists( 'ggr_portal_send_templated_email' ) ) {
                 ggr_portal_send_templated_email(
                     'application_additional_info',
                     $user_id,
@@ -2524,7 +2528,7 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
                 );
             }
 
-            if ( function_exists( 'ggr_portal_send_templated_email' ) ) {
+            if ( $extra_required_request && function_exists( 'ggr_portal_send_templated_email' ) ) {
                 ggr_portal_send_templated_email(
                     'onboarding_extra_info_needed',
                     $user_id,
@@ -2535,7 +2539,7 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
                 );
             }
 
-            if ( function_exists( 'ggr_meldingen_add' ) ) {
+            if ( $extra_required_request && function_exists( 'ggr_meldingen_add' ) ) {
                 $melding_title = 'Aanvullende informatie opgevraagd';
                 $melding_body  = sprintf(
                     'De documentatie van %s (%s) is afgekeurd met feedback: %s. Status is bijgewerkt naar aanvullende informatie aanleveren.',
@@ -3272,6 +3276,14 @@ function ggr_portal_render_participant_profile_page() {
     $email_verified_label    = $format_date_only( $email_verified_at );
     $documents_submitted_label = $format_datetime( $documents_submitted_at );
     $participant_enrolled_label = $format_date_only( $participant_enrolled_at );
+
+    $lead_stages = function_exists( 'ggr_onboarding_get_stages' ) ? ggr_onboarding_get_stages() : array();
+    if ( ! $extra_step_required && 'extra_info' !== $onboarding_status ) {
+        unset( $lead_stages['extra_info'] );
+    }
+    if ( empty( $lead_stages ) ) {
+        $lead_stages = array( $onboarding_status => $onboarding_status );
+    }
     
         // Onboarding documenten
     $document_labels = array(
@@ -3759,10 +3771,7 @@ function ggr_portal_render_participant_profile_page() {
             
             <h1><?php echo $is_lead ? 'Lead Profiel' : 'Profiel'; ?> – <?php echo esc_html( $user->display_name ); ?> (ID: <?php echo (int) $user_id; ?>)</h1>           
             <?php
-            $stages = function_exists( 'ggr_onboarding_get_stages' ) ? ggr_onboarding_get_stages() : array();
-            if ( empty( $stages ) ) {
-                $stages = array( $onboarding_status => $onboarding_status );
-            }
+            $stages = $lead_stages;
             ?>
             <?php if ( $is_lead ) : ?>
                 <div class="ggr-admin-onboarding-bar" data-current-status="<?php echo esc_attr( $onboarding_status ); ?>">
@@ -3801,10 +3810,7 @@ function ggr_portal_render_participant_profile_page() {
                                     <label for="ggr_onboarding_status">Onboarding status</label>
                                     <select name="ggr_onboarding_status" id="ggr_onboarding_status">
                                         <?php
-                                        $stages = function_exists( 'ggr_onboarding_get_stages' ) ? ggr_onboarding_get_stages() : array();
-                                        if ( empty( $stages ) ) {
-                                            $stages = array( $onboarding_status => $onboarding_status );
-                                        }
+                                        $stages = $lead_stages;
                                         foreach ( $stages as $key => $label ) :
                                             ?>
                                             <option value="<?php echo esc_attr( $key ); ?>" <?php selected( $onboarding_status, $key ); ?>>
@@ -3978,10 +3984,7 @@ function ggr_portal_render_participant_profile_page() {
                                         <label for="ggr_onboarding_status">Onboarding status</label>
                                         <select name="ggr_onboarding_status" id="ggr_onboarding_status">
                                             <?php
-                                            $stages = function_exists( 'ggr_onboarding_get_stages' ) ? ggr_onboarding_get_stages() : array();
-                                            if ( empty( $stages ) ) {
-                                                $stages = array( $onboarding_status => $onboarding_status );
-                                            }
+                                             $stages = $lead_stages;
                                             foreach ( $stages as $key => $label ) :
                                                 ?>
                                                 <option value="<?php echo esc_attr( $key ); ?>" <?php selected( $onboarding_status, $key ); ?>>
