@@ -220,7 +220,6 @@ function ggr_portal_render_email_template_metabox( $post ) {
         'documents_approved'           => 'Documenten goedgekeurd',
         'documents_rejected'           => 'Documenten afgekeurd',
         'application_approved'         => 'Inschrijfformulier goedgekeurd',
-        'application_additional_info'  => 'Aanvullende informatie gevraagd',        
         'onboarding_extra_info_needed' => 'Aanvullende informatie gevraagd',        
         'onboarding_email_verification'=> 'Onboarding e-mailverificatie',
         'referral_invite'              => 'Verwijs-vriend uitnodiging',
@@ -264,9 +263,8 @@ function ggr_portal_render_email_template_metabox( $post ) {
         'ibkr_total'               => 'Totaal uit IBKR',
         'ibkr_participations'      => 'Aantal participaties',
         'dividend_imported_count'  => 'Aantal opgeslagen dividendtransacties',
-        'dividend_report_date'     => 'Laatste rapportdatum dividendtransacties',
+        'dividend_report_date'     => 'Laatste ex-date dividendtransacties',
         'dividend_total_count'     => 'Aantal transacties in Flex statement',
-        'dividend_duplicate_count' => 'Aantal duplicates in Flex statement',
         'dividend_statement_url'   => 'Link naar Flex statement',        
     );
     ?>
@@ -429,7 +427,6 @@ function ggr_portal_save_email_template_meta( $post_id ) {
                     'dividend_imported_count'  => '12',
                     'dividend_report_date'     => date_i18n( 'Y-m-d' ),
                     'dividend_total_count'     => '15',
-                    'dividend_duplicate_count' => '3',
                     'dividend_statement_url'   => home_url( '/flex-statement-test/' ),                    
                 ];
 
