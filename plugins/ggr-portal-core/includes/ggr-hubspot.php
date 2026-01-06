@@ -41,9 +41,11 @@ function ggr_hubspot_get_stage_mapping() {
         'register'           => defined( 'GGR_HUBSPOT_STAGE_REGISTER' ) ? GGR_HUBSPOT_STAGE_REGISTER : '',
         'confirmed'          => defined( 'GGR_HUBSPOT_STAGE_CONFIRMED' ) ? GGR_HUBSPOT_STAGE_CONFIRMED : '',
         'collecting'         => defined( 'GGR_HUBSPOT_STAGE_COLLECTING' ) ? GGR_HUBSPOT_STAGE_COLLECTING : '',
-        'validating'         => defined( 'GGR_HUBSPOT_STAGE_VALIDATING' ) ? GGR_HUBSPOT_STAGE_VALIDATING : '',
         'sign_contract'      => defined( 'GGR_HUBSPOT_STAGE_SIGN_CONTRACT' ) ? GGR_HUBSPOT_STAGE_SIGN_CONTRACT : '',
-        'transfer_funds' => defined( 'GGR_HUBSPOT_STAGE_TRANSFER_FUNDS' ) ? GGR_HUBSPOT_STAGE_TRANSFER_FUNDS : '',
+        'validating'         => defined( 'GGR_HUBSPOT_STAGE_VALIDATING' ) ? GGR_HUBSPOT_STAGE_VALIDATING : '',
+        'extra_info'         => defined( 'GGR_HUBSPOT_STAGE_EXTRA_INFO' ) ? GGR_HUBSPOT_STAGE_EXTRA_INFO : '',
+        'transfer_funds'     => defined( 'GGR_HUBSPOT_STAGE_TRANSFER_FUNDS' ) ? GGR_HUBSPOT_STAGE_TRANSFER_FUNDS : '',
+        'transfer_review'    => defined( 'GGR_HUBSPOT_STAGE_TRANSFER_REVIEW' ) ? GGR_HUBSPOT_STAGE_TRANSFER_REVIEW : '',
         'active_participant' => defined( 'GGR_HUBSPOT_STAGE_ACTIVE_PARTICIPANT' ) ? GGR_HUBSPOT_STAGE_ACTIVE_PARTICIPANT : '',
     );
 
