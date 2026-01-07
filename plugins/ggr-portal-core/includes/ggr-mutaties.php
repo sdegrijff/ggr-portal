@@ -134,20 +134,50 @@ function ggr_mutaties_get_effective_date( $mutatie_id, $planned_date = '' ) {
     return $effective;
 }
 
+function ggr_mutaties_get_dividend_run_start_sequence( $effective_date ) {
+    global $wpdb;
+
+    $month_label = wp_date( 'F', strtotime( $effective_date ) );
+    $prefix      = 'Mutatie ' . $month_label . ' #';
+    $like        = $wpdb->esc_like( $prefix ) . '%';
+
+    $titles = $wpdb->get_col(
+        $wpdb->prepare(
+            "SELECT post_title FROM {$wpdb->posts} WHERE post_type = 'ggr_mutatie' AND post_title LIKE %s",
+            $like
+        )
+    );
+
+    $max = 0;
+    if ( $titles ) {
+        $pattern = '/^' . preg_quote( $prefix, '/' ) . '(\d+)/';
+        foreach ( $titles as $title ) {
+            if ( preg_match( $pattern, $title, $matches ) ) {
+                $value = (int) $matches[1];
+                if ( $value > $max ) {
+                    $max = $value;
+                }
+            }
+        }
+    }
+
+    return $max + 1;
+}
+
 function ggr_mutaties_get_dividend_per_participation( $planned_date ) {
     if ( ! function_exists( 'ggr_dividend_accruals_get_per_participation' ) ) {
         return null;
     }
 
     $lookup_date = $planned_date;
-    if ( function_exists( 'ggr_dividend_accruals_get_previous_month_end' ) ) {
-        $lookup_date = ggr_dividend_accruals_get_previous_month_end( $planned_date );
-    } else {
-        $dt = DateTime::createFromFormat( 'Y-m-d', $planned_date );
-        if ( $dt ) {
-            $dt->modify( 'last day of previous month' );
-            $lookup_date = $dt->format( 'Y-m-d' );
+    $dt = DateTime::createFromFormat( 'Y-m-d', $planned_date );
+    if ( $dt ) {
+        $month_end = clone $dt;
+        $month_end->modify( 'last day of this month' );
+        if ( $dt->format( 'Y-m-d' ) !== $month_end->format( 'Y-m-d' ) ) {
+            $month_end->modify( 'last day of previous month' );
         }
+        $lookup_date = $month_end->format( 'Y-m-d' );
     }
 
     return ggr_dividend_accruals_get_per_participation( $lookup_date );
@@ -181,7 +211,7 @@ function ggr_mutaties_get_user_participations_at_date( $user_id, $planned_date )
     return $total;
 }
 
-function ggr_mutaties_create_mutatie( $type, $user_id = 0, $amount = '', $participaties = '' ) {
+function ggr_mutaties_create_mutatie( $type, $user_id = 0, $amount = '', $participaties = '', $title = '' ) {
     $types = ggr_mutaties_get_types();
     if ( ! isset( $types[ $type ] ) ) {
         return new WP_Error( 'ggr_mutatie_type', 'Ongeldig mutatietype.' );
@@ -207,13 +237,15 @@ function ggr_mutaties_create_mutatie( $type, $user_id = 0, $amount = '', $partic
         }
     }
 
-    $post_id = wp_insert_post(
-        array(
-            'post_type'   => 'ggr_mutatie',
-            'post_status' => 'publish',
-        ),
-        true
+    $post_data = array(
+        'post_type'   => 'ggr_mutatie',
+        'post_status' => 'publish',
     );
+    if ( $title ) {
+        $post_data['post_title'] = $title;
+    }
+
+    $post_id = wp_insert_post( $post_data, true );
 
     if ( is_wp_error( $post_id ) ) {
         return $post_id;
@@ -852,6 +884,8 @@ function ggr_mutaties_render_admin_page() {
         if ( empty( $participants ) ) {
             $errors[] = 'Geen participanten gevonden voor een dividend run.';
         } elseif ( empty( $errors ) ) {
+            $month_label = wp_date( 'F', strtotime( $effective_date ) );
+            $sequence    = ggr_mutaties_get_dividend_run_start_sequence( $effective_date );            
             $created = 0;
             foreach ( $participants as $participant ) {
                 $user_id  = (int) $participant->ID;
@@ -870,7 +904,9 @@ function ggr_mutaties_render_admin_page() {
                 }
 
                 $amount = round( $dividend_rate * $user_parts, 2 );
-                $result = ggr_mutaties_create_mutatie( $type, $user_id, $amount );
+                $title  = sprintf( 'Mutatie %s #%03d', $month_label, $sequence );
+                $sequence++;
+                $result = ggr_mutaties_create_mutatie( $type, $user_id, $amount, '', $title );
 
                 if ( is_wp_error( $result ) ) {
                     $errors[] = $result->get_error_message();
@@ -1078,7 +1114,7 @@ function ggr_mutaties_render_admin_page() {
                                 <td>
                                     <strong>
                                         <a href="<?php echo esc_url( get_edit_post_link( $mutatie_id ) ); ?>">
-                                            <?php echo esc_html( 'Mutatie #' . $mutatie_id ); ?>
+                                            <?php echo esc_html( $mutatie->post_title ? $mutatie->post_title : 'Mutatie #' . $mutatie_id ); ?>
                                         </a>
                                     </strong>
                                 </td>
