@@ -186,6 +186,22 @@ function ggr_meldingen_handle_status_update() {
         return;
     }
 
+    if ( isset( $_POST['ggr_meldingen_bulk_action'] ) && 'delete' === $_POST['ggr_meldingen_bulk_action'] ) {
+        $ids = isset( $_POST['ggr_melding_ids'] ) ? array_map( 'intval', (array) $_POST['ggr_melding_ids'] ) : array();
+        $ids = array_values( array_filter( $ids ) );
+        if ( empty( $ids ) ) {
+            return;
+        }
+
+        foreach ( $ids as $melding_id ) {
+            if ( current_user_can( 'delete_post', $melding_id ) ) {
+                wp_trash_post( $melding_id );
+            }
+        }
+
+        return;
+    }
+
     $melding_id = isset( $_POST['ggr_melding_id'] ) ? (int) $_POST['ggr_melding_id'] : 0;
     $status     = isset( $_POST['ggr_melding_status'] ) ? sanitize_key( wp_unslash( $_POST['ggr_melding_status'] ) ) : '';
     $comment    = isset( $_POST['ggr_melding_comment'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_melding_comment'] ) ) : '';
@@ -311,7 +327,7 @@ function ggr_meldingen_render_admin_page() {
     ?>
     <div class="wrap ggr-meldingen-page">
         <h1>Meldingen</h1>
-        <p>Overzicht van automatische meldingen. Je kunt alleen de status aanpassen.</p>
+        <p>Overzicht van automatische meldingen. Je kunt de status aanpassen of meldingen verwijderen.</p>
 
         <form method="get" class="ggr-meldingen-filter" style="margin: 10px 0;">
             <input type="hidden" name="page" value="ggr-meldingen" />
@@ -321,10 +337,21 @@ function ggr_meldingen_render_admin_page() {
             </label>
             <button class="button">Toepassen</button>
         </form>
+        
+        <form method="post" id="ggr-meldingen-bulk-form" style="margin: 10px 0;">
+            <?php wp_nonce_field( 'ggr_meldingen_update', 'ggr_melding_nonce' ); ?>
+            <input type="hidden" name="ggr_meldingen_bulk_action" value="delete" />
+            <button class="button button-secondary" type="submit" onclick="return confirm('Weet je zeker dat je de geselecteerde meldingen wilt verwijderen?');">
+                Geselecteerde meldingen verwijderen
+            </button>
+        </form>
 
         <table class="widefat fixed striped">
             <thead>
                 <tr>
+                    <th class="check-column">
+                        <input type="checkbox" id="ggr-meldingen-select-all" form="ggr-meldingen-bulk-form" />
+                    </th>                    
                     <th>Status</th>
                     <th>Melding</th>
                     <th>Participant</th>
@@ -336,7 +363,7 @@ function ggr_meldingen_render_admin_page() {
             <tbody>
                 <?php if ( empty( $meldingen ) ) : ?>
                     <tr>
-                        <td colspan="5">Geen meldingen gevonden.</td>
+                        <td colspan="7">Geen meldingen gevonden.</td>
                     </tr>
                 <?php else : ?>
                     <?php foreach ( $meldingen as $melding ) :
@@ -348,6 +375,9 @@ function ggr_meldingen_render_admin_page() {
                         $history   = ggr_meldingen_get_history( $melding->ID );                        
                         ?>
                         <tr>
+                            <td class="check-column">
+                                <input type="checkbox" name="ggr_melding_ids[]" value="<?php echo esc_attr( $melding->ID ); ?>" form="ggr-meldingen-bulk-form" />
+                            </td>                            
                             <td>
                                 <form method="post">
                                     <?php wp_nonce_field( 'ggr_meldingen_update', 'ggr_melding_nonce' ); ?>
@@ -408,6 +438,20 @@ function ggr_meldingen_render_admin_page() {
                 <?php endif; ?>
             </tbody>
         </table>
+        <script>
+            (function() {
+                var selectAll = document.getElementById('ggr-meldingen-select-all');
+                if (!selectAll) {
+                    return;
+                }
+                selectAll.addEventListener('change', function(event) {
+                    var checkboxes = document.querySelectorAll('input[name="ggr_melding_ids[]"]');
+                    checkboxes.forEach(function(box) {
+                        box.checked = event.target.checked;
+                    });
+                });
+            })();
+        </script>        
     </div>
     <?php
 }
