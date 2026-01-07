@@ -680,6 +680,54 @@ function ggr_get_latest_stock_price() {
 }
 
 /**
+ * Bereken het dividend accrual to date (MTD) o.b.v. IBKR history.
+ *
+ * @param string $date_mysql Datum in Y-m-d.
+ * @return float
+ */
+function ggr_stock_price_get_dividend_accruals_to_date( $date_mysql ) {
+    global $wpdb;
+
+    $date_mysql = $date_mysql ? date( 'Y-m-d', strtotime( $date_mysql ) ) : '';
+    if ( ! $date_mysql ) {
+        return 0.0;
+    }
+
+    $month_start = date( 'Y-m-01', strtotime( $date_mysql ) );
+    if ( function_exists( 'ggr_dividend_accruals_get_month_start' ) ) {
+        $month_start = ggr_dividend_accruals_get_month_start( $date_mysql );
+    }
+
+    $history_table = $wpdb->prefix . 'ggr_dividend_accrual_history';
+    $rows          = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT net_amount, currency, fx_rate_to_base
+             FROM {$history_table}
+             WHERE report_date BETWEEN %s AND %s",
+            $month_start,
+            $date_mysql
+        ),
+        ARRAY_A
+    );
+
+    $total = 0.0;
+    foreach ( $rows as $row ) {
+        $currency      = isset( $row['currency'] ) ? strtoupper( (string) $row['currency'] ) : '';
+        $net_amount    = (float) $row['net_amount'];
+        $fx_rate       = isset( $row['fx_rate_to_base'] ) ? (float) $row['fx_rate_to_base'] : null;
+        $net_amount_eur = $net_amount;
+
+        if ( $currency === 'USD' && $fx_rate !== null && $fx_rate > 0 ) {
+            $net_amount_eur = $net_amount * $fx_rate;
+        }
+
+        $total += $net_amount_eur;
+    }
+
+    return $total;
+}
+
+/**
  * Haal totaal en datum uit IBKR Flex XML (EquitySummaryByReportDateInBase).
  *
  * @param string $xml_raw De volledige XML-string.
@@ -867,7 +915,13 @@ function ggr_render_stock_price_page() {
         } else {
             $report_date = $parsed_ibkr['report_date'];
             $fund_total  = (float) $parsed_ibkr['total'];
-
+            $existing_id = $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT id FROM {$table_name} WHERE price_date = %s LIMIT 1",
+                    $report_date
+                )
+            );
+            
             $total_parts = function_exists( 'ggr_portal_get_total_participations_all_users' )
                 ? ggr_portal_get_total_participations_all_users( $report_date )
                 : 0.0;
@@ -875,7 +929,17 @@ function ggr_render_stock_price_page() {
             if ( $total_parts <= 0 ) {
                 $error = 'Geen participaties gevonden om de stock price mee te berekenen.';
             } else {
-                $gross_price      = round( $fund_total / $total_parts, 6 );
+                $total_for_calc = $fund_total;
+                if ( ! $existing_id ) {
+                    $dividend_mtd   = ggr_stock_price_get_dividend_accruals_to_date( $report_date );
+                    $total_for_calc = $fund_total - $dividend_mtd;
+                }
+
+                if ( $total_for_calc <= 0 ) {
+                    $total_for_calc = $fund_total;
+                }
+
+                $gross_price      = round( $total_for_calc / $total_parts, 6 );
                 $fee_percent      = ggr_stock_price_get_default_management_fee_percent();
                 $calculated_price = ggr_stock_price_calculate_net_from_gross( $gross_price, $fee_percent );
 
@@ -962,7 +1026,17 @@ function ggr_render_stock_price_page() {
             if ( null === $total_parts || $total_parts <= 0 ) {
                 $error = 'Geen participaties gevonden om de NAV mee te berekenen.';
             } else {
-                $gross_price      = round( $fund_total / $total_parts, 6 );
+                $total_for_calc = $fund_total;
+                if ( ! $existing_id ) {
+                    $dividend_mtd   = ggr_stock_price_get_dividend_accruals_to_date( $price_date );
+                    $total_for_calc = $fund_total - $dividend_mtd;
+                }
+
+                if ( $total_for_calc <= 0 ) {
+                    $total_for_calc = $fund_total;
+                }
+
+                $gross_price      = round( $total_for_calc / $total_parts, 6 );
                 $calculated_price = ggr_stock_price_calculate_net_from_gross( $gross_price, $fee_percent_value );
 
                 if ( null === $calculated_price ) {
@@ -1161,7 +1235,23 @@ function ggr_render_stock_price_page() {
                     continue;
                 }
 
-                $gross_price      = round( $fund_total / $total_parts, 6 );
+                $existing_id = $wpdb->get_var(
+                    $wpdb->prepare(
+                        "SELECT id FROM {$table_name} WHERE price_date = %s LIMIT 1",
+                        $date
+                    )
+                );
+                $total_for_calc = $fund_total;
+                if ( ! $existing_id ) {
+                    $dividend_mtd   = ggr_stock_price_get_dividend_accruals_to_date( $date );
+                    $total_for_calc = $fund_total - $dividend_mtd;
+                }
+
+                if ( $total_for_calc <= 0 ) {
+                    $total_for_calc = $fund_total;
+                }
+
+                $gross_price      = round( $total_for_calc / $total_parts, 6 );
                 $fee_percent      = ggr_stock_price_get_default_management_fee_percent();
                 $calculated_price = ggr_stock_price_calculate_net_from_gross( $gross_price, $fee_percent );
 
@@ -1615,7 +1705,7 @@ function ggr_render_stock_price_page() {
                             <th scope="col">Datum</th>
                             <th scope="col">Netto waarde per 1 GGR-participatie</th>
                             <th scope="col">Bruto waarde per 1 GGR-participatie</th>
-                            <th scope="col">Totaal uit IBKR - Dividend accrual to date</th>
+                            <th scope="col">Vermogen zonder Accruals (€)</th>
                             <th scope="col">Dividend accruals to date (€)</th>
                             <th scope="col">Totaal participaties</th>
                             <th scope="col">Flex statement</th>
