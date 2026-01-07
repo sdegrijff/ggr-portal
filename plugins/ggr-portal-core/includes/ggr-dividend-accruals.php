@@ -1219,8 +1219,7 @@ function ggr_ibkr_accruals_parse_statement_dom( $body, $statement_date ) {
             $gross_raw,
             $tax_raw,
             $net_raw,
-            $fx_rate_raw,            
-            $fx_rate_raw,            
+            $fx_rate_raw,
             $code_raw,
             $statement_date
         );
@@ -1374,6 +1373,7 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
             $gross_raw,
             $tax_raw,
             $net_raw,
+            $fx_rate_raw,            
             $code_raw,
             $statement_date
         );
