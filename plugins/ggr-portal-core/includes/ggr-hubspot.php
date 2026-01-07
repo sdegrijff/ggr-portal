@@ -275,7 +275,6 @@ function ggr_hubspot_upsert_contact( $user_id ) {
         'email'                 => $email,
         'phone'                 => get_user_meta( $user_id, 'phone', true ),
         'country'               => ggr_hubspot_get_contact_country( $user_id ),
-        'account_type'          => get_user_meta( $user_id, 'ggr_account_type', true ),
         'investment_amount'     => get_user_meta( $user_id, 'ggr_participation_amount', true ),
         'onboarding_status'     => function_exists( 'onboarding_get_status' ) ? onboarding_get_status( $user_id ) : '',
         ggr_hubspot_property_key( 'contacts', 'ggr_last_login_at' )  => $last_login,
@@ -424,7 +423,7 @@ function ggr_hubspot_upsert_deal( $user_id, $contact_id, $status ) {
         'pipeline'  => $pipeline,
         'dealstage' => $deal_stage,
         'amount'    => get_user_meta( $user_id, 'ggr_participation_amount', true ),
-        'account_type' => get_user_meta( $user_id, 'ggr_account_type', true ),
+        ggr_hubspot_property_key( 'deals', 'account_type' ) => get_user_meta( $user_id, 'ggr_account_type', true ),
     );
 
     $properties = array_filter(
