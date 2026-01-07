@@ -2088,6 +2088,66 @@ function ggr_render_dividend_accrual_page() {
         }
     }
 
+    $mtd_row = null;
+    $today_date = current_time( 'Y-m-d' );
+    $month_start = function_exists( 'ggr_dividend_accruals_get_month_start' )
+        ? ggr_dividend_accruals_get_month_start( $today_date )
+        : date( 'Y-m-01', strtotime( $today_date ) );
+    if ( $month_start ) {
+        $mtd_rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT gross_value, tax_value, net_amount, currency, fx_rate_to_base
+                 FROM {$history_table_name}
+                 WHERE report_date BETWEEN %s AND %s",
+                $month_start,
+                $today_date
+            ),
+            ARRAY_A
+        );
+
+        $gross_total = 0.0;
+        $tax_total   = 0.0;
+        $net_total   = 0.0;
+        foreach ( $mtd_rows as $mtd_entry ) {
+            $currency = isset( $mtd_entry['currency'] ) ? strtoupper( (string) $mtd_entry['currency'] ) : '';
+            $fx_rate  = isset( $mtd_entry['fx_rate_to_base'] ) ? (float) $mtd_entry['fx_rate_to_base'] : null;
+            $gross    = isset( $mtd_entry['gross_value'] ) ? (float) $mtd_entry['gross_value'] : 0.0;
+            $tax      = isset( $mtd_entry['tax_value'] ) ? (float) $mtd_entry['tax_value'] : 0.0;
+            $net      = isset( $mtd_entry['net_amount'] ) ? (float) $mtd_entry['net_amount'] : 0.0;
+
+            if ( $currency === 'USD' && $fx_rate !== null && $fx_rate > 0 ) {
+                $gross *= $fx_rate;
+                $tax   *= $fx_rate;
+                $net   *= $fx_rate;
+            }
+
+            $gross_total += $gross;
+            $tax_total   += $tax;
+            $net_total   += $net;
+        }
+
+        if ( $gross_total > 0 || $net_total > 0 ) {
+            $fee_total = round( $gross_total * 0.1, 4 );
+            if ( $net_total <= 0 && $gross_total > 0 ) {
+                $net_total = round( $gross_total - $fee_total, 4 );
+            }
+
+            $parts_total = function_exists( 'ggr_portal_get_total_participations_all_users' )
+                ? ggr_portal_get_total_participations_all_users( $today_date )
+                : null;
+
+            $mtd_row = array(
+                'date'    => $today_date,
+                'gross'   => $gross_total,
+                'fee'     => $fee_total,
+                'net'     => $net_total,
+                'parts'   => $parts_total,
+                'per'     => ( $parts_total && $parts_total > 0 ) ? ( $net_total / $parts_total ) : null,
+                'tax'     => $tax_total,
+            );
+        }
+    }
+
     ?>
     <div class="wrap">
         <h1>Dividend accruals</h1>
@@ -2217,6 +2277,34 @@ function ggr_render_dividend_accrual_page() {
                     </tr>
                 </thead>
                 <tbody>
+                    <?php if ( $mtd_row ) : ?>
+                        <?php
+                        $mtd_date_disp = date_i18n( 'd-m-Y', strtotime( $mtd_row['date'] ) ) . ' (MTD)';
+                        $mtd_gross_disp = '€ ' . number_format( (float) $mtd_row['gross'], 2, ',', '.' );
+                        $mtd_fee_disp   = '€ ' . number_format( (float) $mtd_row['fee'], 2, ',', '.' );
+                        $mtd_net_disp   = '€ ' . number_format( (float) $mtd_row['net'], 2, ',', '.' );
+                        $mtd_parts_disp = $mtd_row['parts'] !== null
+                            ? number_format( (float) $mtd_row['parts'], 4, ',', '.' )
+                            : '–';
+                        $mtd_per_disp = $mtd_row['per'] !== null
+                            ? '€ ' . number_format( (float) $mtd_row['per'], 6, ',', '.' )
+                            : '–';
+                        ?>
+                        <tr>
+                            <td><?php echo esc_html( $mtd_date_disp ); ?></td>
+                            <td><?php echo esc_html( $mtd_net_disp ); ?></td>
+                            <td><?php echo esc_html( $mtd_fee_disp ); ?></td>
+                            <td><?php echo esc_html( $mtd_gross_disp ); ?></td>
+                            <td>–</td>
+                            <td>–</td>
+                            <td>–</td>
+                            <td><?php echo esc_html( $mtd_parts_disp ); ?></td>
+                            <td><?php echo esc_html( $mtd_per_disp ); ?></td>
+                            <td>–</td>
+                            <td>–</td>
+                            <td>–</td>
+                        </tr>
+                    <?php endif; ?>                    
                     <?php foreach ( $rows as $row ) : ?>
                         <?php
                         $edit_url = add_query_arg(
@@ -2460,7 +2548,7 @@ function ggr_render_dividend_accrual_page() {
                         $history_report = $history_row['report_date'] ? date_i18n( 'd-m-Y', strtotime( $history_row['report_date'] ) ) : '';
                         $history_currency = isset( $history_row['currency'] ) ? strtoupper( (string) $history_row['currency'] ) : '';
                         $history_code = isset( $history_row['code'] ) ? strtoupper( (string) $history_row['code'] ) : '';
-                        $amount_prefix = $history_currency ? $history_currency . ' ' : '';
+                        $amount_prefix = '$ ';
                         $history_fx_rate = isset( $history_row['fx_rate_to_base'] ) && $history_row['fx_rate_to_base'] !== null
                             ? (float) $history_row['fx_rate_to_base']
                             : null;
