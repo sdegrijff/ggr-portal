@@ -1831,9 +1831,9 @@ function ggr_render_stock_price_page() {
                                 </th>
                                 <td><?php echo esc_html( $date_disp ); ?></td>
                                 <td><?php echo esc_html( $value_disp ); ?></td>
-                                <td><?php echo esc_html( $fund_total_disp ); ?></td>
+                                <td><?php echo esc_html( $fund_total_disp ); ?></td>   
                                 <td><?php echo esc_html( $dividend_accruals_disp ); ?></td>  
-                                <td><?php echo esc_html( $fund_total_raw_disp ); ?></td>                                
+                                <td><?php echo esc_html( $fund_total_raw_disp ); ?></td>                                 
                                 <td><?php echo esc_html( $total_parts_disp ); ?></td>
                                 <td>
                                     <?php if ( $statement_url ) : ?>
