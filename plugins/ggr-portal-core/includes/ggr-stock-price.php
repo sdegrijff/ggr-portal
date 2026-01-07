@@ -1276,6 +1276,63 @@ function ggr_render_stock_price_page() {
         unset( $row );
     }
 
+    $dividend_accruals_history = array();
+    if ( ! empty( $rows ) ) {
+        $min_date = null;
+        $max_date = null;
+
+        foreach ( $rows as $row ) {
+            $date = isset( $row['price_date'] ) ? $row['price_date'] : null;
+            if ( ! $date ) {
+                continue;
+            }
+
+            if ( null === $min_date || $date < $min_date ) {
+                $min_date = $date;
+            }
+
+            if ( null === $max_date || $date > $max_date ) {
+                $max_date = $date;
+            }
+        }
+
+        if ( $min_date && $max_date ) {
+            $history_table = $wpdb->prefix . 'ggr_dividend_accrual_history';
+            $history_rows  = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT report_date, net_amount
+                     FROM {$history_table}
+                     WHERE report_date BETWEEN %s AND %s
+                     ORDER BY report_date ASC",
+                    $min_date,
+                    $max_date
+                ),
+                ARRAY_A
+            );
+
+            $daily_totals = array();
+            foreach ( $history_rows as $history_row ) {
+                $report_date = $history_row['report_date'];
+                $daily_totals[ $report_date ] = isset( $daily_totals[ $report_date ] )
+                    ? $daily_totals[ $report_date ] + (float) $history_row['net_amount']
+                    : (float) $history_row['net_amount'];
+            }
+
+            foreach ( $daily_totals as $report_date => $net_amount ) {
+                $month_key = date( 'Y-m', strtotime( $report_date ) );
+                if ( ! isset( $dividend_accruals_history[ $month_key ] ) ) {
+                    $dividend_accruals_history[ $month_key ] = array();
+                }
+                $dividend_accruals_history[ $month_key ][ $report_date ] = $net_amount;
+            }
+
+            foreach ( $dividend_accruals_history as &$month_rows ) {
+                ksort( $month_rows );
+            }
+            unset( $month_rows );
+        }
+    }
+    
     // URLs voor export en delete all
     $export_url = wp_nonce_url(
         add_query_arg(
@@ -1549,7 +1606,8 @@ function ggr_render_stock_price_page() {
                             <th scope="col">Datum</th>
                             <th scope="col">Netto waarde per 1 GGR-participatie</th>
                             <th scope="col">Bruto waarde per 1 GGR-participatie</th>
-                            <th scope="col">Totaal uit IBKR</th>
+                            <th scope="col">Totaal uit IBKR - Dividend accrual to date</th>
+                            <th scope="col">Dividend accruals to date</th>
                             <th scope="col">Totaal participaties</th>
                             <th scope="col">Flex statement</th>
                             <th scope="col">Management fee (%)</th>
@@ -1567,7 +1625,8 @@ function ggr_render_stock_price_page() {
                             $row       = $rows[ $i ];
                             $date_raw  = $row['price_date'];
                             $date_disp = date_i18n( 'd-m-Y', strtotime( $date_raw ) );
-
+                            $month_key = date( 'Y-m', strtotime( $date_raw ) );
+                            
                             $value           = (float) $row['price_value'];
                             $value_disp      = number_format( $value, 4, ',', '.' );
                             $gross_value     = isset( $row['gross_price_value'] ) ? (float) $row['gross_price_value'] : null;
@@ -1575,8 +1634,21 @@ function ggr_render_stock_price_page() {
                             $fund_total      = isset( $row['fund_total'] ) ? (float) $row['fund_total'] : null;
                             $total_parts     = isset( $row['total_participations'] ) ? (float) $row['total_participations'] : null;
                             $statement_url   = isset( $row['statement_url'] ) ? trim( (string) $row['statement_url'] ) : '';
-                            $fund_total_disp  = $fund_total !== null ? number_format( $fund_total, 2, ',', '.' ) : '-';
                             $total_parts_disp = $total_parts !== null ? number_format( $total_parts, 4, ',', '.' ) : '-';
+
+                            $dividend_accruals_mtd = 0.0;
+                            if ( ! empty( $dividend_accruals_history[ $month_key ] ) ) {
+                                foreach ( $dividend_accruals_history[ $month_key ] as $report_date => $net_amount ) {
+                                    if ( $report_date > $date_raw ) {
+                                        break;
+                                    }
+                                    $dividend_accruals_mtd += $net_amount;
+                                }
+                            }
+
+                            $dividend_accruals_disp = number_format( $dividend_accruals_mtd, 2, ',', '.' );
+                            $fund_total_adjusted    = $fund_total !== null ? $fund_total - $dividend_accruals_mtd : null;
+                            $fund_total_disp        = $fund_total_adjusted !== null ? number_format( $fund_total_adjusted, 2, ',', '.' ) : '-';
 
                             if ( null === $gross_value ) {
                                 $gross_value = ggr_stock_price_calculate_gross_from_net( $value, $fee_percent );
@@ -1635,6 +1707,7 @@ function ggr_render_stock_price_page() {
                                 <td><?php echo esc_html( $value_disp ); ?></td>
                                 <td><?php echo esc_html( $gross_value_disp ); ?></td>
                                 <td><?php echo esc_html( $fund_total_disp ); ?></td>
+                                <td><?php echo esc_html( $dividend_accruals_disp ); ?></td>                                
                                 <td><?php echo esc_html( $total_parts_disp ); ?></td>
                                 <td>
                                     <?php if ( $statement_url ) : ?>
