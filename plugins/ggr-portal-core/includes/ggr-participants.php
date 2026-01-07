@@ -3382,7 +3382,10 @@ function ggr_portal_render_participant_profile_page() {
     $email_verified_label    = $format_date_only( $email_verified_at );
     $documents_submitted_label = $format_datetime( $documents_submitted_at );
     $participant_enrolled_label = $format_date_only( $participant_enrolled_at );
-
+    $contract_signed_label      = $format_datetime( $contract_signed_at );
+    $payment_confirmation_label = $format_datetime( $payment_confirmation_at );
+    $payment_received_at_label  = $format_datetime( $payment_received_at );
+    
     $lead_stages = function_exists( 'ggr_onboarding_get_stages' ) ? ggr_onboarding_get_stages() : array();
     if ( ! $extra_step_required && 'extra_info' !== $onboarding_status ) {
         unset( $lead_stages['extra_info'] );
