@@ -1300,7 +1300,7 @@ function ggr_render_stock_price_page() {
             $history_table = $wpdb->prefix . 'ggr_dividend_accrual_history';
             $history_rows  = $wpdb->get_results(
                 $wpdb->prepare(
-                    "SELECT report_date, net_amount
+                    "SELECT report_date, net_amount, currency, fx_rate_to_base
                      FROM {$history_table}
                      WHERE report_date BETWEEN %s AND %s
                      ORDER BY report_date ASC",
@@ -1313,9 +1313,18 @@ function ggr_render_stock_price_page() {
             $daily_totals = array();
             foreach ( $history_rows as $history_row ) {
                 $report_date = $history_row['report_date'];
+                $currency = isset( $history_row['currency'] ) ? strtoupper( (string) $history_row['currency'] ) : '';
+                $net_amount = (float) $history_row['net_amount'];
+                $fx_rate = isset( $history_row['fx_rate_to_base'] ) ? (float) $history_row['fx_rate_to_base'] : null;
+                $net_amount_eur = $net_amount;
+
+                if ( $currency === 'USD' && $fx_rate !== null && $fx_rate > 0 ) {
+                    $net_amount_eur = $net_amount * $fx_rate;
+                }
+                
                 $daily_totals[ $report_date ] = isset( $daily_totals[ $report_date ] )
-                    ? $daily_totals[ $report_date ] + (float) $history_row['net_amount']
-                    : (float) $history_row['net_amount'];
+                    ? $daily_totals[ $report_date ] + $net_amount_eur
+                    : $net_amount_eur;
             }
 
             foreach ( $daily_totals as $report_date => $net_amount ) {
@@ -1607,7 +1616,7 @@ function ggr_render_stock_price_page() {
                             <th scope="col">Netto waarde per 1 GGR-participatie</th>
                             <th scope="col">Bruto waarde per 1 GGR-participatie</th>
                             <th scope="col">Totaal uit IBKR - Dividend accrual to date</th>
-                            <th scope="col">Dividend accruals to date</th>
+                            <th scope="col">Dividend accruals to date (€)</th>
                             <th scope="col">Totaal participaties</th>
                             <th scope="col">Flex statement</th>
                             <th scope="col">Management fee (%)</th>
