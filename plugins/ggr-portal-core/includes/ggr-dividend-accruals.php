@@ -18,7 +18,7 @@ if ( ! defined( 'GGR_DIVIDEND_ACCRUAL_DB_VERSION' ) ) {
 add_action( 'plugins_loaded', 'ggr_maybe_create_dividend_accrual_table' );
 
 if ( ! defined( 'GGR_DIVIDEND_ACCRUAL_HISTORY_DB_VERSION' ) ) {
-    define( 'GGR_DIVIDEND_ACCRUAL_HISTORY_DB_VERSION', '1.4' );
+    define( 'GGR_DIVIDEND_ACCRUAL_HISTORY_DB_VERSION', '1.5' );
 }
 
 add_action( 'plugins_loaded', 'ggr_maybe_create_dividend_accrual_history_table' );
@@ -85,6 +85,7 @@ function ggr_create_dividend_accrual_history_table() {
             gross_value DECIMAL(20,4) NOT NULL,
             tax_value DECIMAL(20,4) NOT NULL,
             net_amount DECIMAL(20,4) NOT NULL,
+            fx_rate_to_base DECIMAL(20,6) DEFAULT NULL,            
             code VARCHAR(10) DEFAULT NULL,            
             statement_url TEXT DEFAULT NULL,
             created_at DATETIME NOT NULL,
@@ -166,6 +167,13 @@ function ggr_upgrade_dividend_accrual_history_table( $installed_version ) {
             $wpdb->query( "ALTER TABLE {$table_name} ADD COLUMN statement_url TEXT DEFAULT NULL" );
         }
     }
+
+    if ( version_compare( $installed_version, '1.5', '<' ) ) {
+        $columns = $wpdb->get_col( "SHOW COLUMNS FROM {$table_name}", 0 );
+        if ( is_array( $columns ) && ! in_array( 'fx_rate_to_base', $columns, true ) ) {
+            $wpdb->query( "ALTER TABLE {$table_name} ADD COLUMN fx_rate_to_base DECIMAL(20,6) DEFAULT NULL" );
+        }
+    }    
 }
 
 
@@ -298,6 +306,39 @@ function ggr_dividend_accruals_get_by_date( $date ) {
         ),
         ARRAY_A
     );
+}
+
+function ggr_dividend_accruals_get_latest_fx_rate( $date = '' ) {
+    global $wpdb;
+
+    $table_name = $wpdb->prefix . 'ggr_dividend_accrual_history';
+    $date_limit = $date ? ggr_dividend_accruals_parse_date( $date ) : '';
+
+    if ( $date && ! $date_limit ) {
+        return null;
+    }
+
+    $query = "SELECT fx_rate_to_base FROM {$table_name} WHERE fx_rate_to_base IS NOT NULL AND fx_rate_to_base > 0";
+    $params = array();
+
+    if ( $date_limit ) {
+        $query .= " AND report_date <= %s";
+        $params[] = $date_limit;
+    }
+
+    $query .= " ORDER BY report_date DESC, id DESC LIMIT 1";
+
+    $rate = $params
+        ? $wpdb->get_var( $wpdb->prepare( $query, $params ) )
+        : $wpdb->get_var( $query );
+
+    if ( $rate === null || $rate === '' ) {
+        return null;
+    }
+
+    $rate = (float) $rate;
+
+    return $rate > 0 ? $rate : null;
 }
 
 function ggr_dividend_accruals_get_per_participation( $date ) {
@@ -442,6 +483,7 @@ function ggr_dividend_accrual_history_upsert(
     $gross_value,
     $tax_value,
     $net_amount,
+    $fx_rate_to_base = null,    
     $statement_url = '',
     $currency = '',
     $code = ''
@@ -462,6 +504,10 @@ function ggr_dividend_accrual_history_upsert(
     $tax_value   = (float) $tax_value;
     $net_amount  = (float) $net_amount;
     $statement_url = $statement_url ? esc_url_raw( $statement_url ) : null;
+    $fx_rate_to_base = $fx_rate_to_base !== null ? (float) $fx_rate_to_base : null;
+    if ( $fx_rate_to_base !== null && $fx_rate_to_base <= 0 ) {
+        $fx_rate_to_base = null;
+    }    
     $now         = current_time( 'mysql' );
 
     $existing_id = $wpdb->get_var(
@@ -480,12 +526,13 @@ function ggr_dividend_accrual_history_upsert(
                 'gross_value' => $gross_value,
                 'tax_value'   => $tax_value,
                 'net_amount'  => $net_amount,
+                'fx_rate_to_base' => $fx_rate_to_base,                
                 'code'        => $code,
                 'statement_url' => $statement_url,
                 'updated_at'  => $now,
             ),
             array( 'id' => (int) $existing_id ),
-            array( '%s', '%s', '%f', '%f', '%f', '%s', '%s', '%s' ),
+            array( '%s', '%s', '%f', '%f', '%f', '%f', '%s', '%s', '%s' ),
             array( '%d' )
         );
 
@@ -501,12 +548,13 @@ function ggr_dividend_accrual_history_upsert(
             'gross_value'   => $gross_value,
             'tax_value'     => $tax_value,
             'net_amount'    => $net_amount,
+            'fx_rate_to_base' => $fx_rate_to_base,            
             'code'          => $code,
             'statement_url' => $statement_url,
             'created_at'    => $now,
             'updated_at'    => $now,
         ),
-        array( '%s', '%s', '%s', '%f', '%f', '%f', '%s', '%s', '%s', '%s' )
+        array( '%s', '%s', '%s', '%f', '%f', '%f', '%f', '%s', '%s', '%s', '%s' )
     );
 
     return $inserted ? (int) $wpdb->insert_id : new WP_Error( 'insert_failed', 'Opslaan is mislukt.' );
@@ -643,7 +691,11 @@ function ggr_dividend_accruals_backfill_history( $fx_rate = null ) {
     }
 
     while ( $cursor && strtotime( $cursor ) <= strtotime( $end_month ) ) {
-        ggr_dividend_accruals_generate_month_from_history( $cursor, $fx_rate );
+        $fx_rate_for_month = $fx_rate;
+        if ( $fx_rate_for_month === null ) {
+            $fx_rate_for_month = ggr_dividend_accruals_get_latest_fx_rate( ggr_dividend_accruals_get_month_end( $cursor ) );
+        }
+        ggr_dividend_accruals_generate_month_from_history( $cursor, $fx_rate_for_month );
         $cursor = ggr_dividend_accruals_get_next_month_start( $cursor );
     }
 
@@ -696,7 +748,11 @@ function ggr_dividend_accruals_backfill_history_all( $fx_rate = null ) {
             continue;
         }
 
-        $computed = ggr_dividend_accruals_generate_month_from_history( $cursor, $fx_rate );
+        $fx_rate_for_month = $fx_rate;
+        if ( $fx_rate_for_month === null ) {
+            $fx_rate_for_month = ggr_dividend_accruals_get_latest_fx_rate( ggr_dividend_accruals_get_month_end( $cursor ) );
+        }
+        $computed = ggr_dividend_accruals_generate_month_from_history( $cursor, $fx_rate_for_month );
         if ( is_wp_error( $computed ) ) {
             $result['missing']++;
         } else {
@@ -725,7 +781,8 @@ function ggr_dividend_accruals_run_monthly_rollup() {
     }
 
     $previous_month = wp_date( 'Y-m-01', strtotime( 'first day of previous month', $today ) );
-    ggr_dividend_accruals_generate_month_from_history( $previous_month );
+    $fx_rate = ggr_dividend_accruals_get_latest_fx_rate( ggr_dividend_accruals_get_month_end( $previous_month ) );
+    ggr_dividend_accruals_generate_month_from_history( $previous_month, $fx_rate );
 
     update_option( 'ggr_dividend_accruals_monthly_last_run', $month_key, false );
 }
@@ -1064,6 +1121,7 @@ function ggr_ibkr_accruals_format_entry(
     $gross_raw,
     $tax_raw,
     $net_raw,
+    $fx_rate_raw,    
     $code_raw,
     $statement_date
 ) {
@@ -1088,6 +1146,10 @@ function ggr_ibkr_accruals_format_entry(
     $gross_value = ggr_dividend_accruals_parse_float( $gross_raw );
     $tax_value   = $tax_raw !== '' ? ggr_dividend_accruals_parse_float( $tax_raw ) : 0.0;
     $net_amount  = $net_raw !== '' ? ggr_dividend_accruals_parse_float( $net_raw ) : 0.0;
+    $fx_rate_to_base = $fx_rate_raw !== '' ? ggr_dividend_accruals_parse_float( $fx_rate_raw ) : null;
+    if ( $fx_rate_to_base !== null && $fx_rate_to_base <= 0 ) {
+        $fx_rate_to_base = null;
+    }    
 
     return array(
         'action_id'   => $action_id,
@@ -1096,6 +1158,7 @@ function ggr_ibkr_accruals_format_entry(
         'gross_value' => $gross_value,
         'tax_value'   => $tax_value,
         'net_amount'  => $net_amount,
+        'fx_rate_to_base' => $fx_rate_to_base,        
         'code'        => $code,
     );
 }
@@ -1145,6 +1208,7 @@ function ggr_ibkr_accruals_parse_statement_dom( $body, $statement_date ) {
         $gross_raw    = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'grossAmount', 'grossValue', 'gross', 'amount' ) );
         $tax_raw      = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'tax', 'taxAmount', 'withholdingTax', 'withholdingTaxAmount' ) );
         $net_raw      = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'netAmount', 'net', 'netValue' ) );
+        $fx_rate_raw  = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'fxRateToBase', 'fx_rate_to_base', 'fx-rate-to-base', 'fxRate', 'fx_rate' ) );        
         $code_raw     = ggr_ibkr_accruals_dom_get_attribute( $node, array( 'code', 'transactionType', 'type' ) );
 
         $entry = ggr_ibkr_accruals_format_entry(
@@ -1155,6 +1219,8 @@ function ggr_ibkr_accruals_parse_statement_dom( $body, $statement_date ) {
             $gross_raw,
             $tax_raw,
             $net_raw,
+            $fx_rate_raw,            
+            $fx_rate_raw,            
             $code_raw,
             $statement_date
         );
@@ -1216,6 +1282,7 @@ function ggr_ibkr_accruals_parse_statement_regex( $body, $statement_date ) {
         $gross_raw     = $attributes['grossamount'] ?? $attributes['grossvalue'] ?? $attributes['gross'] ?? $attributes['amount'] ?? '';
         $tax_raw       = $attributes['tax'] ?? $attributes['taxamount'] ?? $attributes['withholdingtax'] ?? $attributes['withholdingtaxamount'] ?? '';
         $net_raw       = $attributes['netamount'] ?? $attributes['net'] ?? $attributes['netvalue'] ?? '';
+        $fx_rate_raw   = $attributes['fxratetobase'] ?? $attributes['fx_rate_to_base'] ?? $attributes['fx-rate-to-base'] ?? $attributes['fxrate'] ?? $attributes['fx_rate'] ?? '';        
         $code_raw      = $attributes['code'] ?? $attributes['transactiontype'] ?? $attributes['type'] ?? '';
 
         $entry = ggr_ibkr_accruals_format_entry(
@@ -1226,6 +1293,7 @@ function ggr_ibkr_accruals_parse_statement_regex( $body, $statement_date ) {
             $gross_raw,
             $tax_raw,
             $net_raw,
+            $fx_rate_raw,            
             $code_raw,
             $statement_date
         );
@@ -1295,6 +1363,7 @@ function ggr_ibkr_accruals_parse_statement( $body ) {
         $gross_raw     = ggr_ibkr_accruals_get_value( $node, array( 'grossAmount', 'grossValue', 'gross', 'amount' ) );
         $tax_raw       = ggr_ibkr_accruals_get_value( $node, array( 'tax', 'taxAmount', 'withholdingTax', 'withholdingTaxAmount' ) );
         $net_raw       = ggr_ibkr_accruals_get_value( $node, array( 'netAmount', 'net', 'netValue' ) );
+        $fx_rate_raw   = ggr_ibkr_accruals_get_value( $node, array( 'fxRateToBase', 'fx_rate_to_base', 'fx-rate-to-base', 'fxRate', 'fx_rate' ) );        
         $code_raw      = ggr_ibkr_accruals_get_value( $node, array( 'code', 'transactionType', 'type' ) );
 
         $entry = ggr_ibkr_accruals_format_entry(
@@ -1394,6 +1463,7 @@ function ggr_ibkr_accruals_store_entries( array $entries, $statement_url = '' ) 
             $entry['gross_value'],
             $entry['tax_value'],
             $entry['net_amount'],
+            $entry['fx_rate_to_base'] ?? null,            
             $statement_url,
             $entry['currency'] ?? '',
             $entry['code'] ?? ''
@@ -1811,6 +1881,7 @@ function ggr_render_dividend_accrual_page() {
     $history_form_gross        = '';
     $history_form_tax          = '';
     $history_form_net          = '';
+    $history_form_fx_rate      = '';    
     $history_form_currency     = 'USD';
     $history_form_code         = 'PO';    
     $history_edit_id           = 0;
@@ -1833,6 +1904,9 @@ function ggr_render_dividend_accrual_page() {
             $history_form_gross        = number_format( (float) $history_row['gross_value'], 2, ',', '' );
             $history_form_tax          = number_format( (float) $history_row['tax_value'], 2, ',', '' );
             $history_form_net          = number_format( (float) $history_row['net_amount'], 2, ',', '' );
+            if ( isset( $history_row['fx_rate_to_base'] ) && $history_row['fx_rate_to_base'] !== null ) {
+                $history_form_fx_rate = number_format( (float) $history_row['fx_rate_to_base'], 6, ',', '' );
+            }            
             $history_form_currency     = $history_row['currency'] ? (string) $history_row['currency'] : $history_form_currency;
             $history_form_code         = $history_row['code'] ? (string) $history_row['code'] : $history_form_code;            
             $history_is_edit           = true;
@@ -1847,6 +1921,7 @@ function ggr_render_dividend_accrual_page() {
         $history_gross_raw     = isset( $_POST['history_gross_value'] ) ? sanitize_text_field( wp_unslash( $_POST['history_gross_value'] ) ) : '';
         $history_tax_raw       = isset( $_POST['history_tax_value'] ) ? sanitize_text_field( wp_unslash( $_POST['history_tax_value'] ) ) : '';
         $history_net_raw       = isset( $_POST['history_net_amount'] ) ? sanitize_text_field( wp_unslash( $_POST['history_net_amount'] ) ) : '';
+        $history_fx_rate_raw   = isset( $_POST['history_fx_rate_to_base'] ) ? sanitize_text_field( wp_unslash( $_POST['history_fx_rate_to_base'] ) ) : '';        
         $history_currency_raw  = isset( $_POST['history_currency'] ) ? sanitize_text_field( wp_unslash( $_POST['history_currency'] ) ) : '';
         $history_code_raw      = isset( $_POST['history_code'] ) ? sanitize_text_field( wp_unslash( $_POST['history_code'] ) ) : '';        
         $history_edit_id       = isset( $_POST['history_id'] ) ? (int) $_POST['history_id'] : 0;
@@ -1858,11 +1933,16 @@ function ggr_render_dividend_accrual_page() {
         $history_gross      = ggr_dividend_accruals_parse_float( $history_gross_raw );
         $history_form_tax          = $history_tax_raw;
         $history_form_net          = $history_net_raw;
+        $history_form_fx_rate      = $history_fx_rate_raw;        
         $history_form_currency     = $history_currency_raw ? $history_currency_raw : $history_form_currency;
         $history_form_code         = $history_code_raw ? $history_code_raw : $history_form_code;        
         $history_tax        = ggr_dividend_accruals_parse_float( $history_tax_raw );
         $history_net        = ggr_dividend_accruals_parse_float( $history_net_raw );
-
+        $history_fx_rate = $history_fx_rate_raw !== '' ? ggr_dividend_accruals_parse_float( $history_fx_rate_raw ) : null;
+        if ( $history_fx_rate !== null && $history_fx_rate <= 0 ) {
+            $history_fx_rate = null;
+        }
+        
         if ( ! $history_action_id_raw || ! $history_date_mysql ) {
             $history_error = 'Action ID en ex-date zijn verplicht.';
         } elseif ( $history_gross_raw === '' ) {
@@ -1888,11 +1968,12 @@ function ggr_render_dividend_accrual_page() {
                             'gross_value' => $history_gross,
                             'tax_value'   => $history_tax,
                             'net_amount'  => $history_net,
+                            'fx_rate_to_base' => $history_fx_rate,                            
                             'code'        => strtoupper( trim( (string) $history_code_raw ) ),
                             'updated_at'  => current_time( 'mysql' ),
                         ),
                         array( 'id' => $history_edit_id ),
-                        array( '%s', '%s', '%s', '%f', '%f', '%f', '%s', '%s' ),
+                        array( '%s', '%s', '%s', '%f', '%f', '%f', '%f', '%s', '%s' ),
                         array( '%d' )
                     );
 
@@ -1913,6 +1994,7 @@ function ggr_render_dividend_accrual_page() {
                         $history_gross,
                         $history_tax,
                         $history_net,
+                        $history_fx_rate,                        
                         '',
                         $history_currency_raw,
                         $history_code_raw
@@ -2288,19 +2370,23 @@ function ggr_render_dividend_accrual_page() {
                     <td><input type="text" id="history_currency" name="history_currency" value="<?php echo esc_attr( $history_form_currency ); ?>" /></td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="history_gross_value">Gross amount</label></th>
+                    <th scope="row"><label for="history_gross_value">Gross amount ($)</label></th>
                     <td>
                         <input type="text" id="history_gross_value" name="history_gross_value" value="<?php echo esc_attr( $history_form_gross ); ?>" required />
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="history_tax_value">Tax</label></th>
+                    <th scope="row"><label for="history_tax_value">Tax ($)</label></th>
                     <td><input type="text" id="history_tax_value" name="history_tax_value" value="<?php echo esc_attr( $history_form_tax ); ?>" /></td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="history_net_amount">Net amount</label></th>
+                    <th scope="row"><label for="history_net_amount">Net amount ($)</label></th>
                     <td><input type="text" id="history_net_amount" name="history_net_amount" value="<?php echo esc_attr( $history_form_net ); ?>" /></td>
                 </tr>
+                <tr>
+                    <th scope="row"><label for="history_fx_rate_to_base">FX Rate-to-Base (USD/EUR)</label></th>
+                    <td><input type="text" id="history_fx_rate_to_base" name="history_fx_rate_to_base" value="<?php echo esc_attr( $history_form_fx_rate ); ?>" /></td>
+                </tr>                
                 <tr>
                     <th scope="row"><label for="history_code">Code</label></th>
                     <td><input type="text" id="history_code" name="history_code" value="<?php echo esc_attr( $history_form_code ); ?>" /></td>
@@ -2337,9 +2423,10 @@ function ggr_render_dividend_accrual_page() {
                         <th>Action ID</th>
                         <th>Ex-date</th>
                         <th>Valuta</th>
-                        <th>Gross amount</th>
-                        <th>Tax</th>
-                        <th>Net amount</th>
+                        <th>Gross amount ($)</th>
+                        <th>Tax ($)</th>
+                        <th>Net amount ($)</th>
+                        <th>FX Rate-to-Base</th>                        
                         <th>Code</th>
                         <th>Flex statement</th>
                         <th>Aangemaakt</th>
@@ -2374,9 +2461,19 @@ function ggr_render_dividend_accrual_page() {
                         $history_currency = isset( $history_row['currency'] ) ? strtoupper( (string) $history_row['currency'] ) : '';
                         $history_code = isset( $history_row['code'] ) ? strtoupper( (string) $history_row['code'] ) : '';
                         $amount_prefix = $history_currency ? $history_currency . ' ' : '';
+                        $history_fx_rate = isset( $history_row['fx_rate_to_base'] ) && $history_row['fx_rate_to_base'] !== null
+                            ? (float) $history_row['fx_rate_to_base']
+                            : null;
+                        $history_fx_rate_disp = $history_fx_rate !== null
+                            ? number_format( $history_fx_rate, 6, ',', '.' )
+                            : '–';                        
                         $history_gross_disp = $amount_prefix . number_format( (float) $history_row['gross_value'], 2, ',', '.' );
                         $history_tax_disp   = $amount_prefix . number_format( (float) $history_row['tax_value'], 2, ',', '.' );
                         $history_net_disp   = $amount_prefix . number_format( (float) $history_row['net_amount'], 2, ',', '.' );
+                        if ( $history_currency === 'USD' && $history_fx_rate !== null ) {
+                            $history_net_eur = (float) $history_row['net_amount'] * $history_fx_rate;
+                            $history_net_disp .= ' (€ ' . number_format( $history_net_eur, 2, ',', '.' ) . ')';
+                        }                        
                         $history_statement_url = isset( $history_row['statement_url'] ) ? trim( (string) $history_row['statement_url'] ) : '';
                         $history_created    = $history_row['created_at'] ? date_i18n( 'd-m-Y H:i', strtotime( $history_row['created_at'] ) ) : '';
                         $history_updated    = $history_row['updated_at'] ? date_i18n( 'd-m-Y H:i', strtotime( $history_row['updated_at'] ) ) : '';
@@ -2388,6 +2485,7 @@ function ggr_render_dividend_accrual_page() {
                             <td><?php echo esc_html( $history_gross_disp ); ?></td>
                             <td><?php echo esc_html( $history_tax_disp ); ?></td>
                             <td><?php echo esc_html( $history_net_disp ); ?></td>
+                            <td><?php echo esc_html( $history_fx_rate_disp ); ?></td>                            
                             <td><?php echo esc_html( $history_code ? $history_code : '—' ); ?></td>
                             <td>
                                 <?php if ( $history_statement_url ) : ?>
@@ -2544,7 +2642,7 @@ function ggr_api_get_dividend_accrual_history( WP_REST_Request $request ) {
 
     $rows = $wpdb->get_results(
         $wpdb->prepare(
-            "SELECT action_id, report_date, currency, gross_value, tax_value, net_amount, code
+            "SELECT action_id, report_date, currency, gross_value, tax_value, net_amount, fx_rate_to_base, code
              FROM {$table_name}
              WHERE report_date = %s
              ORDER BY action_id ASC, id ASC",
