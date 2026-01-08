@@ -383,7 +383,7 @@ function ggr_ibkr_nav_parse_statement( $body ) {
         $total_value = ggr_ibkr_nav_extract_total_from_xml( $xml );
     }
 
-    $date        = apply_filters( 'ggr_ibkar_nav_extracted_date', $date, $xml );
+    $date        = apply_filters( 'ggr_ibkr_nav_extracted_date', $date, $xml );
     $total_value = apply_filters( 'ggr_ibkr_nav_extracted_total', $total_value, $xml );
     $total_value = apply_filters( 'ggr_ibkr_nav_extracted_value', $total_value, $xml ); // backward compat: voorheen nav/value filter
     if ( null !== $total_value ) {
@@ -649,10 +649,18 @@ function ggr_ibkr_nav_clear_last_error() {
  * @param float|null $total_participations
  */
 function ggr_ibkr_nav_send_admin_notification( $date, $nav_per_participation, $statement, $fund_total = null, $total_participations = null ) {
+    $formatted_date = $date;
+    if ( $date ) {
+        $timestamp = strtotime( $date );
+        if ( $timestamp ) {
+            $formatted_date = wp_date( 'j F Y', $timestamp );
+        }
+    }
+    
     if ( function_exists( 'ggr_portal_send_admin_templated_email' ) ) {
         $placeholders = array(
             'ibkr_run_timestamp'        => wp_date( 'Y-m-d H:i:s' ),
-            'ibkr_report_date'          => $date,
+            'ibkr_report_date'          => $formatted_date,
             'ibkr_nav_per_participation'=> number_format( (float) $nav_per_participation, 6, ',', '.' ),
             'ibkr_total'                => null !== $fund_total ? number_format( (float) $fund_total, 2, ',', '.' ) : '',
             'ibkr_participations'       => null !== $total_participations ? number_format( (float) $total_participations, 4, ',', '.' ) : '',
@@ -669,11 +677,11 @@ function ggr_ibkr_nav_send_admin_notification( $date, $nav_per_participation, $s
         return;
     }
 
-    $subject = sprintf( 'IBKR NAV opgeslagen voor %s', $date );
+    $subject = sprintf( 'IBKR NAV opgeslagen voor %s', $formatted_date );
 
     $lines   = array();
     $lines[] = sprintf( 'De IBKR Flex API is succesvol uitgevoerd op %s.', wp_date( 'Y-m-d H:i:s' ) );
-    $lines[] = sprintf( 'Datum rapport: %s', $date );
+    $lines[] = sprintf( 'Datum rapport: %s', $formatted_date );
     $lines[] = sprintf( 'NAV per participatie: € %s', number_format( (float) $nav_per_participation, 6, ',', '.' ) );
 
     if ( null !== $fund_total ) {
