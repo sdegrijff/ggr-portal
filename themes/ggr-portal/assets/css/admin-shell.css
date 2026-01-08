@@ -13,6 +13,11 @@ body.ggr-admin-shell-enabled .wrap > h1.wp-heading-inline {
     display: none;
 }
 
+.wp-core-ui select { 
+    background: url(data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%206l5%205%205-5%202%201-7%207-7-7%202-1z%22%20fill%3D%22%23555%22%2F%3E%3C%2Fsvg%3E) no-repeat right 5px top 55%;
+} 
+    
+
 .wp-core-ui .button-primary { 
     background: #f29f75!important;
     border-color: #f29f75!important;
@@ -71,6 +76,26 @@ body.ggr-admin-shell-enabled #wpwrap {
 body.ggr-admin-shell-enabled.ggr-admin-shell-pending #wpwrap {
     opacity: 0;
     visibility: hidden;    
+}
+
+body.ggr-admin-shell-enabled .ggr-shell-nav-item.has-alert {
+    position: relative;
+}
+
+body.ggr-admin-shell-enabled .ggr-shell-nav-item.has-alert::after {
+    content: '';
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #ef4444;
+}
+
+body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-shell-nav-item.has-alert::after {
+    right: 8px;
 }
 
 body.ggr-admin-shell-enabled.ggr-admin-shell-ready #wpwrap {
@@ -134,7 +159,7 @@ body.ggr-admin-shell-enabled .ggr-admin-shell__status-value {
 }
 
 .ggr-shell-sidebar {
-    width: 170px;
+    width: 200px;
     padding: 28px 12px 20px;
 }
 
@@ -145,7 +170,11 @@ body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-shell-sidebar {
 }
 
 body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-shell-logo {
-    margin-bottom: 18px;
+    margin-bottom: 10px;
+}
+
+.ggr-shell-logo {
+    margin-bottom: 10px;
 }
 
 body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-logo-img {
@@ -171,7 +200,7 @@ body.ggr-admin-shell-enabled .ggr-shell.is-collapsed .ggr-shell-main {
 
 .ggr-shell-main {
     padding: 30px!important;
-    margin-left: 195px;
+    margin-left: 225px;
 }
 
 body.ggr-admin-shell-enabled .ggr-admin-shell__content .wrap {
@@ -192,10 +221,7 @@ body.ggr-admin-shell-enabled #local-storage-notice {
 body.ggr-admin-shell-enabled .ggr-admin-shell__content table.widefat,
 body.ggr-admin-shell-enabled .ggr-admin-shell__content .form-table {
     background: #ffffff;
-    border: 1px solid #e5e7eb;
     border-radius: 12px;
-    padding: 12px 12px 8px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
 body.ggr-admin-shell-enabled .ggr-admin-shell__content .form-table th {
@@ -204,6 +230,8 @@ body.ggr-admin-shell-enabled .ggr-admin-shell__content .form-table th {
 
 body.ggr-admin-shell-enabled .ggr-admin-shell__content .form-table td {
     padding-right: 6px;
+    padding: 0px!important;    
+    border-bottom: 1px solid #e5e7eb!important;
 }
 
 .ggr-admin-dashboard-grid {
@@ -254,7 +282,7 @@ body.ggr-admin-shell-enabled .ggr-admin-shell__content .form-table td {
 .ggr-stock-price-import-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
 }
 
