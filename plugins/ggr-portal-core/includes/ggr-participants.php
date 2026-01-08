@@ -2213,11 +2213,21 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     $doc_action   = '';
     $doc_approve  = ! empty( $_POST['ggr_doc_approve'] );
     $doc_reject   = ! empty( $_POST['ggr_doc_reject'] );
-    $docs_submitted = false;    
-    if ( $doc_reject ) {
-        $doc_action = 'reject';
-    } elseif ( $doc_approve ) {
-        $doc_action = 'approve';
+    $is_doc_review = in_array( $current_status, array( 'validating', 'extra_info' ), true );
+    $previous_doc_approve = (bool) get_user_meta( $user_id, 'ggr_doc_approve_admin', true );
+    $previous_doc_reject  = (bool) get_user_meta( $user_id, 'ggr_doc_reject_admin', true );    
+    $doc_approve_extra = ! empty( $_POST['ggr_doc_approve_extra'] );
+    $is_doc_review = in_array( $current_status, array( 'validating', 'extra_info' ), true );
+    $previous_doc_approve = (bool) get_user_meta( $user_id, 'ggr_doc_approve_admin', true );
+    $previous_doc_reject  = (bool) get_user_meta( $user_id, 'ggr_doc_reject_admin', true );
+    $previous_doc_approve_extra = (bool) get_user_meta( $user_id, 'ggr_doc_approve_extra_admin', true );
+    $docs_submitted = false;
+    if ( $is_doc_review ) {
+        if ( $doc_reject && ! $previous_doc_reject ) {
+            $doc_action = 'reject';
+        } elseif ( ( $doc_approve || $doc_approve_extra ) && ! $previous_doc_approve ) {
+            $doc_action = 'approve';
+        }
     }
     $doc_feedback = isset( $_POST['ggr_doc_feedback'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_doc_feedback'] ) ) : '';
     $extra_required_request = ! empty( $_POST['ggr_collecting_extra_required'] );
@@ -2227,12 +2237,25 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
         $doc_action     = '';
     }
 
-    if ( 'approve' === $doc_action && ! in_array( $current_status, array( 'validating', 'extra_info' ), true ) ) {
-        $doc_action = '';
-    }
-    
-    if ( 'reject' === $doc_action && ! in_array( $current_status, array( 'validating', 'extra_info' ), true ) ) {
-        $doc_action = '';
+    if ( $is_doc_review ) {
+        $doc_approve_flag = $doc_approve || $doc_approve_extra;
+        if ( $doc_approve_flag ) {
+            update_user_meta( $user_id, 'ggr_doc_approve_admin', 1 );
+        } else {
+            delete_user_meta( $user_id, 'ggr_doc_approve_admin' );
+        }
+
+        if ( $doc_reject ) {
+            update_user_meta( $user_id, 'ggr_doc_reject_admin', 1 );
+        } else {
+            delete_user_meta( $user_id, 'ggr_doc_reject_admin' );
+        }
+
+        if ( $doc_approve_extra ) {
+            update_user_meta( $user_id, 'ggr_doc_approve_extra_admin', 1 );
+        } else {
+            delete_user_meta( $user_id, 'ggr_doc_approve_extra_admin' );
+        }
     }
     
     $doc_to_delete = isset( $_POST['ggr_delete_document'] ) ? sanitize_key( wp_unslash( $_POST['ggr_delete_document'] ) ) : '';
@@ -2413,6 +2436,12 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     $contract_signed_admin = ! empty( $_POST['ggr_contract_signed_admin'] );
     if ( $contract_signed_admin && ! $existing_contract_signed ) {
         update_user_meta( $user_id, 'ggr_contract_signed_at', $profile_timestamp );
+        if ( in_array( $current_status, array( 'sign_contract', 'collecting', 'validating', 'extra_info' ), true ) ) {
+            $status_override = 'validating';
+        }
+    } elseif ( ! $contract_signed_admin && $existing_contract_signed ) {
+        delete_user_meta( $user_id, 'ggr_contract_signed_at' );
+        delete_user_meta( $user_id, 'ggr_co_contract_signed_at' );        
     }
     if ( isset( $_POST['ggr_contract_signature_admin'] ) ) {
         $signature_admin = sanitize_textarea_field( wp_unslash( $_POST['ggr_contract_signature_admin'] ) );
@@ -2422,6 +2451,24 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
             update_user_meta( $user_id, 'ggr_contract_signature_admin', $signature_admin );
         }
     }
+
+    $delete_signature = function( $meta_prefix ) use ( $user_id ) {
+        $file = get_user_meta( $user_id, $meta_prefix . '_file', true );
+        if ( $file && file_exists( $file ) ) {
+            wp_delete_file( $file );
+        }
+        delete_user_meta( $user_id, $meta_prefix );
+        delete_user_meta( $user_id, $meta_prefix . '_file' );
+        delete_user_meta( $user_id, $meta_prefix . '_text' );
+    };
+
+    if ( ! empty( $_POST['ggr_remove_signature'] ) ) {
+        $delete_signature( 'ggr_contract_signature' );
+    }
+    if ( ! empty( $_POST['ggr_remove_co_signature'] ) ) {
+        $delete_signature( 'ggr_co_contract_signature' );
+        delete_user_meta( $user_id, 'ggr_co_contract_signed_at' );
+    }    
     // Betaling en startdatum
     if ( ! empty( $_POST['ggr_payment_confirm_admin'] ) ) {
         update_user_meta( $user_id, 'ggr_payment_confirmation_at', $profile_timestamp );
@@ -2519,7 +2566,7 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
                 $status_override = $status_override ? $status_override : 'validating';
             }
 
-            if ( $extra_required_request && 'validating' === $current_status && function_exists( 'ggr_portal_send_templated_email' ) ) {
+            if ( $extra_required_request && $is_doc_review && function_exists( 'ggr_portal_send_templated_email' ) ) {
                 ggr_portal_send_templated_email(
                     'application_additional_info',
                     $user_id,
@@ -3234,6 +3281,8 @@ function ggr_portal_render_participant_profile_page() {
     $collecting_intake_done = ! empty( $meta['ggr_collecting_intake_done'][0] );    
     $documents_submitted_at = isset( $meta['ggr_documents_submitted_at'][0] ) ? $meta['ggr_documents_submitted_at'][0] : '';
     $participant_enrolled_at = isset( $meta['ggr_participant_enrolled_at'][0] ) ? $meta['ggr_participant_enrolled_at'][0] : '';    
+    $doc_approve_admin      = ! empty( $meta['ggr_doc_approve_admin'][0] );
+    $doc_reject_admin       = ! empty( $meta['ggr_doc_reject_admin'][0] );    
 
     if ( $investment_amount === '' ) {
         $investment_amount = $investment;
@@ -3320,6 +3369,10 @@ function ggr_portal_render_participant_profile_page() {
         $origin_sources = array();
     }
     $origin_country = isset( $meta['ggr_origin_country'][0] ) ? $meta['ggr_origin_country'][0] : ( $kyc_country ? $kyc_country : $p_country );
+
+    $doc_approve_admin     = ! empty( $meta['ggr_doc_approve_admin'][0] );
+    $doc_reject_admin      = ! empty( $meta['ggr_doc_reject_admin'][0] );
+    $doc_approve_extra_admin = ! empty( $meta['ggr_doc_approve_extra_admin'][0] );
 
     // Aanvullende onboardingstap
     $extra_step_required  = (bool) get_user_meta( $user_id, 'ggr_collecting_extra_required', true );
@@ -4625,11 +4678,11 @@ function ggr_portal_render_participant_profile_page() {
                             </div>
                             <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
                                 <label style="display:block; margin-bottom:8px;">
-                                    <input type="checkbox" name="ggr_doc_approve" id="ggr_doc_approve" value="1" />
+                                    <input type="checkbox" name="ggr_doc_approve" id="ggr_doc_approve" value="1" <?php checked( $doc_approve_admin, true ); ?> />
                                     Documentatie goedgekeurd (stuur goedkeuringsmail en ga door naar geld overmaken)
                                 </label>
                                 <label style="display:block;">
-                                    <input type="checkbox" name="ggr_doc_reject" id="ggr_doc_reject" value="1" />
+                                    <input type="checkbox" name="ggr_doc_reject" id="ggr_doc_reject" value="1" <?php checked( $doc_reject_admin, true ); ?> />
                                     Documentatie afkeuren (aanvullende informatie opvragen)
                                 </label>
                             </div>
@@ -4666,6 +4719,12 @@ function ggr_portal_render_participant_profile_page() {
                                     <textarea readonly rows="3" style="width:100%; background:#f9fafb;"><?php echo esc_textarea( $extra_response ); ?></textarea>
                                     <p class="description">Weergave van de aanvullende informatie die de participant heeft opgegeven.</p>
                                 </div>
+                                <div class="ggr-admin-inline-field ggr-admin-inline-field--full<?php echo ( $doc_reject_admin || $doc_approve_extra_admin ) ? '' : ' is-hidden'; ?>" data-approve-extra>
+                                    <label style="display:block;">
+                                        <input type="checkbox" name="ggr_doc_approve_extra" id="ggr_doc_approve_extra" value="1" <?php checked( $doc_approve_extra_admin, true ); ?> />
+                                        Documentatie goedkeuren (incl. aanvullende info)
+                                    </label>
+                                </div>                                
                                 <?php if ( $extra_upload_url ) : ?>
                                     <p class="ggr-admin-meta-note">Upload van participant: <a href="<?php echo esc_url( $extra_upload_url ); ?>" target="_blank" rel="noopener noreferrer">Bekijken</a></p>
                                 <?php endif; ?>
@@ -4677,7 +4736,9 @@ function ggr_portal_render_participant_profile_page() {
                             var approve = document.getElementById('ggr_doc_approve');
                             var reject = document.getElementById('ggr_doc_reject');
                             var extraDetails = document.querySelector('[data-extra-info-details]');
-
+                            var approveExtra = document.getElementById('ggr_doc_approve_extra');
+                            var approveExtraWrap = document.querySelector('[data-approve-extra]');
+                            
                             if (!approve || !reject) {
                                 return;
                             }
@@ -4689,20 +4750,37 @@ function ggr_portal_render_participant_profile_page() {
                                 if (reject.checked) {
                                     extraDetails.open = true;
                                 }
+                                if (approveExtraWrap) {
+                                    approveExtraWrap.classList.toggle('is-hidden', !reject.checked && !(approveExtra && approveExtra.checked));
+                                }                                
                             };
 
                             approve.addEventListener('change', function() {
                                 if (approve.checked) {
                                     reject.checked = false;
+                                    if (approveExtra) {
+                                        approveExtra.checked = false;
+                                    }                                    
                                 }
                             });
                             reject.addEventListener('change', function() {
                                 if (reject.checked) {
                                     approve.checked = false;
+                                    if (approveExtra) {
+                                        approveExtra.checked = false;
+                                    }                                    
                                 }
                                 syncDetails();
                             });
-
+                            if (approveExtra) {
+                                approveExtra.addEventListener('change', function() {
+                                    if (approveExtra.checked) {
+                                        approve.checked = false;
+                                        reject.checked = false;
+                                    }
+                                    syncDetails();
+                                });
+                            }
                             syncDetails();
                         })();
                         </script>
@@ -4768,10 +4846,30 @@ function ggr_portal_render_participant_profile_page() {
                                     <?php endif; ?>
                                 </div>
                             <?php endif; ?>
-                        </div>                     
+                        </div>      
+                        <?php if ( $existing_signature_image || $existing_signature_text || $existing_co_signature_image || $existing_co_signature_text ) : ?>
+                            <div class="ggr-admin-inline-field ggr-admin-inline-field--full" style="margin-top:12px;">
+                                <?php if ( $existing_signature_image || $existing_signature_text ) : ?>
+                                    <label style="display:block; margin-bottom:6px;">
+                                        <input type="checkbox" name="ggr_remove_signature" value="1" />
+                                        Verwijder handtekening participant
+                                    </label>
+                                <?php endif; ?>
+                                <?php if ( $existing_co_signature_image || $existing_co_signature_text ) : ?>
+                                    <label style="display:block;">
+                                        <input type="checkbox" name="ggr_remove_co_signature" value="1" />
+                                        Verwijder handtekening mede-participant
+                                    </label>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>                        
                     </td>
                 </tr>
             </table>
+
+            <?php if ( $is_lead ) : ?>
+                </div>
+            <?php endif; ?>
 
             <?php if ( $is_lead ) : ?>
                 <div class="ggr-admin-onboarding-section" data-onboarding-statuses="transfer_funds transfer_review">
