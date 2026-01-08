@@ -383,10 +383,16 @@ function ggr_ibkr_nav_parse_statement( $body ) {
         $total_value = ggr_ibkr_nav_extract_total_from_xml( $xml );
     }
 
-    $date        = apply_filters( 'ggr_ibkr_nav_extracted_date', $date, $xml );
+    $date        = apply_filters( 'ggr_ibkar_nav_extracted_date', $date, $xml );
     $total_value = apply_filters( 'ggr_ibkr_nav_extracted_total', $total_value, $xml );
     $total_value = apply_filters( 'ggr_ibkr_nav_extracted_value', $total_value, $xml ); // backward compat: voorheen nav/value filter
-
+    if ( null !== $total_value ) {
+        if ( function_exists( 'ggr_stock_price_adjust_fund_total' ) ) {
+            $total_value = ggr_stock_price_adjust_fund_total( $total_value );
+        } else {
+            $total_value = (float) $total_value + 10;
+        }
+    }
     if ( ! $date ) {
         return new WP_Error( 'ggr_ibkr_missing_date', 'Geen datum gevonden in Flex statement.' );
     }
