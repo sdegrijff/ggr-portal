@@ -2211,6 +2211,7 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
         : get_user_meta( $user_id, 'ggr_onboarding_status', true );
         
     $doc_action   = '';
+    $doc_submitted = ! empty( $_POST['ggr_doc_submitted'] );    
     $doc_approve  = ! empty( $_POST['ggr_doc_approve'] );
     $doc_reject   = ! empty( $_POST['ggr_doc_reject'] );
     $is_doc_review = in_array( $current_status, array( 'validating', 'extra_info' ), true );
@@ -2232,7 +2233,7 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     $doc_feedback = isset( $_POST['ggr_doc_feedback'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_doc_feedback'] ) ) : '';
     $extra_required_request = ! empty( $_POST['ggr_collecting_extra_required'] );
     
-    if ( $doc_approve && 'collecting' === $current_status ) {
+    if ( $doc_submitted && 'collecting' === $current_status ) {
         $docs_submitted = true;
         $doc_action     = '';
     }
@@ -4628,7 +4629,7 @@ function ggr_portal_render_participant_profile_page() {
                             </div>
                             <div class="ggr-admin-inline-field ggr-admin-inline-field--full">
                                 <label style="display:block; margin-bottom:8px;">
-                                    <input type="checkbox" name="ggr_doc_approve" id="ggr_doc_approve_collecting" value="1" <?php checked( (bool) $documents_submitted_at, true ); ?> />
+                                    <input type="checkbox" name="ggr_doc_submitted" id="ggr_doc_approve_collecting" value="1" <?php checked( (bool) $documents_submitted_at, true ); ?> />
                                     Documentatie ingediend (door naar inschrijfformulier tekenen)
                                 </label>
                                 <?php if ( $documents_submitted_label ) : ?>
