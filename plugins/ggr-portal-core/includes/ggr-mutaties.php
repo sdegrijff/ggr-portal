@@ -414,7 +414,7 @@ function ggr_mutaties_render_metabox( $post ) {
     }
 
     if ( $schedule_enabled && ! $planned ) {
-        $planned = ggr_mutaties_get_next_run_date();
+        $planned = ggr_mutaties_get_current_run_date();
     } elseif ( ! $schedule_enabled ) {
         $planned = '';
     }
@@ -617,6 +617,19 @@ function ggr_mutaties_render_metabox( $post ) {
 }
 
 add_action( 'save_post_ggr_mutatie', 'ggr_mutaties_save_meta' );
+add_filter( 'redirect_post_location', 'ggr_mutaties_redirect_after_save', 10, 2 );
+
+function ggr_mutaties_redirect_after_save( $location, $post_id ) {
+    if ( ! $post_id || get_post_type( $post_id ) !== 'ggr_mutatie' ) {
+        return $location;
+    }
+
+    if ( isset( $_POST['post_type'] ) && 'ggr_mutatie' === $_POST['post_type'] ) {
+        return admin_url( 'admin.php?page=ggr-mutaties' );
+    }
+
+    return $location;
+}
 
 function ggr_mutaties_save_meta( $post_id ) {
     if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
@@ -1052,6 +1065,18 @@ function ggr_mutaties_render_admin_page() {
         'post_status'    => array( 'publish', 'draft' ),
         'orderby'        => 'date',
         'order'          => 'DESC',
+        'meta_query'     => array(
+            'relation' => 'OR',
+            array(
+                'key'     => 'ggr_mutatie_status',
+                'value'   => array( 'goedgekeurd', 'ingepland', 'uitgevoerd', 'geannuleerd' ),
+                'compare' => 'NOT IN',
+            ),
+            array(
+                'key'     => 'ggr_mutatie_status',
+                'compare' => 'NOT EXISTS',
+            ),
+        ),        
     ) );
     $backlog_mutaties = get_posts( array(
         'post_type'      => 'ggr_mutatie',
@@ -1062,7 +1087,7 @@ function ggr_mutaties_render_admin_page() {
         'meta_query'     => array(
             array(
                 'key'     => 'ggr_mutatie_status',
-                'value'   => array( 'goedgekeurd', 'geannuleerd' ),
+                'value'   => array( 'goedgekeurd', 'ingepland', 'uitgevoerd', 'geannuleerd' ),
                 'compare' => 'IN',
             ),
         ),
@@ -1255,6 +1280,7 @@ function ggr_mutaties_render_admin_page() {
                         <th scope="col">Status</th>
                         <th scope="col">Gepland</th>
                         <th scope="col">Aangemaakt</th>
+                        <th scope="col">Acties</th>                        
                     </tr>
                 </thead>
                 <tbody>
@@ -1302,6 +1328,15 @@ function ggr_mutaties_render_admin_page() {
                         if ( 'dividend_uitkering' === $type ) {
                             $display_units = null;
                         }
+
+                        $row_action_url = admin_url( 'admin.php?page=ggr-mutaties' );
+                        $delete_url = add_query_arg(
+                            array(
+                                'ggr_mutatie_action' => 'delete',
+                                'mutatie_id'         => $mutatie_id,
+                            ),
+                            $row_action_url
+                        );                        
                         ?>
                         <tr>
                             <td>
@@ -1327,6 +1362,9 @@ function ggr_mutaties_render_admin_page() {
                             <td><?php echo esc_html( $statuses[ $status ] ?? $status ); ?></td>
                             <td><?php echo esc_html( ggr_mutaties_format_nl_date( $planned ) ); ?></td>
                             <td><?php echo esc_html( ggr_mutaties_format_nl_date( $mutatie->post_date ) ); ?></td>
+                            <td>
+                                <a class="button button-small" href="<?php echo esc_url( wp_nonce_url( $delete_url, 'ggr_mutatie_row_action_' . $mutatie_id ) ); ?>" onclick="return confirm('Weet je zeker dat je deze mutatie wilt verwijderen?');">Verwijderen</a>
+                            </td>                            
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
