@@ -925,9 +925,14 @@ function ggr_render_stock_price_page() {
                     : $result->get_error_message();
                 $error = 'IBKR NAV ophalen is mislukt: ' . $error_message;
             } else {
+                $notice_date = $result['date'];
+                $notice_timestamp = $notice_date ? strtotime( $notice_date ) : false;
+                if ( $notice_timestamp ) {
+                    $notice_date = wp_date( 'j F Y', $notice_timestamp );
+                }                
                 $notice = sprintf(
                     'IBKR NAV opgeslagen voor %s: € %s per participatie (totaal: € %s, participaties: %s).',
-                    esc_html( $result['date'] ),
+                    esc_html( $notice_date ),
                     number_format( (float) $result['value'], 6, ',', '.' ),
                     isset( $result['total'] ) ? number_format( (float) $result['total'], 2, ',', '.' ) : '-',
                     isset( $result['total_participations'] ) ? number_format( (float) $result['total_participations'], 4, ',', '.' ) : '-'
