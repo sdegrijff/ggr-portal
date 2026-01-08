@@ -224,6 +224,7 @@ function ggr_portal_render_email_template_metabox( $post ) {
         'onboarding_email_verification'=> 'Onboarding e-mailverificatie',
         'referral_invite'              => 'Verwijs-vriend uitnodiging',
         'admin_new_melding'            => 'Admin: nieuwe melding',
+        'extra_info_submitted'         => 'Admin: aanvullende informatie ingediend',        
         'admin_ibkr_nav_success'       => 'Admin: IBKR NAV opgeslagen',
         'admin_dividend_import'        => 'Admin: dividendtransacties opgehaald',        
     );
@@ -420,7 +421,7 @@ function ggr_portal_save_email_template_meta( $post_id ) {
                     'referrer_email'           => 'verwijzer@example.com',
                     'referral_link'            => home_url( '/investeerder-worden/' ),   
                     'ibkr_run_timestamp'       => date_i18n( 'Y-m-d H:i:s' ),
-                    'ibkr_report_date'         => date_i18n( 'Y-m-d' ),
+                    'ibkr_report_date'         => wp_date( 'j F Y' ),
                     'ibkr_nav_per_participation' => '96,705867',
                     'ibkr_total'               => '34.999,83',
                     'ibkr_participations'      => '361,9060',
