@@ -477,7 +477,7 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 	$pending_mutaties = get_posts( array(
 		'post_type'      => 'ggr_mutatie',
 		'posts_per_page' => 1,
-		'post_status'    => array( 'publish', 'draft' ),
+		'post_status'    => array( 'publish' ),
 		'fields'         => 'ids',
 		'meta_query'     => array(
 			array(
@@ -506,7 +506,7 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 		$has_pending_meldingen = true;
 	}
 
-	$has_mutatie_alert = $has_pending_mutaties;
+	$has_mutatie_alert = $has_pending_mutaties || $has_pending_meldingen;	
 
 	$nav_primary = [
 		[
