@@ -348,6 +348,10 @@ function ggr_stock_price_calculate_gross_from_net( $net, $fee_percent ) {
  * @param float $total_parts
  * @return array
  */
+function ggr_stock_price_adjust_fund_total( $fund_total ) {
+    return (float) $fund_total + 10;
+}
+ 
 function ggr_stock_price_calculate_nav_from_total( $fund_total, $dividend_accruals, $fee_percent, $total_parts ) {
     $adjusted_total = (float) $fund_total - (float) $dividend_accruals;
     if ( $adjusted_total <= 0 ) {
@@ -952,6 +956,7 @@ function ggr_render_stock_price_page() {
         } else {
             $report_date = $parsed_ibkr['report_date'];
             $fund_total  = (float) $parsed_ibkr['total'];
+            $fund_total  = ggr_stock_price_adjust_fund_total( $fund_total );            
             $existing_id = $wpdb->get_var(
                 $wpdb->prepare(
                     "SELECT id FROM {$table_name} WHERE price_date = %s LIMIT 1",
@@ -1025,6 +1030,7 @@ function ggr_render_stock_price_page() {
 
         $price_date        = $price_date_raw ? date( 'Y-m-d', strtotime( $price_date_raw ) ) : '';
         $fund_total        = $fund_total_raw !== '' ? (float) str_replace( array( '.', ' ', ',' ), array( '', '', '.' ), $fund_total_raw ) : 0;
+        $fund_total        = ggr_stock_price_adjust_fund_total( $fund_total );        
         $fee_percent_value = ggr_stock_price_normalize_management_fee_percent( $fee_percent_raw, ggr_stock_price_get_default_management_fee_percent() );
 
         // Form-velden terugvullen bij fout
@@ -1258,6 +1264,7 @@ function ggr_render_stock_price_page() {
 
                 $date = date( 'Y-m-d', strtotime( $date_raw ) );
                 $fund_total = (float) str_replace( array( '.', ' ', ',' ), array( '', '', '.' ), $fund_total_raw );
+                $fund_total = ggr_stock_price_adjust_fund_total( $fund_total );                
                 
                 if ( ! $date || $fund_total <= 0 ) {
                     continue;
