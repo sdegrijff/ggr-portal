@@ -1100,7 +1100,7 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
                 position: fixed;
                 left: 0;
                 right: 0;
-                height: 10mm;
+                height: 5mm;
                 background: #9fbac7;
             }
 
@@ -1108,7 +1108,7 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
             .bottom-bar { bottom: 0; }
 
             .page-content {
-                padding: 20mm 16mm 18mm;
+                padding: 10mm 16mm 10mm;
                 box-sizing: border-box;
             }
 
@@ -1182,23 +1182,16 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
             .lead { margin: 0 0 3mm; }
 
             .pill {
+                font-weight: 700;                
                 display: inline-block;
-                background: #0b2149;
-                color: #fff;
-                padding: 3px 10px;
-                border-radius: 999px;
-                font-size: 10px;
-                text-transform: uppercase;
+                color: #000;
+                font-size: 20px;
                 letter-spacing: 0.03em;
                 margin-bottom: 2mm;
             }
 
             .section {
                 margin-bottom: 6mm;
-                padding: 4mm;
-                border: 0.2mm solid #e5e7eb;
-                border-radius: 6px;
-                background: #f9fafb;
             }
 
             .section-title {
@@ -2730,7 +2723,10 @@ function ggr_onboarding_dashboard_shortcode() {
         ? ggr_onboarding_get_stages()
         : array();
     $status_label = isset( $stages[ $status ] ) ? $stages[ $status ] : ucfirst( $status );
-
+    $status_label_display = ( 'transfer_review' === $status && isset( $stages['transfer_funds'] ) )
+        ? $stages['transfer_funds']
+        : $status_label;
+        
     $updated                = get_user_meta( $user_id, 'ggr_onboarding_updated_at', true );
     $participation_profile  = get_user_meta( $user_id, 'ggr_participation_profile', true );
     $contract_signed_at      = get_user_meta( $user_id, 'ggr_contract_signed_at', true );
@@ -2909,7 +2905,8 @@ function ggr_onboarding_dashboard_shortcode() {
                     $user_id,
                     array( 'onboarding_status' => 'transfer_review' )
                 );
-            } elseif ( function_exists( 'ggr_portal_send_admin_templated_email' ) ) {
+            }
+            if ( function_exists( 'ggr_portal_send_admin_templated_email' ) ) {
                 ggr_portal_send_admin_templated_email(
                     'admin_new_melding',
                     array(
@@ -2919,9 +2916,9 @@ function ggr_onboarding_dashboard_shortcode() {
                         'melding_status' => 'nieuw',
                         'melding_author' => $user->display_name,
                     )
-                );                
+                );
             }
-
+            
             $messages['success'] = 'We hebben je bevestiging ontvangen. We controleren je betaling en laten het weten zodra deze verwerkt is.';
         }
     }
@@ -2948,30 +2945,22 @@ function ggr_onboarding_dashboard_shortcode() {
                 $collecting_extra_done = 1;
                 update_user_meta( $user_id, 'ggr_collecting_extra_done', 1 );
 
-                if ( 'submit' === $extra_action ) {
-                    if ( function_exists( 'ggr_onboarding_update_status' ) ) {
-                        ggr_onboarding_update_status( $user_id, 'validating' );
-                    } else {
-                        update_user_meta( $user_id, 'ggr_onboarding_status', 'validating' );
-                    }
-                    $status       = 'validating';
-                    $status_label = isset( $stages[ $status ] ) ? $stages[ $status ] : $status;
-
-                    if ( function_exists( 'ggr_meldingen_add' ) ) {
-                        ggr_meldingen_add(
-                            'Aanvullende informatie ingediend',
-                            sprintf(
-                                'Gebruiker %s (%s) heeft aanvullende informatie aangeleverd.',
-                                $user->display_name,
-                                $user->user_email
-                            ),
-                            $user_id,
-                            array(
-                                'melding_type'      => 'documentatie',
-                                'onboarding_status' => 'validating',
-                            )
-                        );
-                    } elseif ( function_exists( 'ggr_portal_send_admin_templated_email' ) ) {
+                if ( 'submit' === $extra_action && function_exists( 'ggr_meldingen_add' ) ) {
+                    ggr_meldingen_add(
+                        'Aanvullende informatie ingediend',
+                        sprintf(
+                            'Gebruiker %s (%s) heeft aanvullende informatie aangeleverd.',
+                            $user->display_name,
+                            $user->user_email
+                        ),
+                        $user_id,
+                        array(
+                            'melding_type'      => 'documentatie',
+                            'onboarding_status' => 'validating',
+                        )
+                    );
+                }
+                    if ( function_exists( 'ggr_portal_send_admin_templated_email' ) ) {
                         ggr_portal_send_admin_templated_email(
                             'admin_new_melding',
                             array(
@@ -2979,14 +2968,14 @@ function ggr_onboarding_dashboard_shortcode() {
                                 'melding_url'    => admin_url( 'users.php?page=ggr-onboarding' ),
                                 'melding_type'   => 'documentatie',
                                 'melding_status' => 'nieuw',
-                                'melding_author' => $user->display_name,
+                                'melding_author' => $user->display_name,                    
                             )
                         );
                     }
                 }
             }
         }
-    }    
+    }      
     
     /**
      * Collecting-fase: POST-afhandeling
@@ -3215,10 +3204,10 @@ function ggr_onboarding_dashboard_shortcode() {
                     }
 
                     $order[] = 'transfer_funds';
+                    $order[] = 'transfer_review';
                     $order[] = 'active_participant';
 
-                    $status_for_steps = ( 'transfer_review' === $status ) ? 'transfer_funds' : $status;
-                    $current_index = array_search( $status_for_steps, $order, true );
+                    $current_index = array_search( $status, $order, true );
                     if ( $current_index === false ) {
                         $current_index = 0;
                     }
@@ -3330,7 +3319,7 @@ function ggr_onboarding_dashboard_shortcode() {
                             <p class="ggr-onboarding-muted">Werk de openstaande stappen af zodat we je kunnen aanmelden als deelnemer.</p>
                             <div class="ggr-onboarding-status-row">
                                 <span class="ggr-onboarding-status-badge">
-                                    Fase: <?php echo esc_html( $status_label ); ?>
+                                    Fase: <?php echo esc_html( $status_label_display ); ?>
                                 </span>
                                 <?php if ( $updated_label ) : ?>
                                     <span class="ggr-onboarding-status-meta">Bijgewerkt: <?php echo esc_html( $updated_label ); ?></span>
@@ -5205,10 +5194,10 @@ if ( ! function_exists( 'ggr_onboarding_get_side_block_content' ) ) {
                 break;
 
             case 'transfer_review':
-                $content['title']       = 'Maak het investeringsbedrag over';
-                $content['description'] = 'We controleren je betaling zodra deze binnen is. Bewaar je betalingsbewijs voor je eigen administratie.';
+                $content['title']       = 'Je betaling wordt gecontroleerd';
+                $content['description'] = 'We controleren je betaling en verwerken de storting.';
                 $content['bullets']     = array(
-                    'Gebruik het juiste kenmerk/omschrijving.',
+                    'Bewaar je betalingsbewijs voor je eigen administratie.',
                     'Zodra alles verwerkt is, verschijnt je positie in het portal.',
                 );
                 break;
