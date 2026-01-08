@@ -204,20 +204,13 @@ function ggr_ibkr_nav_fetch_and_store( $token = null, $query_id = null ) {
         return $error;
     }
 
+    $gross_per_participation = round( $result['total'] / $total_parts, 6 );
     $fee_percent             = function_exists( 'ggr_stock_price_get_default_management_fee_percent' )
         ? ggr_stock_price_get_default_management_fee_percent()
         : 0.0;
-    $dividend_mtd = function_exists( 'ggr_stock_price_get_dividend_accruals_to_date' )
-        ? ggr_stock_price_get_dividend_accruals_to_date( $result['date'] )
-        : 0.0;
-    $nav_calc = function_exists( 'ggr_stock_price_calculate_nav_from_total' )
-        ? ggr_stock_price_calculate_nav_from_total( $result['total'], $dividend_mtd, $fee_percent, $total_parts )
-        : array(
-            'nav'   => round( $result['total'] / $total_parts, 6 ),
-            'gross' => round( $result['total'] / $total_parts, 6 ),
-        );
-    $gross_per_participation = $nav_calc['gross'];
-    $nav_per_participation   = $nav_calc['nav'];
+    $nav_per_participation = function_exists( 'ggr_stock_price_calculate_net_from_gross' )
+        ? ggr_stock_price_calculate_net_from_gross( $gross_per_participation, $fee_percent )
+        : $gross_per_participation;
 
     if ( null === $nav_per_participation ) {
         $nav_per_participation = $gross_per_participation;
