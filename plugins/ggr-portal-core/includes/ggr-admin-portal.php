@@ -471,6 +471,42 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 
 	// Data voor shell in JS.
 	$current_user = wp_get_current_user();
+	$has_pending_mutaties = false;
+	$has_pending_meldingen = false;
+
+	$pending_mutaties = get_posts( array(
+		'post_type'      => 'ggr_mutatie',
+		'posts_per_page' => 1,
+		'post_status'    => array( 'publish', 'draft' ),
+		'fields'         => 'ids',
+		'meta_query'     => array(
+			array(
+				'key'   => 'ggr_mutatie_status',
+				'value' => 'nieuw',
+			),
+		),
+	) );
+	if ( ! empty( $pending_mutaties ) ) {
+		$has_pending_mutaties = true;
+	}
+
+	$pending_meldingen = get_posts( array(
+		'post_type'      => 'ggr_melding',
+		'posts_per_page' => 1,
+		'post_status'    => array( 'publish' ),
+		'fields'         => 'ids',
+		'meta_query'     => array(
+			array(
+				'key'   => 'ggr_melding_status',
+				'value' => 'nieuw',
+			),
+		),
+	) );
+	if ( ! empty( $pending_meldingen ) ) {
+		$has_pending_meldingen = true;
+	}
+
+	$has_mutatie_alert = $has_pending_mutaties || $has_pending_meldingen;	
 
 	$nav_primary = [
 		[
@@ -508,6 +544,7 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 			'label' => 'Mutaties',
 			'icon'  => 'ri-increase-decrease-line',
 			'url'   => admin_url( 'admin.php?page=ggr-mutaties' ),
+			'hasAlert' => $has_mutatie_alert,			
 		],		
 		[
 			'slug'  => 'ggr-stock-price',
@@ -705,6 +742,9 @@ document.addEventListener('DOMContentLoaded', function() {
 			const a = document.createElement('a');
 			a.href = item.url;
 			a.className = 'ggr-shell-nav-item';
+			if (item.hasAlert) {
+				a.classList.add('has-alert');
+			}			
 			if (item.external) {
 				a.target = '_blank';
 				a.rel = 'noopener noreferrer';
