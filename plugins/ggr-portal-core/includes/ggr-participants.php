@@ -2347,7 +2347,7 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
         'ggr_co_birth_country' => array( 'ggr_co_birth_country' ),
         'ggr_co_address'       => array( 'ggr_co_address' ),
         'ggr_co_postcode'      => array( 'ggr_co_postcode' ),
-        'ggr_co_city_country'  => array( 'ggr_co_city_country' ),
+        'ggr_co_city'          => array( 'ggr_co_city' ),
         'ggr_co_country'       => array( 'ggr_co_country' ),
         'ggr_co_bsn'           => array( 'ggr_co_bsn' ),
         'ggr_co_pep'           => array( 'ggr_co_pep' ),
@@ -2388,7 +2388,10 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     $extra_required          = ! empty( $_POST['ggr_collecting_extra_required'] ) ? 1 : 0;
     $extra_required          = $extra_required_request ? 1 : 0;    
     update_user_meta( $user_id, 'ggr_collecting_extra_required', $extra_required );
-
+    if ( $extra_required_request && 'reject' === $doc_action && $is_doc_review ) {
+        update_user_meta( $user_id, 'ggr_collecting_extra_done', 0 );
+    }
+    
     if ( $extra_required && ! $previous_extra_required && function_exists( 'ggr_portal_send_templated_email' ) ) {
         if ( ! ( 'reject' === $doc_action && 'validating' === $current_status ) ) {
             ggr_portal_send_templated_email(
@@ -2444,6 +2447,14 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
         delete_user_meta( $user_id, 'ggr_contract_signed_at' );
         delete_user_meta( $user_id, 'ggr_co_contract_signed_at' );        
     }
+    if ( isset( $_POST['ggr_contract_signed_place'] ) ) {
+        $signature_place = sanitize_text_field( wp_unslash( $_POST['ggr_contract_signed_place'] ) );
+        if ( '' === $signature_place ) {
+            delete_user_meta( $user_id, 'ggr_contract_signed_place' );
+        } else {
+            update_user_meta( $user_id, 'ggr_contract_signed_place', $signature_place );
+        }
+    }    
     if ( isset( $_POST['ggr_contract_signature_admin'] ) ) {
         $signature_admin = sanitize_textarea_field( wp_unslash( $_POST['ggr_contract_signature_admin'] ) );
         if ( '' === $signature_admin ) {
@@ -2658,7 +2669,7 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
         'ggr_kyc_country',
         'ggr_kyc_address',
         'ggr_kyc_postcode',
-        'ggr_kyc_city_country',
+        'ggr_kyc_city',
         'ggr_kyc_bsn',
         'ggr_kyc_iban_name',
         'ggr_kyc_iban',
@@ -2675,7 +2686,7 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     // Synchroniseer adres en bank met bestaande velden
     update_user_meta( $user_id, 'address_street', $sanitize_text( 'ggr_kyc_address' ) );
     update_user_meta( $user_id, 'address_postcode', $sanitize_text( 'ggr_kyc_postcode' ) );
-    update_user_meta( $user_id, 'address_city', $sanitize_text( 'ggr_kyc_city_country' ) );
+    update_user_meta( $user_id, 'address_city', $sanitize_text( 'ggr_kyc_city' ) );
     update_user_meta( $user_id, 'address_country', $sanitize_text( 'ggr_kyc_country' ) );
     update_user_meta( $user_id, 'bank_account_name', $sanitize_text( 'ggr_kyc_iban_name' ) );
     update_user_meta( $user_id, 'bank_account_iban', $sanitize_text( 'ggr_kyc_iban' ) );
@@ -3275,6 +3286,7 @@ function ggr_portal_render_participant_profile_page() {
     $email_verified_at  = isset( $meta['ggr_email_verified_at'][0] ) ? $meta['ggr_email_verified_at'][0] : '';    
     $doc_feedback       = isset( $meta['ggr_doc_feedback'][0] ) ? $meta['ggr_doc_feedback'][0] : '';
     $contract_signed_at = isset( $meta['ggr_contract_signed_at'][0] ) ? $meta['ggr_contract_signed_at'][0] : '';
+    $contract_signed_place = isset( $meta['ggr_contract_signed_place'][0] ) ? $meta['ggr_contract_signed_place'][0] : '';    
     $contract_preview_url = isset( $meta['ggr_contract_preview_url'][0] ) ? $meta['ggr_contract_preview_url'][0] : '';    
     $payment_confirmation_at = isset( $meta['ggr_payment_confirmation_at'][0] ) ? $meta['ggr_payment_confirmation_at'][0] : '';
     $payment_received   = isset( $meta['ggr_payment_received'][0] ) ? (int) $meta['ggr_payment_received'][0] : 0;
@@ -3321,7 +3333,10 @@ function ggr_portal_render_participant_profile_page() {
     $kyc_birth_date   = isset( $meta['ggr_kyc_birth_date'][0] )   ? $meta['ggr_kyc_birth_date'][0]   : '';
     $kyc_address      = isset( $meta['ggr_kyc_address'][0] )      ? $meta['ggr_kyc_address'][0]      : $p_street;
     $kyc_postcode     = isset( $meta['ggr_kyc_postcode'][0] )     ? $meta['ggr_kyc_postcode'][0]     : $p_zip;
-    $kyc_city_country = isset( $meta['ggr_kyc_city_country'][0] ) ? $meta['ggr_kyc_city_country'][0] : $p_city;
+    $kyc_city = isset( $meta['ggr_kyc_city'][0] ) ? $meta['ggr_kyc_city'][0] : $p_city;
+    if ( ! $kyc_city && isset( $meta['ggr_kyc_city_country'][0] ) ) {
+        $kyc_city = $meta['ggr_kyc_city_country'][0];
+    }
     $kyc_country      = isset( $meta['ggr_kyc_country'][0] )      ? $meta['ggr_kyc_country'][0]      : $p_country;
     $kyc_birth_place  = isset( $meta['ggr_kyc_birth_place'][0] )  ? $meta['ggr_kyc_birth_place'][0]  : '';
     $kyc_bsn          = isset( $meta['ggr_kyc_bsn'][0] )          ? $meta['ggr_kyc_bsn'][0]          : '';
@@ -3355,7 +3370,10 @@ function ggr_portal_render_participant_profile_page() {
     $co_phone      = isset( $meta['ggr_co_phone'][0] )      ? $meta['ggr_co_phone'][0]      : $co_phone;
     $co_address    = isset( $meta['ggr_co_address'][0] )    ? $meta['ggr_co_address'][0]    : '';
     $co_postcode   = isset( $meta['ggr_co_postcode'][0] )   ? $meta['ggr_co_postcode'][0]   : '';
-    $co_city       = isset( $meta['ggr_co_city_country'][0] ) ? $meta['ggr_co_city_country'][0] : '';
+    $co_city       = isset( $meta['ggr_co_city'][0] ) ? $meta['ggr_co_city'][0] : '';
+    if ( ! $co_city && isset( $meta['ggr_co_city_country'][0] ) ) {
+        $co_city = $meta['ggr_co_city_country'][0];
+    }
     $co_country    = isset( $meta['ggr_co_country'][0] ) ? $meta['ggr_co_country'][0] : '';
     $co_birth_country = isset( $meta['ggr_co_birth_country'][0] ) ? $meta['ggr_co_birth_country'][0] : '';
     $co_birth_place= isset( $meta['ggr_co_birth_place'][0] ) ? $meta['ggr_co_birth_place'][0] : '';
@@ -4097,7 +4115,7 @@ function ggr_portal_render_participant_profile_page() {
                             </div>
                             <div>
                                 <span>Adres</span>
-                                <strong><?php echo esc_html( trim( $kyc_address . ' ' . $kyc_postcode . ' ' . $kyc_city_country ) ? trim( $kyc_address . ' ' . $kyc_postcode . ' ' . $kyc_city_country ) : '—' ); ?></strong>
+                                <strong><?php echo esc_html( trim( $kyc_address . ' ' . $kyc_postcode . ' ' . $kyc_city ) ? trim( $kyc_address . ' ' . $kyc_postcode . ' ' . $kyc_city ) : '—' ); ?></strong>
                             </div>
                         </div>
                     </section>
@@ -4402,8 +4420,8 @@ function ggr_portal_render_participant_profile_page() {
                                     <input name="ggr_kyc_postcode" id="ggr_kyc_postcode" type="text" value="<?php echo esc_attr( $kyc_postcode ); ?>" />
                                 </div>
                                 <div class="ggr-admin-inline-field">
-                                    <label for="ggr_kyc_city_country">Plaats</label>
-                                    <input name="ggr_kyc_city_country" id="ggr_kyc_city_country" type="text" value="<?php echo esc_attr( $kyc_city_country ); ?>" />
+                                    <label for="ggr_kyc_city">Plaats</label>
+                                    <input name="ggr_kyc_city" id="ggr_kyc_city" type="text" value="<?php echo esc_attr( $kyc_city ); ?>" />
                                 </div>
                                 <div class="ggr-admin-inline-field">
                                     <label for="ggr_kyc_country">Land</label>
@@ -4494,8 +4512,8 @@ function ggr_portal_render_participant_profile_page() {
                                     <input name="ggr_co_postcode" id="ggr_co_postcode" type="text" value="<?php echo esc_attr( $co_postcode ); ?>" />
                                 </div>
                                 <div class="ggr-admin-inline-field">
-                                    <label for="ggr_co_city_country">Plaats</label>
-                                    <input name="ggr_co_city_country" id="ggr_co_city_country" type="text" value="<?php echo esc_attr( $co_city ); ?>" />
+                                    <label for="ggr_co_city">Plaats</label>
+                                    <input name="ggr_co_city" id="ggr_co_city" type="text" value="<?php echo esc_attr( $co_city ); ?>" />
                                 </div>
                                 <div class="ggr-admin-inline-field">
                                     <label for="ggr_co_country">Land</label>
@@ -4815,6 +4833,10 @@ function ggr_portal_render_participant_profile_page() {
                             <input type="checkbox" name="ggr_contract_signed_admin" value="1" <?php checked( (bool) $contract_signed_at, true ); ?> />
                             Inschrijfformulier ondertekend
                         </label>
+                        <div class="ggr-admin-inline-field ggr-admin-inline-field--full" style="margin-bottom:12px;">
+                            <label for="ggr_contract_signed_place">Plaats van ondertekening</label>
+                            <input type="text" id="ggr_contract_signed_place" name="ggr_contract_signed_place" value="<?php echo esc_attr( $contract_signed_place ); ?>" class="regular-text" />
+                        </div>                        
                         <?php if ( $contract_signed_label ) : ?>
                             <p class="ggr-admin-meta-note">Lead heeft de inschrijfformulier getekend op: <?php echo esc_html( $contract_signed_label ); ?>.</p>
                         <?php endif; ?>
@@ -5422,8 +5444,8 @@ function ggr_portal_render_user_creation_fields( $operation ) {
             <td><input type="text" name="ggr_kyc_postcode" id="ggr_kyc_postcode" class="regular-text" /></td>
         </tr>
         <tr>
-            <th><label for="ggr_kyc_city_country">Plaats</label></th>
-            <td><input type="text" name="ggr_kyc_city_country" id="ggr_kyc_city_country" class="regular-text" /></td>
+            <th><label for="ggr_kyc_city">Plaats</label></th>
+            <td><input type="text" name="ggr_kyc_city" id="ggr_kyc_city" class="regular-text" /></td>
         </tr>
         <tr>
             <th><label for="ggr_kyc_country">Land</label></th>
@@ -5454,7 +5476,7 @@ function ggr_portal_save_user_creation_fields( $user_id ) {
         'ggr_kyc_birth_date',
         'ggr_kyc_address',
         'ggr_kyc_postcode',
-        'ggr_kyc_city_country',
+        'ggr_kyc_city',
         'ggr_kyc_country',
         'ggr_kyc_iban_name',
         'ggr_kyc_iban',
