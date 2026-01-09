@@ -759,9 +759,18 @@ function ggr_onboarding_build_review_sections( $user_id, $user, $participation_p
         ),
     );
 
-    $kyc_birth_date   = get_user_meta( $user_id, 'ggr_kyc_birth_date', true );
-    $kyc_birth_place  = get_user_meta( $user_id, 'ggr_kyc_birth_place', true );
-    $kyc_birth_country= get_user_meta( $user_id, 'ggr_kyc_birth_country', true );
+    $kyc_birth_date    = get_user_meta( $user_id, 'ggr_kyc_birth_date', true );
+    $kyc_birth_place   = get_user_meta( $user_id, 'ggr_kyc_birth_place', true );
+    $kyc_birth_country = get_user_meta( $user_id, 'ggr_kyc_birth_country', true );
+    $kyc_nationality   = get_user_meta( $user_id, 'ggr_kyc_nationality', true );
+    $kyc_city          = get_user_meta( $user_id, 'ggr_kyc_city', true );
+    if ( ! $kyc_city ) {
+        $kyc_city = get_user_meta( $user_id, 'ggr_kyc_city_country', true );
+    }
+    $co_city = get_user_meta( $user_id, 'ggr_co_city', true );
+    if ( ! $co_city ) {
+        $co_city = get_user_meta( $user_id, 'ggr_co_city_country', true );
+    }
     $kyc_nationality  = get_user_meta( $user_id, 'ggr_kyc_nationality', true );
     $kyc_pep          = get_user_meta( $user_id, 'ggr_kyc_pep', true );
     $kyc_us_person    = get_user_meta( $user_id, 'ggr_kyc_us_person', true );
@@ -786,7 +795,7 @@ function ggr_onboarding_build_review_sections( $user_id, $user, $participation_p
         'items' => array(
             'Adres'        => get_user_meta( $user_id, 'ggr_kyc_address', true ) ?: '—',
             'Postcode'     => get_user_meta( $user_id, 'ggr_kyc_postcode', true ) ?: '—',
-            'Plaats'       => get_user_meta( $user_id, 'ggr_kyc_city_country', true ) ?: '—',
+            'Plaats'       => $kyc_city ? $kyc_city : '—',
             'Land'         => get_user_meta( $user_id, 'ggr_kyc_country', true ) ?: '—',
             'Telefoon'     => get_user_meta( $user_id, 'ggr_kyc_phone', true ) ?: '—',
             'E-mail'       => $user->user_email ? $user->user_email : '—',
@@ -814,6 +823,7 @@ function ggr_onboarding_build_review_sections( $user_id, $user, $participation_p
                 'Geboortedatum' => ggr_onboarding_format_datetime_label( get_user_meta( $user_id, 'ggr_co_birth_date', true ), false ) ?: '—',
                 'Geboorteplaats'=> get_user_meta( $user_id, 'ggr_co_birth_place', true ) ?: '—',
                 'Geboorteland'  => get_user_meta( $user_id, 'ggr_co_birth_country', true ) ?: '—',
+                'Plaats'        => $co_city ? $co_city : '—',                
                 'Telefoon'      => get_user_meta( $user_id, 'ggr_co_phone', true ) ?: '—',
                 'BSN'           => get_user_meta( $user_id, 'ggr_co_bsn', true ) ?: '—',
                 'PEP'           => $boolean_label( get_user_meta( $user_id, 'ggr_co_pep', true ) ),
@@ -1059,10 +1069,18 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
 
     $co_name = trim( get_user_meta( $user_id, 'co_first_name', true ) . ' ' . get_user_meta( $user_id, 'co_last_name', true ) );
     $profile_label = ( 'zakelijk' === $participation_profile ) ? 'Zakelijk' : ( 'prive' === $participation_profile ? 'Privé' : 'Onbekend' );
+    $kyc_city = get_user_meta( $user_id, 'ggr_kyc_city', true );
+    if ( ! $kyc_city ) {
+        $kyc_city = get_user_meta( $user_id, 'ggr_kyc_city_country', true );
+    }
+    $co_city = get_user_meta( $user_id, 'ggr_co_city', true );
+    if ( ! $co_city ) {
+        $co_city = get_user_meta( $user_id, 'ggr_co_city_country', true );
+    }    
     $address_line  = trim(
         get_user_meta( $user_id, 'ggr_kyc_address', true ) . ', ' .
         get_user_meta( $user_id, 'ggr_kyc_postcode', true ) . ' ' .
-        get_user_meta( $user_id, 'ggr_kyc_city_country', true )
+        $kyc_city
     );
 
     $signature_image     = get_user_meta( $user_id, 'ggr_contract_signature', true );
@@ -1083,7 +1101,7 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
         <style>
             @page {
                 size: A4;
-                margin: 0;
+                margin: 10mm 16mm;
             }
 
             html, body {
@@ -1108,7 +1126,7 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
             .bottom-bar { bottom: 0; }
 
             .page-content {
-                padding: 10mm 16mm 10mm;
+                padding: 0;
                 box-sizing: border-box;
             }
 
@@ -1243,8 +1261,8 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
 
             .signature-blocks {
                 display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 4mm;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 3mm;
                 margin-top: 3mm;
             }
 
@@ -1265,7 +1283,10 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
 
             .signature-line { height: 0.4mm; background: #cbd5e1; margin: 2mm 0 1mm; }
             .signature-name { font-weight: 600; color: #0b2149; }
-
+            .signature-manager {
+                font-style: italic;
+                font-weight: 600;
+            }
             .footer-note {
                 margin-top: 3mm;
                 font-size: 9px;
@@ -1283,7 +1304,13 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
 	$is_private    = ( 'prive' === strtolower( $profile_raw ) ) || ( 'privé' === strtolower( $profile_raw ) ) || ( 'private' === strtolower( $profile_raw ) );
 	$is_business   = ( 'zakelijk' === strtolower( $profile_raw ) ) || ( 'business' === strtolower( $profile_raw ) );
 
-	$place_raw     = (string) get_user_meta( $user_id, 'ggr_kyc_city', true );
+	$place_raw     = (string) get_user_meta( $user_id, 'ggr_contract_signed_place', true );
+	if ( ! $place_raw ) {
+		$place_raw = (string) get_user_meta( $user_id, 'ggr_kyc_city', true );
+	}
+	if ( ! $place_raw ) {
+		$place_raw = (string) get_user_meta( $user_id, 'ggr_kyc_city_country', true );
+	}
 	if ( ! $place_raw ) {
 		$place_raw = (string) get_user_meta( $user_id, 'ggr_kyc_place', true ); // optioneel meta veld
 	}
@@ -1372,13 +1399,13 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
 					</tr>
 					<tr>
 						<td>Woonplaats</td>
-						<td><?php echo esc_html( $address_line ? $address_line : '—' ); ?></td>
-						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_city_country', true ) ?: '—' ); ?></td>
+						<td><?php echo esc_html( $kyc_city ? $kyc_city : '—' ); ?></td>
+						<td><?php echo esc_html( $co_city ? $co_city : '—' ); ?></td>
 					</tr>
 					<tr>
 						<td>Land</td>
-						<td><?php echo esc_html( $address_line ? $address_line : '—' ); ?></td>
-						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_city_country', true ) ?: '—' ); ?></td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_country', true ) ?: '—' ); ?></td>
+						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_country', true ) ?: '—' ); ?></td>
 					</tr>					
 					<tr>
 						<td>Burgerservicenummer</td>
@@ -1411,12 +1438,12 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
 						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_iban', true ) ?: '—' ); ?></td>
 					</tr>
 					<tr>
-						<td>Bedrijfsnaam (optioneel)</td>
+						<td>Bedrijfsnaam</td>
 						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_company', true ) ?: '—' ); ?></td>
 						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_company', true ) ?: '—' ); ?></td>
 					</tr>
 					<tr>
-						<td>KVK nummer (optioneel)</td>
+						<td>KVK nummer</td>
 						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_kvk', true ) ?: '—' ); ?></td>
 						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_kvk', true ) ?: '—' ); ?></td>
 					</tr>
@@ -1529,6 +1556,11 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
 					<div class="signature-line"></div>
 					<div class="signature-name"><?php echo esc_html( $co_signature_text ? $co_signature_text : ( $co_name ? $co_name : '—' ) ); ?></div>
 				</div>
+				<div class="signature-box">
+					<strong>Handtekening fondsbeheerder</strong>
+					<div class="signature-line"></div>
+					<div class="signature-name signature-manager">Wouter Ruiter</div>
+				</div>				
 			</div>
 		</div>
 
@@ -2727,7 +2759,10 @@ function ggr_onboarding_dashboard_shortcode() {
         ? ggr_onboarding_get_stages()
         : array();
     $status_label = isset( $stages[ $status ] ) ? $stages[ $status ] : ucfirst( $status );
-
+    if ( 'transfer_review' === $status && isset( $stages['transfer_funds'] ) ) {
+        $status_label = $stages['transfer_funds'];
+    }
+    
     $updated                = get_user_meta( $user_id, 'ggr_onboarding_updated_at', true );
     $participation_profile  = get_user_meta( $user_id, 'ggr_participation_profile', true );
     $contract_signed_at      = get_user_meta( $user_id, 'ggr_contract_signed_at', true );
@@ -2749,7 +2784,7 @@ function ggr_onboarding_dashboard_shortcode() {
     $extra_step_default_label = 'Aanvullende informatie';
     $extra_step_label     = $extra_step_label ? $extra_step_label : $extra_step_default_label;
     $extra_question_label = $extra_question_label ? $extra_question_label : $extra_step_label;
-    $extra_upload_label   = $extra_upload_label ? $extra_upload_label : 'Upload aanvullende documentatie (optioneel)';
+    $extra_upload_label   = $extra_upload_label ? $extra_upload_label : 'Upload aanvullende documentatie';
 
     $updated_label           = ggr_onboarding_format_datetime_label( $updated );
     $contract_signed_label   = ggr_onboarding_format_datetime_label( $contract_signed_at );
@@ -2815,6 +2850,9 @@ function ggr_onboarding_dashboard_shortcode() {
             $signature_text = isset( $_POST['ggr_contract_signature_text'] )
                 ? sanitize_text_field( wp_unslash( $_POST['ggr_contract_signature_text'] ) )
                 : '';
+            $signature_place = isset( $_POST['ggr_contract_signed_place'] )
+                ? sanitize_text_field( wp_unslash( $_POST['ggr_contract_signed_place'] ) )
+                : '';                
             $co_signature_data = isset( $_POST['ggr_co_contract_signature_data'] )
                 ? wp_unslash( $_POST['ggr_co_contract_signature_data'] )
                 : '';
@@ -2852,10 +2890,14 @@ function ggr_onboarding_dashboard_shortcode() {
             if ( 'ja' === $has_co_participant && ! $co_signature_saved && '' === $co_signature_text ) {
                 $messages['error'][] = 'Voeg een handtekening van de mede-participant toe of laat de naam invullen.';
             }
-
+            if ( '' === $signature_place ) {
+                $messages['error'][] = 'Vul de plaats van ondertekening in.';
+            }
+            
             if ( empty( $messages['error'] ) ) {
                 $contract_signed_at = current_time( 'mysql' );
                 update_user_meta( $user_id, 'ggr_contract_signed_at', $contract_signed_at );
+                update_user_meta( $user_id, 'ggr_contract_signed_place', $signature_place );                
                 if ( 'ja' === $has_co_participant ) {
                     update_user_meta( $user_id, 'ggr_co_contract_signed_at', $contract_signed_at );
                 }                
@@ -2907,7 +2949,17 @@ function ggr_onboarding_dashboard_shortcode() {
                     array( 'onboarding_status' => 'transfer_review' )
                 );
             }
-
+            if ( function_exists( 'ggr_portal_send_admin_templated_email' ) ) {
+                ggr_portal_send_admin_templated_email(
+                    'Payment_received',
+                    array(
+                        'user_display_name' => $user->display_name,
+                        'account_email'     => $user->user_email,
+                        'portal_link'       => home_url( '/onboarding/' ),
+                    )
+                );
+            }
+            
             $messages['success'] = 'We hebben je bevestiging ontvangen. We controleren je betaling en laten het weten zodra deze verwerkt is.';
         }
     }
@@ -3175,6 +3227,7 @@ function ggr_onboarding_dashboard_shortcode() {
     );
     $existing_signature_image = get_user_meta( $user_id, 'ggr_contract_signature', true );
     $existing_signature_text  = get_user_meta( $user_id, 'ggr_contract_signature_text', true );
+    $existing_signature_place = get_user_meta( $user_id, 'ggr_contract_signed_place', true );    
     $existing_co_signature_image = get_user_meta( $user_id, 'ggr_co_contract_signature', true );
     $existing_co_signature_text  = get_user_meta( $user_id, 'ggr_co_contract_signature_text', true );
     
@@ -3536,8 +3589,10 @@ function ggr_onboarding_dashboard_shortcode() {
                                             <div class="ggr-onboarding-signature__actions">
                                                 <button type="button" class="ggr-onboarding-button ggr-onboarding-button--ghost" data-signature-clear>Wis handtekening</button>
                                             </div>
-                                            <label class="ggr-onboarding-field-label" for="ggr_contract_signature_text">Getypte handtekening (optioneel)</label>
+                                            <label class="ggr-onboarding-field-label" for="ggr_contract_signature_text">Getypte handtekening</label>
                                             <input type="text" id="ggr_contract_signature_text" name="ggr_contract_signature_text" value="" placeholder="Volledige naam zoals in de overeenkomst" autocomplete="off">
+                                            <label class="ggr-onboarding-field-label" for="ggr_contract_signed_place">Plaats van ondertekening *</label>
+                                            <input type="text" id="ggr_contract_signed_place" name="ggr_contract_signed_place" value="<?php echo esc_attr( $existing_signature_place ); ?>" required>                                            
                                     </div>
                                     <?php if ( 'ja' === $has_co_participant ) : ?>
                                         <div class="ggr-onboarding-field">
@@ -3549,7 +3604,7 @@ function ggr_onboarding_dashboard_shortcode() {
                                                 <div class="ggr-onboarding-signature__actions">
                                                     <button type="button" class="ggr-onboarding-button ggr-onboarding-button--ghost" data-co-signature-clear>Wis handtekening</button>
                                                 </div>
-                                                <label class="ggr-onboarding-field-label" for="ggr_co_contract_signature_text">Getypte handtekening mede-participant (optioneel)</label>
+                                                <label class="ggr-onboarding-field-label" for="ggr_co_contract_signature_text">Getypte handtekening mede-participant</label>
                                                 <input type="text" id="ggr_co_contract_signature_text" name="ggr_co_contract_signature_text" value="" placeholder="Naam mede-participant" autocomplete="off">
                                             </div>
                                         </div>
@@ -3779,7 +3834,14 @@ function ggr_onboarding_dashboard_shortcode() {
                                         $kyc_phone          = get_user_meta( $user_id, 'ggr_kyc_phone', true );
                                         $kyc_address        = get_user_meta( $user_id, 'ggr_kyc_address', true );
                                         $kyc_postcode       = get_user_meta( $user_id, 'ggr_kyc_postcode', true );
-                                        $kyc_city_country   = get_user_meta( $user_id, 'ggr_kyc_city_country', true );
+                                        $kyc_city           = get_user_meta( $user_id, 'ggr_kyc_city', true );
+                                        if ( ! $kyc_city ) {
+                                            $kyc_city = get_user_meta( $user_id, 'ggr_kyc_city_country', true );
+                                        }
+                                        $kyc_country        = get_user_meta( $user_id, 'ggr_kyc_country', true );
+                                        if ( ! $kyc_country ) {
+                                            $kyc_country = get_user_meta( $user_id, 'ggr_kyc_birth_country', true );
+                                        }
                                         $kyc_birth_country  = get_user_meta( $user_id, 'ggr_kyc_birth_country', true );
                                         $kyc_birth_place    = get_user_meta( $user_id, 'ggr_kyc_birth_place', true );
                                         $kyc_nationality    = get_user_meta( $user_id, 'ggr_kyc_nationality', true );
@@ -3795,7 +3857,14 @@ function ggr_onboarding_dashboard_shortcode() {
                                         $co_phone           = get_user_meta( $user_id, 'ggr_co_phone', true );
                                         $co_address         = get_user_meta( $user_id, 'ggr_co_address', true );
                                         $co_postcode        = get_user_meta( $user_id, 'ggr_co_postcode', true );
-                                        $co_city_country    = get_user_meta( $user_id, 'ggr_co_city_country', true );
+                                        $co_city            = get_user_meta( $user_id, 'ggr_co_city', true );
+                                        if ( ! $co_city ) {
+                                            $co_city = get_user_meta( $user_id, 'ggr_co_city_country', true );
+                                        }
+                                        $co_country         = get_user_meta( $user_id, 'ggr_co_country', true );
+                                        if ( ! $co_country ) {
+                                            $co_country = get_user_meta( $user_id, 'ggr_co_birth_country', true );
+                                        }
                                         $co_birth_country   = get_user_meta( $user_id, 'ggr_co_birth_country', true );
                                         $co_birth_place     = get_user_meta( $user_id, 'ggr_co_birth_place', true );
                                         $co_nationality     = get_user_meta( $user_id, 'ggr_co_nationality', true );
@@ -3847,7 +3916,14 @@ function ggr_onboarding_dashboard_shortcode() {
                                             $kyc_phone          = isset( $_POST['ggr_kyc_phone'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_kyc_phone'] ) ) : get_user_meta( $user_id, 'ggr_kyc_phone', true );
                                             $kyc_address        = isset( $_POST['ggr_kyc_address'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_kyc_address'] ) ) : get_user_meta( $user_id, 'ggr_kyc_address', true );
                                             $kyc_postcode       = isset( $_POST['ggr_kyc_postcode'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_kyc_postcode'] ) ) : get_user_meta( $user_id, 'ggr_kyc_postcode', true );
-                                            $kyc_city_country   = isset( $_POST['ggr_kyc_city_country'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_kyc_city_country'] ) ) : get_user_meta( $user_id, 'ggr_kyc_city_country', true );
+                                            $kyc_city           = isset( $_POST['ggr_kyc_city'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_kyc_city'] ) ) : get_user_meta( $user_id, 'ggr_kyc_city', true );
+                                            if ( ! $kyc_city ) {
+                                                $kyc_city = get_user_meta( $user_id, 'ggr_kyc_city_country', true );
+                                            }
+                                            $kyc_country        = isset( $_POST['ggr_kyc_country'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_kyc_country'] ) ) : get_user_meta( $user_id, 'ggr_kyc_country', true );
+                                            if ( ! $kyc_country ) {
+                                                $kyc_country = get_user_meta( $user_id, 'ggr_kyc_birth_country', true );
+                                            }
                                             $kyc_birth_country  = isset( $_POST['ggr_kyc_birth_country'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_kyc_birth_country'] ) ) : get_user_meta( $user_id, 'ggr_kyc_birth_country', true );
                                             $kyc_birth_place    = isset( $_POST['ggr_kyc_birth_place'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_kyc_birth_place'] ) ) : get_user_meta( $user_id, 'ggr_kyc_birth_place', true );
                                             $kyc_nationality    = isset( $_POST['ggr_kyc_nationality'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_kyc_nationality'] ) ) : get_user_meta( $user_id, 'ggr_kyc_nationality', true );
@@ -3863,7 +3939,14 @@ function ggr_onboarding_dashboard_shortcode() {
                                             $co_phone        = isset( $_POST['ggr_co_phone'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_co_phone'] ) ) : $co_phone;
                                             $co_address      = isset( $_POST['ggr_co_address'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_co_address'] ) ) : $co_address;
                                             $co_postcode     = isset( $_POST['ggr_co_postcode'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_co_postcode'] ) ) : $co_postcode;
-                                            $co_city_country = isset( $_POST['ggr_co_city_country'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_co_city_country'] ) ) : $co_city_country;
+                                            $co_city         = isset( $_POST['ggr_co_city'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_co_city'] ) ) : $co_city;
+                                            if ( ! $co_city ) {
+                                                $co_city = get_user_meta( $user_id, 'ggr_co_city_country', true );
+                                            }
+                                            $co_country      = isset( $_POST['ggr_co_country'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_co_country'] ) ) : $co_country;
+                                            if ( ! $co_country ) {
+                                                $co_country = get_user_meta( $user_id, 'ggr_co_birth_country', true );
+                                            }
                                             $co_birth_country = isset( $_POST['ggr_co_birth_country'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_co_birth_country'] ) ) : $co_birth_country;
                                             $co_birth_place  = isset( $_POST['ggr_co_birth_place'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_co_birth_place'] ) ) : $co_birth_place;
                                             $co_nationality  = isset( $_POST['ggr_co_nationality'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_co_nationality'] ) ) : $co_nationality;
@@ -3891,9 +3974,9 @@ function ggr_onboarding_dashboard_shortcode() {
 
                                     <?php
                                     $countries                = ggr_get_countries_nl();
-                                    $selected_country         = $kyc_birth_country ? $kyc_birth_country : '';
+                                    $selected_country         = $kyc_country ? $kyc_country : '';
                                     $selected_nationality     = $kyc_nationality ? $kyc_nationality : '';
-                                    $selected_co_country      = $co_birth_country ? $co_birth_country : '';
+                                    $selected_co_country      = $co_country ? $co_country : '';
                                     $selected_co_nationality  = $co_nationality ? $co_nationality : '';
                                     ?>
 
@@ -3940,14 +4023,14 @@ function ggr_onboarding_dashboard_shortcode() {
                                                    required>
                                         </div>
                                         <div class="ggr-onboarding-field">
-                                            <label for="ggr_kyc_city_country">Plaats *</label>
-                                            <input type="text" id="ggr_kyc_city_country" name="ggr_kyc_city_country"
-                                                   value="<?php echo esc_attr( $kyc_city_country ); ?>"
+                                            <label for="ggr_kyc_city">Plaats *</label>
+                                            <input type="text" id="ggr_kyc_city" name="ggr_kyc_city"
+                                                   value="<?php echo esc_attr( $kyc_city ); ?>"
                                                    required>
                                         </div>
                                             <div class="ggr-onboarding-field">
-                                            <label for="ggr_kyc_birth_country">Land *</label>
-                                            <select id="ggr_kyc_birth_country" name="ggr_kyc_birth_country" required>
+                                            <label for="ggr_kyc_country">Land *</label>
+                                            <select id="ggr_kyc_country" name="ggr_kyc_country" required>
                                                 <option value="" <?php selected( '', $selected_country ); ?>>Maak een keuze</option>                                                
                                                 <?php foreach ( $countries as $country ) : ?>
                                                     <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $selected_country, $country ); ?>>
@@ -4072,13 +4155,13 @@ function ggr_onboarding_dashboard_shortcode() {
                                                        value="<?php echo esc_attr( $co_postcode ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
                                             </div>
                                             <div class="ggr-onboarding-field">
-                                                <label for="ggr_co_city_country">Plaats *</label>
-                                                <input type="text" id="ggr_co_city_country" name="ggr_co_city_country"
-                                                       value="<?php echo esc_attr( $co_city_country ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
+                                                <label for="ggr_co_city">Plaats *</label>
+                                                <input type="text" id="ggr_co_city" name="ggr_co_city"
+                                                       value="<?php echo esc_attr( $co_city ); ?>" <?php echo $co_required ? 'required' : ''; ?>>
                                             </div>
                                             <div class="ggr-onboarding-field">
-                                            <label for="ggr_co_birth_country">Land *</label>
-                                            <select id="ggr_co_birth_country" name="ggr_co_birth_country" <?php echo $co_required ? 'required' : ''; ?>>
+                                            <label for="ggr_co_country">Land *</label>
+                                            <select id="ggr_co_country" name="ggr_co_country" <?php echo $co_required ? 'required' : ''; ?>>
                                                 <option value="" <?php selected( '', $selected_co_country ); ?>>Kies land</option>
                                                     <?php foreach ( $countries as $country ) : ?>
                                                         <option value="<?php echo esc_attr( $country ); ?>" <?php selected( $selected_co_country, $country ); ?>>
@@ -4368,7 +4451,7 @@ function ggr_onboarding_dashboard_shortcode() {
 
                                         <div class="ggr-onboarding-field ggr-onboarding-field--file<?php echo ( 'zakelijk' === $participation_profile ) ? '' : ' is-hidden'; ?>" data-business-doc="true">
                                             <span class="ggr-onboarding-file-tag">Zakelijk</span>
-                                            <label for="ggr_doc_share_register">Aandeelhoudersregister of overeenkomst (optioneel)</label>
+                                            <label for="ggr_doc_share_register">Aandeelhoudersregister of overeenkomst</label>
                                             <input type="file" id="ggr_doc_share_register" name="ggr_doc_share_register" accept=".pdf,.jpg,.jpeg,.png">
                                             <?php $render_existing_doc( 'ggr_doc_share_register' ); ?>                                            
                                         </div>
@@ -4711,7 +4794,7 @@ function ggr_onboarding_handle_collecting_participation_type( $user_id ) {
             'ggr_co_birth_date',
             'ggr_co_address',
             'ggr_co_postcode',
-            'ggr_co_city_country',
+            'ggr_co_city',
             'ggr_co_birth_country',
             'ggr_co_birth_place',
             'ggr_co_nationality',
@@ -4758,7 +4841,8 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
         'ggr_kyc_birth_date',
         'ggr_kyc_address',
         'ggr_kyc_postcode',
-        'ggr_kyc_city_country',
+        'ggr_kyc_city',
+        'ggr_kyc_country',
         'ggr_kyc_birth_country',
         'ggr_kyc_birth_place',
         'ggr_kyc_nationality',
@@ -4785,7 +4869,8 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
                 'ggr_co_phone',
                 'ggr_co_address',
                 'ggr_co_postcode',
-                'ggr_co_city_country',
+                'ggr_co_city',
+                'ggr_co_country',
                 'ggr_co_birth_country',
                 'ggr_co_birth_place',
                 'ggr_co_nationality',
@@ -4812,7 +4897,8 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
         'ggr_kyc_birth_date',
         'ggr_kyc_address',
         'ggr_kyc_postcode',
-        'ggr_kyc_city_country',
+        'ggr_kyc_city',
+        'ggr_kyc_country',
         'ggr_kyc_birth_country',
         'ggr_kyc_birth_place',
         'ggr_kyc_nationality',
@@ -4869,8 +4955,11 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
     if ( isset( $field_values['ggr_kyc_postcode'] ) ) {
         update_user_meta( $user_id, 'address_postcode', $field_values['ggr_kyc_postcode'] );
     }
-    if ( isset( $field_values['ggr_kyc_city_country'] ) ) {
-        update_user_meta( $user_id, 'address_city', $field_values['ggr_kyc_city_country'] );
+    if ( isset( $field_values['ggr_kyc_city'] ) ) {
+        update_user_meta( $user_id, 'address_city', $field_values['ggr_kyc_city'] );
+    }
+    if ( isset( $field_values['ggr_kyc_country'] ) ) {
+        update_user_meta( $user_id, 'address_country', $field_values['ggr_kyc_country'] );
     }
     if ( isset( $field_values['ggr_kyc_birth_country'] ) ) {
         update_user_meta( $user_id, 'address_country', $field_values['ggr_kyc_birth_country'] );
@@ -4899,7 +4988,8 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
         'ggr_co_phone',
         'ggr_co_address',
         'ggr_co_postcode',
-        'ggr_co_city_country',
+        'ggr_co_city',
+        'ggr_co_country',
         'ggr_co_birth_country',
         'ggr_co_birth_place',
         'ggr_co_nationality',
