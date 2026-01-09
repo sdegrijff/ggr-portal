@@ -506,7 +506,7 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 		$has_pending_meldingen = true;
 	}
 
-	$has_mutatie_alert = $has_pending_mutaties || $has_pending_meldingen;	
+	$has_mutatie_alert = $has_pending_mutaties;	
 
 	$nav_primary = [
 		[
