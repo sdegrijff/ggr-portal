@@ -1291,6 +1291,10 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
                 background: #fff;
             }
 
+            .signature-blocks--single .signature-box {
+                width: 50%;
+            }
+
             .signature-box img {
                 max-height: 26mm;
                 width: auto;
@@ -1390,92 +1394,126 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
 					<tr>
 						<th>Gegevens</th>
 						<th>Participant</th>
-						<th>Mede-participant</th>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<th>Mede-participant</th>
+						<?php endif; ?>
 					</tr>
 				</thead>
 				<tbody>
 					<tr>
 						<td>Volledige naam</td>
 						<td><?php echo esc_html( $participant_name ? $participant_name : '—' ); ?></td>
-						<td><?php echo $co_name ? esc_html( $co_name ) : 'Niet van toepassing'; ?></td>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<td><?php echo $co_name ? esc_html( $co_name ) : '—'; ?></td>
+						<?php endif; ?>
 					</tr>
 					<tr>
 						<td>Geboortedatum</td>
 						<td><?php echo esc_html( ggr_onboarding_format_datetime_label( get_user_meta( $user_id, 'ggr_kyc_birth_date', true ), false ) ?: '—' ); ?></td>
-						<td><?php echo esc_html( ggr_onboarding_format_datetime_label( get_user_meta( $user_id, 'ggr_co_birth_date', true ), false ) ?: '—' ); ?></td>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<td><?php echo esc_html( ggr_onboarding_format_datetime_label( get_user_meta( $user_id, 'ggr_co_birth_date', true ), false ) ?: '—' ); ?></td>
+						<?php endif; ?>
 					</tr>
 					<tr>
 						<td>Adres</td>
 						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_address', true ) ?: '—' ); ?></td>
-						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_address', true ) ?: '—' ); ?></td>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_address', true ) ?: '—' ); ?></td>
+						<?php endif; ?>
 					</tr>
 					<tr>
 						<td>Postcode</td>
 						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_postcode', true ) ?: '—' ); ?></td>
-						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_postcode', true ) ?: '—' ); ?></td>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_postcode', true ) ?: '—' ); ?></td>
+						<?php endif; ?>
 					</tr>
 					<tr>
 						<td>Woonplaats</td>
 						<td><?php echo esc_html( $kyc_city ? $kyc_city : '—' ); ?></td>
-						<td><?php echo esc_html( $co_city ? $co_city : '—' ); ?></td>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<td><?php echo esc_html( $co_city ? $co_city : '—' ); ?></td>
+						<?php endif; ?>
 					</tr>
 					<tr>
 						<td>Land</td>
 						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_country', true ) ?: '—' ); ?></td>
-						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_country', true ) ?: '—' ); ?></td>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_country', true ) ?: '—' ); ?></td>
+						<?php endif; ?>
 					</tr>					
 					<tr>
 						<td>Burgerservicenummer</td>
 						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_bsn', true ) ?: '—' ); ?></td>
-						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_bsn', true ) ?: '—' ); ?></td>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_bsn', true ) ?: '—' ); ?></td>
+						<?php endif; ?>
 					</tr>
 					<tr>
 						<td>Telefoonnummer</td>
 						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_phone', true ) ?: '—' ); ?></td>
-						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_phone', true ) ?: '—' ); ?></td>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_phone', true ) ?: '—' ); ?></td>
+						<?php endif; ?>
 					</tr>
 					<tr>
 						<td>E-mail</td>
 						<td><?php echo esc_html( $user->user_email ); ?></td>
-						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_email', true ) ?: '—' ); ?></td>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_email', true ) ?: '—' ); ?></td>
+						<?php endif; ?>
 					</tr>
 					<tr>
 						<td>Nationaliteit</td>
 						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_nationality', true ) ?: '—' ); ?></td>
-						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_nationality', true ) ?: '—' ); ?></td>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_nationality', true ) ?: '—' ); ?></td>
+						<?php endif; ?>
 					</tr>
 					<tr>
 						<td>Tenaamstelling IBAN</td>
 						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_iban_name', true ) ?: '—' ); ?></td>
-						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_iban_name', true ) ?: '—' ); ?></td>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_iban_name', true ) ?: '—' ); ?></td>
+						<?php endif; ?>
 					</tr>
 					<tr>
 						<td>IBAN</td>
 						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_iban', true ) ?: '—' ); ?></td>
-						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_iban', true ) ?: '—' ); ?></td>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_iban', true ) ?: '—' ); ?></td>
+						<?php endif; ?>
 					</tr>
 					<tr>
 						<td>Bedrijfsnaam</td>
 						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_company', true ) ?: '—' ); ?></td>
-						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_company', true ) ?: '—' ); ?></td>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_company', true ) ?: '—' ); ?></td>
+						<?php endif; ?>
 					</tr>
 					<tr>
 						<td>KVK nummer</td>
 						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_kvk', true ) ?: '—' ); ?></td>
-						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_kvk', true ) ?: '—' ); ?></td>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_kvk', true ) ?: '—' ); ?></td>
+						<?php endif; ?>
 					</tr>
 					<tr>
 						<td>Politiek Prominent Persoon</td>
 						<td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_kyc_pep', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
-						<td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_co_pep', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_co_pep', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
+						<?php endif; ?>
 					</tr>
 					<tr>
 						<td>US person</td>
 						<td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_kyc_us_person', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
-						<td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_co_us_person', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
+						<?php if ( 'ja' === $has_co ) : ?>
+							<td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_co_us_person', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
+						<?php endif; ?>
 					</tr>
 
-					<?php if ( $co_name || $co_investment_note ) : ?>
+					<?php if ( 'ja' === $has_co && ( $co_name || $co_investment_note ) ) : ?>
 						<tr>
 							<td>Toelichting mede-participant</td>
 							<td>—</td>
@@ -1555,7 +1593,7 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
 				</table>
 			</div>
 
-			<div class="signature-blocks">
+			<div class="signature-blocks <?php echo ( 'ja' === $has_co ) ? '' : 'signature-blocks--single'; ?>">
 				<div class="signature-box">
 					<strong>Handtekening Participant</strong>
 					<?php if ( $signature_image ) : ?>
@@ -1565,14 +1603,16 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
 					<div class="signature-name"><?php echo esc_html( $signature_text ? $signature_text : $participant_name ); ?></div>
 				</div>
 
-				<div class="signature-box">
-					<strong>Handtekening Mede-participant</strong>
-					<?php if ( $co_signature_image ) : ?>
-						<img src="<?php echo esc_url( $co_signature_image ); ?>" alt="Handtekening mede-participant" />
-					<?php endif; ?>
-					<div class="signature-line"></div>
-					<div class="signature-name"><?php echo esc_html( $co_signature_text ? $co_signature_text : ( $co_name ? $co_name : '—' ) ); ?></div>
-				</div>
+				<?php if ( 'ja' === $has_co ) : ?>
+					<div class="signature-box">
+						<strong>Handtekening Mede-participant</strong>
+						<?php if ( $co_signature_image ) : ?>
+							<img src="<?php echo esc_url( $co_signature_image ); ?>" alt="Handtekening mede-participant" />
+						<?php endif; ?>
+						<div class="signature-line"></div>
+						<div class="signature-name"><?php echo esc_html( $co_signature_text ? $co_signature_text : ( $co_name ? $co_name : '—' ) ); ?></div>
+					</div>
+				<?php endif; ?>
 				<div class="signature-box">
 					<strong>Handtekening fondsbeheerder</strong>
 					<div class="signature-line"></div>
@@ -1939,7 +1979,8 @@ function ggr_onboarding_flow_shortcode() {
 add_shortcode( 'ggr_onboarding_register', 'ggr_onboarding_register_shortcode' );
 
 function ggr_onboarding_register_shortcode() {
-    if ( is_user_logged_in() ) {
+    $has_verification_request = isset( $_GET['ggr_verify'], $_GET['uid'], $_GET['token'] );
+    if ( is_user_logged_in() && ! $has_verification_request ) {
         // Kritisch: al ingelogd → geen registratie aanbieden
         return '<p>Je bent al ingelogd.</p>';
     }
@@ -1958,13 +1999,20 @@ function ggr_onboarding_register_shortcode() {
     $participation_profile = get_user_meta( $user_id, 'ggr_participation_profile', true );
     
     // 1. E-mailverificatie (GET) afhandelen als aanwezig
-    if ( isset( $_GET['ggr_verify'], $_GET['uid'], $_GET['token'] ) ) {
+    if ( $has_verification_request ) {
         $verify_result = ggr_onboarding_handle_email_verification();
 
         if ( is_wp_error( $verify_result ) ) {
             $messages['error'][] = $verify_result->get_error_message();
         } else {
-            $messages['success'] = 'Je e-mailadres is bevestigd. Je kunt nu inloggen.';
+            $verified_user_id = (int) $_GET['uid'];
+            if ( is_user_logged_in() && get_current_user_id() === $verified_user_id ) {
+                wp_safe_redirect( home_url( '/onboarding/' ) );
+                exit;
+            }
+
+            wp_safe_redirect( add_query_arg( 'verify', 'success', home_url( '/login/' ) ) );
+            exit;
         }
     }
 
@@ -1975,7 +2023,7 @@ function ggr_onboarding_register_shortcode() {
         if ( is_wp_error( $process_result ) ) {
             $messages['error'][] = $process_result->get_error_message();
         } else {
-            $messages['success'] = 'Je registratie is ontvangen. Controleer je e-mail om je adres te bevestigen.';
+            $messages['success'] = 'Je registratie is ontvangen. Controleer je e-mail om je account te bevestigen.';
         }
     }
 
@@ -2449,7 +2497,25 @@ document.addEventListener('DOMContentLoaded', function () {
         };
 
         document.querySelectorAll('[data-ggr-onboarding-toast]').forEach(initializeOnboardingToast);
+        document.body.addEventListener('click', (event) => {
+            const closeButton = event.target.closest('[data-toast-close]');
+            if (!closeButton) {
+                return;
+            }
 
+            const toast = closeButton.closest('[data-ggr-onboarding-toast]');
+            if (!toast) {
+                return;
+            }
+
+            toast.classList.remove('is-visible');
+            window.setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.remove();
+                }
+            }, 300);
+        });
+        
         const toastObserver = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 mutation.addedNodes.forEach((node) => {
@@ -2521,6 +2587,54 @@ function ggr_onboarding_handle_email_verification() {
     }
 
     return true;
+}
+
+/**
+ * Verificatiemail (opnieuw) versturen.
+ */
+function ggr_onboarding_send_verification_email( $user_id ) {
+    $user_id = (int) $user_id;
+    $user    = get_user_by( 'id', $user_id );
+    if ( ! $user ) {
+        return false;
+    }
+
+    $token  = wp_generate_password( 32, false, false );
+    $now    = current_time( 'timestamp' );
+    $expiry = $now + DAY_IN_SECONDS * 2; // 48 uur geldig
+
+    update_user_meta( $user_id, 'ggr_onboarding_email_token', $token );
+    update_user_meta( $user_id, 'ggr_onboarding_email_token_expires', $expiry );
+
+    $verification_base_url = apply_filters(
+        'ggr_onboarding_verification_url',
+        home_url( '/investeerder-worden/' )
+    );
+    $verify_url  = add_query_arg(
+        array(
+            'ggr_verify' => 1,
+            'uid'        => $user_id,
+            'token'      => $token,
+        ),
+        $verification_base_url
+    );
+
+    if ( function_exists( 'ggr_portal_send_templated_email' ) ) {
+        $valid_minutes = max( 1, (int) round( ( $expiry - $now ) / MINUTE_IN_SECONDS ) );
+        $extra_placeholders = array(
+            'verification_link'  => $verify_url,
+            'login_link'         => home_url( '/login/' ),
+            'reset_valid_minutes'=> $valid_minutes,
+        );
+
+        return ggr_portal_send_templated_email(
+            'onboarding_email_verification',
+            $user_id,
+            $extra_placeholders
+        );
+    }
+
+    return false;
 }
 
 /**
@@ -2694,9 +2808,20 @@ function ggr_onboarding_handle_registration_submit() {
      */
     update_user_meta( $user_id, 'ggr_account_type', $account_type );
     update_user_meta( $user_id, 'ggr_phone', $phone );
+    update_user_meta( $user_id, 'phone', $phone );
     update_user_meta( $user_id, 'ggr_nationality', $nationality );
     update_user_meta( $user_id, 'ggr_investment_amount', $investment );
     update_user_meta( $user_id, 'ggr_marketing_optin', $marketing );
+    update_user_meta( $user_id, 'ggr_participation_amount', $investment );
+
+    $participation_profile = ( 'business' === $account_type ) ? 'zakelijk' : 'prive';
+    update_user_meta( $user_id, 'ggr_participation_profile', $participation_profile );
+
+    update_user_meta( $user_id, 'ggr_kyc_first_name', $first_name );
+    update_user_meta( $user_id, 'ggr_kyc_last_name', $last_name );
+    update_user_meta( $user_id, 'ggr_kyc_full_name', trim( $first_name . ' ' . $last_name ) );
+    update_user_meta( $user_id, 'ggr_kyc_phone', $phone );
+    update_user_meta( $user_id, 'ggr_kyc_nationality', $nationality );
 
     /**
      * Onboarding status op 'register' zetten
@@ -2707,42 +2832,7 @@ function ggr_onboarding_handle_registration_submit() {
         update_user_meta( $user_id, 'ggr_onboarding_status', 'register' );
     }
 
-    /**
-     * E-mailverificatie token genereren
-     */
-    $token  = wp_generate_password( 32, false, false );
-    $now    = current_time( 'timestamp' );
-    $expiry = $now + DAY_IN_SECONDS * 2; // 48 uur geldig
-
-    update_user_meta( $user_id, 'ggr_onboarding_email_token', $token );
-    update_user_meta( $user_id, 'ggr_onboarding_email_token_expires', $expiry );
-
-    $current_url = ggr_onboarding_get_current_url();
-    $verify_url  = add_query_arg(
-        array(
-            'ggr_verify' => 1,
-            'uid'        => $user_id,
-            'token'      => $token,
-        ),
-        $current_url
-    );
-
-    /**
-     * Verificatie e-mail versturen via templating-systeem
-     */
-    if ( function_exists( 'ggr_portal_send_templated_email' ) ) {
-
-        $extra_placeholders = array(
-            'verification_link' => $verify_url,
-            'login_link'        => wp_login_url(),
-        );
-
-        ggr_portal_send_templated_email(
-            'onboarding_email_verification',
-            $user_id,
-            $extra_placeholders
-        );
-    }
+    ggr_onboarding_send_verification_email( $user_id );
 
     if ( function_exists( 'ggr_hubspot_sync_user' ) ) {
         ggr_hubspot_sync_user( $user_id, 'register' );
@@ -2961,7 +3051,9 @@ function ggr_onboarding_dashboard_shortcode() {
                 ggr_portal_send_admin_templated_email(
                     'Payment_received',
                     array(
-                        'user_display_name' => $user->display_name,
+                        'user_display_name' => function_exists( 'ggr_portal_get_nice_user_name' )
+                            ? ggr_portal_get_nice_user_name( $user )
+                            : $user->display_name,
                         'account_email'     => $user->user_email,
                         'portal_link'       => home_url( '/onboarding/' ),
                     )
@@ -3023,7 +3115,9 @@ function ggr_onboarding_dashboard_shortcode() {
                         ggr_portal_send_admin_templated_email(     
                             'extra_info_submitted',
                             array(        
-                                'user_display_name' => $user->display_name,
+                                'user_display_name' => function_exists( 'ggr_portal_get_nice_user_name' )
+                                    ? ggr_portal_get_nice_user_name( $user )
+                                    : $user->display_name,
                                 'account_email'     => $user->user_email,
                                 'portal_link'       => home_url( '/onboarding/' ),                                
                             )
@@ -3467,21 +3561,9 @@ function ggr_onboarding_dashboard_shortcode() {
                             <?php endif; ?>                        
                             <div class="ggr-onboarding-step-card">
                                 <div class="ggr-onboarding-step-text">
-                                    <h3 class="ggr-onboarding-step-heading">Inschrijfformulier controleren</h3>
-                                    <p class="ggr-onboarding-step-description">We hebben je inschrijfformulier ontvangen. Hieronder vind je een overzicht van de ingevulde gegevens. We nemen contact op zodra de controle is afgerond.</p>
+                                    <h3 class="ggr-onboarding-step-heading">We zijn bezig met je inschrijving</h3>
+                                    <p class="ggr-onboarding-step-description">We controleren je gegevens en nemen contact met je op zodra we klaar zijn. Je ontvangt spoedig een e-mail met de volgende stappen.</p>
                                 </div>
-                                <?php foreach ( $review_sections as $section ) : ?>
-                                    <div class="ggr-onboarding-summary">
-                                        <p class="ggr-onboarding-summary__title"><?php echo esc_html( $section['title'] ); ?></p>
-                                        <dl class="ggr-onboarding-summary-grid">
-                                            <?php foreach ( $section['items'] as $label => $value ) : ?>
-                                                <dt><?php echo esc_html( $label ); ?></dt>
-                                                <dd><?php echo esc_html( $value ); ?></dd>
-                                            <?php endforeach; ?>
-                                        </dl>
-                                    </div>
-                                <?php endforeach; ?>
-                                <p class="ggr-onboarding-muted" style="margin-top: 8px;">We controleren alle gegevens en laten het je weten zodra alles is goedgekeurd.</p>
                             </div>
                         <?php elseif ( 'sign_contract' === $status ) : ?>
                             <div class="ggr-onboarding-step-card">
@@ -3553,10 +3635,12 @@ function ggr_onboarding_dashboard_shortcode() {
                                                     <dt>Participant</dt>
                                                     <dd><?php echo $termsheet_participant ? esc_html( $termsheet_participant ) : '—'; ?></dd>
                                                 </div>
-                                                <div>
-                                                    <dt>Mede-participant</dt>
-                                                    <dd><?php echo $termsheet_co ? esc_html( $termsheet_co ) : '—'; ?></dd>
-                                                </div>
+                                                <?php if ( 'ja' === $has_co_participant ) : ?>
+                                                    <div>
+                                                        <dt>Mede-participant</dt>
+                                                        <dd><?php echo $termsheet_co ? esc_html( $termsheet_co ) : '—'; ?></dd>
+                                                    </div>
+                                                <?php endif; ?>
                                                 <div>
                                                     <dt>Profiel</dt>
                                                     <dd><?php echo esc_html( $termsheet_profile_label ); ?></dd>
@@ -4486,7 +4570,7 @@ function ggr_onboarding_dashboard_shortcode() {
                                                         value="submit"
                                                         class="ggr-onboarding-button ggr-onboarding-button--accent"
                                                         data-confirm-docs="true">
-                                                    Documentatie indienen
+                                                    Door naar ondertekenen
                                                 </button>
                                             <?php endif; ?>
                                         </div>
@@ -4828,6 +4912,10 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
         $has_co_participant = sanitize_key( wp_unslash( $_POST['ggr_has_co_participant'] ) );
         update_user_meta( $user_id, 'ggr_has_co_participant', $has_co_participant );
     }
+    
+    $personal_action = isset( $_POST['ggr_collecting_personal_submit'] )
+        ? sanitize_text_field( wp_unslash( $_POST['ggr_collecting_personal_submit'] ) )
+        : '';
 
     $required_fields = array(
         'ggr_kyc_first_name',
@@ -4875,9 +4963,11 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
         );
     }
 
-    foreach ( $required_fields as $key ) {
-        if ( empty( $_POST[ $key ] ) ) {
-            return new WP_Error( 'missing_fields', 'Vul alle verplichte velden in.' );
+    if ( 'save' !== $personal_action ) {
+        foreach ( $required_fields as $key ) {
+            if ( empty( $_POST[ $key ] ) ) {
+                return new WP_Error( 'missing_fields', 'Vul alle verplichte velden in.' );
+            }
         }
     }
 
@@ -4955,9 +5045,6 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
     if ( isset( $field_values['ggr_kyc_country'] ) ) {
         update_user_meta( $user_id, 'address_country', $field_values['ggr_kyc_country'] );
     }
-    if ( isset( $field_values['ggr_kyc_birth_country'] ) ) {
-        update_user_meta( $user_id, 'address_country', $field_values['ggr_kyc_birth_country'] );
-    }
     if ( isset( $field_values['ggr_kyc_birth_place'] ) ) {
         update_user_meta( $user_id, 'birth_place', $field_values['ggr_kyc_birth_place'] );
     }
@@ -4965,7 +5052,7 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
         update_user_meta( $user_id, 'birth_date', $field_values['ggr_kyc_birth_date'] );
     }
     if ( isset( $field_values['ggr_kyc_nationality'] ) ) {
-        update_user_meta( $user_id, 'birth_country', $field_values['ggr_kyc_nationality'] );
+        update_user_meta( $user_id, 'ggr_nationality', $field_values['ggr_kyc_nationality'] );
     }
 
     if ( isset( $field_values['ggr_kyc_iban_name'] ) ) {
@@ -5090,6 +5177,74 @@ function ggr_onboarding_handle_collecting_origin( $user_id ) {
 }
 
 /**
+ * Controleer of alle verplichte persoonlijke gegevens zijn ingevuld.
+ */
+function ggr_onboarding_is_personal_data_complete( $user_id ) {
+    $user_id = (int) $user_id;
+    if ( ! $user_id ) {
+        return false;
+    }
+
+    $has_co_participant = get_user_meta( $user_id, 'ggr_has_co_participant', true );
+    $has_co_participant = $has_co_participant ? $has_co_participant : 'nee';
+
+    $required_fields = array(
+        'ggr_kyc_first_name',
+        'ggr_kyc_last_name',
+        'ggr_kyc_birth_date',
+        'ggr_kyc_address',
+        'ggr_kyc_postcode',
+        'ggr_kyc_city',
+        'ggr_kyc_country',
+        'ggr_kyc_birth_country',
+        'ggr_kyc_birth_place',
+        'ggr_kyc_nationality',
+        'ggr_kyc_phone',
+        'ggr_kyc_bsn',
+        'ggr_kyc_iban_name',
+        'ggr_kyc_iban',
+        'ggr_kyc_pep',
+        'ggr_kyc_us_person',
+    );
+
+    if ( 'zakelijk' === get_user_meta( $user_id, 'ggr_participation_profile', true ) ) {
+        $required_fields[] = 'ggr_kyc_company';
+        $required_fields[] = 'ggr_kyc_kvk';
+    }
+
+    if ( 'ja' === $has_co_participant ) {
+        $required_fields = array_merge(
+            $required_fields,
+            array(
+                'ggr_co_first_name',
+                'ggr_co_last_name',
+                'ggr_co_birth_date',
+                'ggr_co_phone',
+                'ggr_co_address',
+                'ggr_co_postcode',
+                'ggr_co_city',
+                'ggr_co_country',
+                'ggr_co_birth_country',
+                'ggr_co_birth_place',
+                'ggr_co_nationality',
+                'ggr_co_bsn',
+                'ggr_co_pep',
+                'ggr_co_us_person',
+            )
+        );
+    }
+
+    foreach ( $required_fields as $field_key ) {
+        $value = get_user_meta( $user_id, $field_key, true );
+        if ( '' === $value || null === $value ) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
  * Stap 5 collecting: bestanden uploaden
  */
 function ggr_onboarding_handle_collecting_files( $user_id ) {
@@ -5102,6 +5257,10 @@ function ggr_onboarding_handle_collecting_files( $user_id ) {
     if ( get_current_user_id() !== (int) $user_id ) {
         return new WP_Error( 'invalid_user', 'Je kunt geen documenten voor een andere gebruiker uploaden.' );
     }
+
+    $files_action = isset( $_POST['ggr_collecting_files_submit'] )
+        ? sanitize_text_field( wp_unslash( $_POST['ggr_collecting_files_submit'] ) )
+        : '';
     
     $participation_profile = get_user_meta( $user_id, 'ggr_participation_profile', true );
 
@@ -5114,26 +5273,32 @@ function ggr_onboarding_handle_collecting_files( $user_id ) {
         'ggr_doc_other'          => get_user_meta( $user_id, 'ggr_doc_other', true ),
     );
 
-    // Minimaal: identiteitsbewijs en herkomst middelen.
-    $missing_required = array();
-    if ( empty( $_FILES['ggr_doc_id']['name'] ) && empty( $existing_docs['ggr_doc_id'] ) ) {
-        $missing_required[] = 'identiteitsbewijs';
-    }
-    if ( empty( $_FILES['ggr_doc_funds']['name'] ) && empty( $existing_docs['ggr_doc_funds'] ) ) {
-        $missing_required[] = 'bewijs van herkomst middelen';
+    if ( 'submit' === $files_action && ! ggr_onboarding_is_personal_data_complete( $user_id ) ) {
+        return new WP_Error( 'missing_personal', 'Vul eerst alle verplichte persoonlijke gegevens in voordat je de documentatie kunt indienen.' );
     }
 
-    if ( 'zakelijk' === $participation_profile ) {
-        if ( empty( $_FILES['ggr_doc_registration']['name'] ) && empty( $existing_docs['ggr_doc_registration'] ) ) {
-            $missing_required[] = 'uittreksel Kamer van Koophandel';
+    if ( 'submit' === $files_action ) {
+        // Minimaal: identiteitsbewijs en herkomst middelen.
+        $missing_required = array();
+        if ( empty( $_FILES['ggr_doc_id']['name'] ) && empty( $existing_docs['ggr_doc_id'] ) ) {
+            $missing_required[] = 'identiteitsbewijs';
         }
-        if ( empty( $_FILES['ggr_doc_ubo']['name'] ) && empty( $existing_docs['ggr_doc_ubo'] ) ) {
-            $missing_required[] = 'UBO-registratie of aandeelhouderslijst';
+        if ( empty( $_FILES['ggr_doc_funds']['name'] ) && empty( $existing_docs['ggr_doc_funds'] ) ) {
+            $missing_required[] = 'bewijs van herkomst middelen';
         }
-    }
 
-    if ( ! empty( $missing_required ) ) {
-        return new WP_Error( 'missing_files', 'Ontbrekende documenten: ' . implode( ', ', $missing_required ) . '.' );
+        if ( 'zakelijk' === $participation_profile ) {
+            if ( empty( $_FILES['ggr_doc_registration']['name'] ) && empty( $existing_docs['ggr_doc_registration'] ) ) {
+                $missing_required[] = 'uittreksel Kamer van Koophandel';
+            }
+            if ( empty( $_FILES['ggr_doc_ubo']['name'] ) && empty( $existing_docs['ggr_doc_ubo'] ) ) {
+                $missing_required[] = 'UBO-registratie of aandeelhouderslijst';
+            }
+        }
+
+        if ( ! empty( $missing_required ) ) {
+            return new WP_Error( 'missing_files', 'Ontbrekende documenten: ' . implode( ', ', $missing_required ) . '.' );
+        }
     }
 
     // Gebruik je bestaande upload helper.
