@@ -2388,6 +2388,9 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     $extra_required          = ! empty( $_POST['ggr_collecting_extra_required'] ) ? 1 : 0;
     $extra_required          = $extra_required_request ? 1 : 0;    
     update_user_meta( $user_id, 'ggr_collecting_extra_required', $extra_required );
+    if ( $extra_required_request ) {
+        update_user_meta( $user_id, 'ggr_collecting_extra_done', 0 );
+    }    
     if ( $extra_required_request && 'reject' === $doc_action && $is_doc_review ) {
         update_user_meta( $user_id, 'ggr_collecting_extra_done', 0 );
     }
@@ -2485,9 +2488,6 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
     if ( ! empty( $_POST['ggr_payment_confirm_admin'] ) ) {
         update_user_meta( $user_id, 'ggr_payment_confirmation_at', $profile_timestamp );
         update_user_meta( $user_id, 'ggr_onboarding_updated_at', $profile_timestamp );
-        if ( in_array( $current_status, array( 'transfer_funds', 'transfer_review' ), true ) ) {
-            $status_override = 'transfer_review';
-        }        
     }
     
     $payment_received = ! empty( $_POST['ggr_payment_received'] ) ? 1 : 0;
@@ -3347,22 +3347,14 @@ function ggr_portal_render_participant_profile_page() {
     $kyc_pep          = isset( $meta['ggr_kyc_pep'][0] )          ? $meta['ggr_kyc_pep'][0]          : '';
     $kyc_us_person    = isset( $meta['ggr_kyc_us_person'][0] )    ? $meta['ggr_kyc_us_person'][0]    : '';
 
-    $payment_details = apply_filters(
-        'ggr_portal_investeren_payment_details',
-        array(
-            'iban'         => 'Nader te bepalen',
-            'tenaam'       => 'GGR Investeringen B.V.',
-            'bank'         => 'Vul de bankgegevens hier aan.',
-            'omschrijving' => 'Gebruik je naam en referentie als omschrijving.',
-        )
-    );
-    $payment_details = is_array( $payment_details ) ? $payment_details : array();
+    $payment_details = ggr_portal_get_payment_details();
     $reference_name  = trim( $kyc_first_name . ' ' . $kyc_last_name );
     if ( '' === $reference_name ) {
         $reference_name = $user->display_name;
     }
     $reference_birth   = $kyc_birth_date;
-    $payment_reference = trim( $reference_name . ' - ' . ( $reference_birth ? $reference_birth : 'geboortedatum' ) );
+    $reference_birth_label = $reference_birth ? ggr_onboarding_format_datetime_label( $reference_birth, false ) : '';
+    $payment_reference     = trim( $reference_name . ' - ' . ( $reference_birth_label ? $reference_birth_label : 'geboortedatum' ) );
 
     $co_first_name = isset( $meta['ggr_co_first_name'][0] ) ? $meta['ggr_co_first_name'][0] : $co_first;
     $co_last_name  = isset( $meta['ggr_co_last_name'][0] )  ? $meta['ggr_co_last_name'][0]  : $co_last;
@@ -4895,7 +4887,7 @@ function ggr_portal_render_participant_profile_page() {
             <?php endif; ?>
 
             <?php if ( $is_lead ) : ?>
-                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="transfer_funds transfer_review">
+                <div class="ggr-admin-onboarding-section" data-onboarding-statuses="transfer_funds">
             <?php endif; ?>
             
             <h2 class="title">Betaling & start</h2>
@@ -4908,9 +4900,6 @@ function ggr_portal_render_participant_profile_page() {
                             <li>IBAN: <?php echo esc_html( $payment_details['iban'] ?? '—' ); ?></li>
                             <li>Tenaamstelling: <?php echo esc_html( $payment_details['tenaam'] ?? '—' ); ?></li>
                             <li>Bank: <?php echo esc_html( $payment_details['bank'] ?? '—' ); ?></li>
-                            <?php if ( ! empty( $payment_details['omschrijving'] ) ) : ?>
-                                <li>Omschrijving: <?php echo esc_html( $payment_details['omschrijving'] ); ?></li>
-                            <?php endif; ?>
                             <li>Kenmerk: <?php echo esc_html( $payment_reference ? $payment_reference : '—' ); ?></li>
                         </ul>                        
                         <label style="display:block; margin-bottom:8px;">
