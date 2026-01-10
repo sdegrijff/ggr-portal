@@ -571,7 +571,8 @@ document.addEventListener('DOMContentLoaded', function() {
     var submitBtn   = document.querySelector('[data-ggr-login-submit]');
     var toast       = document.querySelector('[data-ggr-login-toast]');
     var toastClose  = toast ? toast.querySelector('[data-ggr-toast-close]') : null;
-
+    var verifyState = params.get('verify'); // 'success'
+    
     // Als er geen login card of form is (bijv. op /wachtwoord-vergeten/) -> stop.
     if (!loginCard || !form) {
         return;
@@ -708,11 +709,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Helper om een succes-toast te tonen (mail verstuurd / wachtwoord gewijzigd)
-    function showSuccessToast(title, message) {
+    function showToast(type, title, message) {
         var successToast = document.createElement('div');
-        successToast.className = 'ggr-login-toast ggr-login-toast--success is-visible';
+        var icon = type === 'error' ? '!' : '✓';
+        successToast.className = 'ggr-login-toast ggr-login-toast--' + type + ' is-visible';
         successToast.innerHTML = '' +
-            '<div class="ggr-login-toast__icon">✓</div>' +
+            '<div class="ggr-login-toast__icon">' + icon + '</div>' +
             '<div class="ggr-login-toast__content">' +
             '  <div class="ggr-login-toast__title">' + title + '</div>' +
             '  <div class="ggr-login-toast__message">' + message + '</div>' +
@@ -735,7 +737,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Succes: resetmail verstuurd -> /login/?reset=sent
     if (resetState === 'sent') {
-        showSuccessToast(
+        showToast(
+            'success',
             'E-mail verstuurd',
             'We hebben je een e-mail gestuurd met een link om je wachtwoord te resetten.'
         );
@@ -743,11 +746,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Succes: wachtwoord gewijzigd -> /login/?reset=done
     if (resetState === 'done') {
-        showSuccessToast(
+        showToast(
+            'success',
             'Wachtwoord gewijzigd',
             'Je wachtwoord is succesvol aangepast. Je kunt nu inloggen met je nieuwe wachtwoord.'
         );
     }
+
+    if (loginState === 'unverified') {
+        showToast(
+            'error',
+            'E-mailadres nog niet bevestigd',
+            'Je account is nog niet bevestigd. We hebben je een nieuwe bevestigingsmail gestuurd.'
+        );
+    }
+
+    if (verifyState === 'success') {
+        showToast(
+            'success',
+            'E-mailadres bevestigd',
+            'Je e-mailadres is bevestigd. Log opnieuw in om verder te gaan.'
+        );
+    }    
 });
 </script>
 
@@ -799,10 +819,48 @@ function ggr_login_failed_redirect( $username ) {
     }
 
     $login_page = home_url( '/login/' );
-    wp_safe_redirect( add_query_arg( 'login', 'failed', $login_page ) );
+    $login_state = 'failed';
+    if ( ! empty( $GLOBALS['ggr_portal_last_login_error'] ) ) {
+        $login_state = $GLOBALS['ggr_portal_last_login_error'];
+        $GLOBALS['ggr_portal_last_login_error'] = '';
+    }
+    wp_safe_redirect( add_query_arg( 'login', $login_state, $login_page ) );
     exit;
 }
 add_action( 'wp_login_failed', 'ggr_login_failed_redirect' );
+
+/**
+ * Blokkeer login voor leads zonder bevestigde e-mail en verstuur een nieuwe verificatie.
+ */
+add_filter( 'wp_authenticate_user', 'ggr_portal_block_unverified_login', 10, 2 );
+function ggr_portal_block_unverified_login( $user, $password ) {
+    if ( is_wp_error( $user ) ) {
+        return $user;
+    }
+
+    if ( ! $user instanceof WP_User ) {
+        return $user;
+    }
+
+    if ( ! in_array( 'lead', (array) $user->roles, true ) ) {
+        return $user;
+    }
+
+    if ( get_user_meta( $user->ID, 'ggr_email_verified', true ) ) {
+        return $user;
+    }
+
+    if ( function_exists( 'ggr_onboarding_send_verification_email' ) ) {
+        ggr_onboarding_send_verification_email( $user->ID );
+    }
+
+    $GLOBALS['ggr_portal_last_login_error'] = 'unverified';
+
+    return new WP_Error(
+        'email_unverified',
+        'Je e-mailadres is nog niet bevestigd. We hebben je een nieuwe bevestigingsmail gestuurd.'
+    );
+}
 
 /**
  * 5.2) Lege velden -> /login?login=empty
@@ -843,9 +901,18 @@ function ggr_lost_password_form_shortcode() {
     }
 
     $logo_url   = 'https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GGR%20Icon%20-%20Blue%20-%20Black.png';
-    $action_url = wp_lostpassword_url();
     $login_url  = home_url( '/login/' );
 
+    if ( isset( $_POST['ggr_lost_password_nonce'] ) && wp_verify_nonce( $_POST['ggr_lost_password_nonce'], 'ggr_lost_password' ) ) {
+        if ( ! empty( $_POST['user_login'] ) ) {
+            retrieve_password();
+        }
+
+        $target = add_query_arg( 'reset', 'sent', $login_url );
+        wp_safe_redirect( $target );
+        exit;
+    }
+    
     ob_start();
     ?>
     <div class="ggr-login-wrapper">
@@ -871,7 +938,7 @@ function ggr_lost_password_form_shortcode() {
 
                 <form name="lostpasswordform"
                       id="ggr-lostpasswordform"
-                      action="<?php echo esc_url( $action_url ); ?>"
+                      action=""
                       method="post">
 
 <div class="ggr-login-fields" style="text-align:left;">
@@ -898,6 +965,7 @@ function ggr_lost_password_form_shortcode() {
                                 name="wp-submit">
                             Resetlink versturen
                         </button>
+                        <?php wp_nonce_field( 'ggr_lost_password', 'ggr_lost_password_nonce' ); ?>                        
                     </div>
                 </form>
             </div>
@@ -933,6 +1001,7 @@ add_shortcode( 'ggr_lost_password_form', 'ggr_lost_password_form_shortcode' );
  */
 
 $GLOBALS['ggr_portal_last_pwreset_subject'] = '';
+$GLOBALS['ggr_portal_last_login_error']    = '';
 
 add_filter( 'retrieve_password_message', 'ggr_portal_reset_password_message', 10, 4 );
 function ggr_portal_reset_password_message( $message, $key, $user_login, $user_data ) {
@@ -956,7 +1025,9 @@ function ggr_portal_reset_password_message( $message, $key, $user_login, $user_d
     $rendered = ggr_portal_render_email(
         'password_reset', // MOET gelijk zijn aan de key in je CPT
         array(
-            'user_display_name'   => $user_data->display_name,
+            'user_display_name'   => function_exists( 'ggr_portal_get_nice_user_name' )
+                ? ggr_portal_get_nice_user_name( $user_data )
+                : $user_data->display_name,
             'reset_link'          => $reset_link,
             'reset_valid_minutes' => $valid_minutes,
         )
@@ -1071,6 +1142,7 @@ function ggr_reset_password_form_shortcode() {
                     $error = 'De link om je wachtwoord te resetten is ongeldig of verlopen. Vraag een nieuwe link aan.';
                 } else {
                     reset_password( $user, $pass1 );
+                    wp_logout();                    
                     $login_url = esc_url( home_url( '/login/?reset=done' ) );
                     return '<script>window.location.href = "' . $login_url . '";</script>';
                 }
@@ -1099,9 +1171,7 @@ function ggr_reset_password_form_shortcode() {
 
             <div class="ggr-login-card">
                 <h1 class="ggr-login-title">Nieuw wachtwoord instellen</h1>
-                <auth class="ggr-login-subtitle"
-                        style="text-align: center;!important"
-                >
+                <p class="ggr-login-subtitle" style="text-align:center;">
                     Kies hieronder een nieuw wachtwoord voor je GGR account.
                 </p>
 
