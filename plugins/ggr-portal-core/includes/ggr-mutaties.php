@@ -16,7 +16,10 @@ add_action( 'init', 'ggr_mutaties_remove_post_support', 11 );
 function ggr_mutaties_get_statuses() {
     return array(
         'nieuw'       => 'Nieuw',
+        'in_behandeling' => 'In behandeling',
         'goedgekeurd' => 'Goedgekeurd',
+        'afgewezen'   => 'Afgewezen',
+        'betaald'     => 'Betaald',
         'ingepland'   => 'Ingepland',
         'uitgevoerd'  => 'Uitgevoerd',
         'geannuleerd' => 'Geannuleerd',
@@ -1011,7 +1014,31 @@ function ggr_mutaties_render_admin_page() {
             $today     = current_time( 'Y-m-d' );
             $applied   = 0;
             $scheduled = 0;
+            $deposit_threshold = (float) apply_filters( 'ggr_portal_deposit_approval_threshold', 10000 );
             foreach ( $action_ids as $mutatie_id ) {
+                $type        = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
+                $amount_raw  = get_post_meta( $mutatie_id, 'ggr_mutatie_amount', true );
+                $amount      = ggr_mutaties_parse_decimal( $amount_raw );
+                $payment_url = get_post_meta( $mutatie_id, 'ggr_mutatie_payment_url', true );
+
+                if ( 'inleg' === $type && $amount >= $deposit_threshold ) {
+                    if ( ! $payment_url && function_exists( 'ggr_mollie_create_payment_for_mutatie' ) ) {
+                        $description  = sprintf( 'Extra inleg #%d', (int) $mutatie_id );
+                        $redirect_url = admin_url( 'admin.php?page=ggr-mutaties' );
+                        $payment      = ggr_mollie_create_payment_for_mutatie( $mutatie_id, $amount, $description, $redirect_url );
+
+                        if ( is_wp_error( $payment ) ) {
+                            $errors[] = $payment->get_error_message();
+                            continue;
+                        }
+                    }
+
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'goedgekeurd' );
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 0 );
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', '' );
+                    continue;
+                }
+
                 $schedule_enabled = (int) get_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', true );
                 if ( ! $schedule_enabled ) {
                     update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', '' );
@@ -1045,7 +1072,7 @@ function ggr_mutaties_render_admin_page() {
             );
         } elseif ( 'reject' === $action ) {
             foreach ( $action_ids as $mutatie_id ) {
-                update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'geannuleerd' );
+                update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'afgewezen' );
             }
             $message = sprintf( '%d mutaties afgewezen.', count( $action_ids ) );
         } elseif ( 'delete' === $action ) {
@@ -1069,7 +1096,7 @@ function ggr_mutaties_render_admin_page() {
             'relation' => 'OR',
             array(
                 'key'     => 'ggr_mutatie_status',
-                'value'   => array( 'goedgekeurd', 'ingepland', 'uitgevoerd', 'geannuleerd' ),
+                'value'   => array( 'goedgekeurd', 'ingepland', 'uitgevoerd', 'geannuleerd', 'afgewezen', 'betaald' ),
                 'compare' => 'NOT IN',
             ),
             array(
@@ -1087,7 +1114,7 @@ function ggr_mutaties_render_admin_page() {
         'meta_query'     => array(
             array(
                 'key'     => 'ggr_mutatie_status',
-                'value'   => array( 'goedgekeurd', 'ingepland', 'uitgevoerd', 'geannuleerd' ),
+                'value'   => array( 'goedgekeurd', 'ingepland', 'uitgevoerd', 'geannuleerd', 'afgewezen', 'betaald' ),
                 'compare' => 'IN',
             ),
         ),
