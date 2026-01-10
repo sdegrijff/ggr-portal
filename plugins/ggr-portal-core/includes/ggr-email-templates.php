@@ -90,12 +90,10 @@ function ggr_portal_get_nice_user_name( $user ) {
         return $greeting_name;
     }
 
-    // 2. Voor- en achternaam
+    // 2. Voornaam
     $first_name = trim( get_user_meta( $wp_user->ID, 'first_name', true ) );
-    $last_name  = trim( get_user_meta( $wp_user->ID, 'last_name', true ) );
-
-    if ( '' !== $first_name || '' !== $last_name ) {
-        return trim( $first_name . ' ' . $last_name );
+    if ( '' !== $first_name ) {
+        return $first_name;
     }
 
     // 3. display_name
