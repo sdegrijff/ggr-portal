@@ -12,6 +12,34 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Shortcode: [ggr_portal_wijziging]
  * Front-end flow voor deelnemers om wijzigingen door te geven.
  */
+function ggr_portal_get_latest_inleg_mutatie( $user_id ) {
+    $mutaties = get_posts(
+        array(
+            'post_type'      => 'ggr_mutatie',
+            'post_status'    => 'any',
+            'numberposts'    => 1,
+            'orderby'        => 'date',
+            'order'          => 'DESC',
+            'meta_query'     => array(
+                array(
+                    'key'   => 'ggr_mutatie_type',
+                    'value' => 'inleg',
+                ),
+                array(
+                    'key'   => 'ggr_mutatie_user_id',
+                    'value' => (int) $user_id,
+                ),
+            ),
+        )
+    );
+
+    if ( empty( $mutaties ) ) {
+        return null;
+    }
+
+    return $mutaties[0];
+}
+ 
 function ggr_portal_investeren_shortcode() {
     $maybe_error = ggrp_fe_require_login();
     if ( null !== $maybe_error ) {
@@ -42,6 +70,8 @@ function ggr_portal_investeren_shortcode() {
 
     $deposit_amount     = '';
     $deposit_reference  = '';
+    $deposit_source     = '';
+    $deposit_explanation = '';    
     $withdrawal_amount  = '';
     $strategy_choice    = '';
     $new_iban           = '';
@@ -49,21 +79,12 @@ function ggr_portal_investeren_shortcode() {
     $back_link_url      = remove_query_arg( 'change' );
     $back_link_url      = remove_query_arg( 'change' );    
 
-    $payment_details = apply_filters(
-        'ggr_portal_investeren_payment_details',
-        array(
-            'iban'         => 'Nader te bepalen',
-            'tenaam'       => 'GGR Investeringen B.V.',
-            'omschrijving' => 'Gebruik je naam en referentie als omschrijving.',
-            'bank'         => 'Vul de bankgegevens hier aan.',
-        )
-    );
-
     $current_strategy = get_user_meta( $user->ID, 'ggr_distribution_strategy', true );
     $nice_user_name   = function_exists( 'ggr_portal_get_nice_user_name' )
         ? ggr_portal_get_nice_user_name( $user )
         : $user->display_name;
     $submitted_at_label = wp_date( 'Y-m-d H:i' );
+    $deposit_threshold  = (float) apply_filters( 'ggr_portal_deposit_approval_threshold', 10000 );    
 
     if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['ggr_wijziging_nonce'] ) ) {
         if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['ggr_wijziging_nonce'] ) ), 'ggr_wijziging' ) ) {
@@ -78,7 +99,10 @@ function ggr_portal_investeren_shortcode() {
                     $deposit_amount_raw = isset( $_POST['ggr_deposit_amount'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_deposit_amount'] ) ) : '';
                     $deposit_amount     = (float) str_replace( ',', '.', $deposit_amount_raw );
                     $deposit_reference  = isset( $_POST['ggr_deposit_reference'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_deposit_reference'] ) ) : '';
+                    $deposit_source     = isset( $_POST['ggr_deposit_source'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_deposit_source'] ) ) : '';
+                    $deposit_explanation = isset( $_POST['ggr_deposit_explanation'] ) ? sanitize_textarea_field( wp_unslash( $_POST['ggr_deposit_explanation'] ) ) : '';
                     $deposit_stage      = isset( $_POST['ggr_flow_step'] ) ? sanitize_key( wp_unslash( $_POST['ggr_flow_step'] ) ) : 'amount';
+                    $deposit_requires_review = $deposit_amount >= $deposit_threshold;
 
                     if ( $deposit_amount <= 0 ) {
                         $errors[] = 'Vul een geldig stortingsbedrag in.';
@@ -87,41 +111,110 @@ function ggr_portal_investeren_shortcode() {
                     if ( empty( $errors ) ) {
                         $active_flow = 'deposit';
 
-                        if ( 'confirm' === $deposit_stage ) {
-                            $submitted_action = 'deposit';
-                            $deposit_stage    = 'done';
+                        if ( $deposit_requires_review ) {
+                            if ( 'questions' === $deposit_stage ) {
+                                if ( ! $deposit_source || ! $deposit_explanation ) {
+                                    $errors[] = 'Beantwoord de vragen over de herkomst van de middelen.';
+                                }
 
-                            if ( function_exists( 'ggr_mutaties_create_mutatie' ) ) {
-                                $mutatie_id = ggr_mutaties_create_mutatie( 'inleg', $user->ID, $deposit_amount );
-                                if ( is_wp_error( $mutatie_id ) ) {
-                                    $errors[] = 'Kon de mutatie voor de storting niet aanmaken.';
-                                } else {
-                                    $success_messages[] = 'Je storting is ontvangen.';
+                                if ( empty( $errors ) ) {
+                                    $submitted_action = 'deposit';
+                                    $deposit_stage    = 'review';
+
+                                    if ( function_exists( 'ggr_mutaties_create_mutatie' ) ) {
+                                        $mutatie_id = ggr_mutaties_create_mutatie( 'inleg', $user->ID, $deposit_amount );
+                                        if ( is_wp_error( $mutatie_id ) ) {
+                                            $errors[] = 'Kon de mutatie voor de storting niet aanmaken.';
+                                        } else {
+                                            update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'in_behandeling' );
+                                            update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 0 );
+                                            update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', '' );
+                                            update_post_meta( $mutatie_id, 'ggr_mutatie_deposit_reference', $deposit_reference );
+                                            update_post_meta( $mutatie_id, 'ggr_mutatie_source', $deposit_source );
+                                            update_post_meta( $mutatie_id, 'ggr_mutatie_source_explanation', $deposit_explanation );
+                                            $success_messages[] = 'Je aanvraag is ontvangen en staat klaar voor beoordeling.';
+                                        }
+                                    } else {
+                                        $errors[] = 'Mutatie-functies ontbreken om de storting te verwerken.';
+                                    }
+
+                                    if ( function_exists( 'ggr_meldingen_add' ) ) {
+                                        $content_lines = array(
+                                            'Bedrag: ' . ggrp_fe_format_money( $deposit_amount ),
+                                            'Herkomst: ' . $deposit_source,
+                                            'Toelichting: ' . $deposit_explanation,
+                                            'Referentie: ' . ( $deposit_reference ? $deposit_reference : '—' ),
+                                            'Ingediend door: ' . $nice_user_name,
+                                            'Datum: ' . $submitted_at_label,
+                                        );
+
+                                        ggr_meldingen_add(
+                                            'Extra inleg ter beoordeling van ' . $nice_user_name,
+                                            implode( "\n", $content_lines ),
+                                            $user->ID,
+                                            array(
+                                                'melding_type'      => 'wijziging',
+                                                'wijziging_variant' => 'deposit_review',
+                                            )
+                                        );
+                                    }
                                 }
                             } else {
-                                $errors[] = 'Mutatie-functies ontbreken om de storting te verwerken.';
-                            }
-
-                            if ( function_exists( 'ggr_meldingen_add' ) ) {
-                                $content_lines = array(
-                                    'Bedrag: ' . ggrp_fe_format_money( $deposit_amount ),
-                                    'Referentie: ' . ( $deposit_reference ? $deposit_reference : '—' ),
-                                    'Ingediend door: ' . $nice_user_name,
-                                    'Datum: ' . $submitted_at_label,
-                                );
-
-                                ggr_meldingen_add(
-                                    'Stortingsbevestiging van ' . $nice_user_name,
-                                    implode( "\n", $content_lines ),
-                                    $user->ID,
-                                    array(
-                                        'melding_type'      => 'wijziging',
-                                        'wijziging_variant' => 'deposit',
-                                    )
-                                );
+                                $deposit_stage = 'questions';
                             }
                         } else {
-                            $deposit_stage = 'details';
+                            if ( 'confirm' === $deposit_stage ) {
+                                $submitted_action = 'deposit';
+                                $deposit_stage    = 'payment';
+
+                                if ( function_exists( 'ggr_mutaties_create_mutatie' ) ) {
+                                    $mutatie_id = ggr_mutaties_create_mutatie( 'inleg', $user->ID, $deposit_amount );
+                                    if ( is_wp_error( $mutatie_id ) ) {
+                                        $errors[] = 'Kon de mutatie voor de storting niet aanmaken.';
+                                    } else {
+                                        update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'in_behandeling' );
+                                        update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 0 );
+                                        update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', '' );
+                                        update_post_meta( $mutatie_id, 'ggr_mutatie_deposit_reference', $deposit_reference );
+                                    }
+                                } else {
+                                    $errors[] = 'Mutatie-functies ontbreken om de storting te verwerken.';
+                                }                            
+
+                                if ( empty( $errors ) && function_exists( 'ggr_mollie_create_payment_for_mutatie' ) ) {
+                                    $description  = sprintf( 'Extra inleg van %s', $nice_user_name );
+                                    $redirect_url = esc_url_raw( add_query_arg( 'change', 'deposit', $back_link_url ) );
+                                    $payment      = ggr_mollie_create_payment_for_mutatie( $mutatie_id, $deposit_amount, $description, $redirect_url );
+                                    if ( is_wp_error( $payment ) ) {
+                                        $errors[] = $payment->get_error_message();
+                                    } else {
+                                        $success_messages[] = 'De betaling is klaar om te starten via Mollie.';
+                                    }
+                                } elseif ( empty( $errors ) ) {
+                                    $errors[] = 'Mollie-functies ontbreken om de betaling te starten.';
+                                }
+                                
+                                if ( function_exists( 'ggr_meldingen_add' ) ) {
+                                    $content_lines = array(
+                                        'Bedrag: ' . ggrp_fe_format_money( $deposit_amount ),
+                                        'Referentie: ' . ( $deposit_reference ? $deposit_reference : '—' ),
+                                        'Ingediend door: ' . $nice_user_name,
+                                        'Datum: ' . $submitted_at_label,
+                                    );
+
+                                    ggr_meldingen_add(
+                                        'Extra inleg aangevraagd door ' . $nice_user_name,
+                                        implode( "\n", $content_lines ),
+                                        $user->ID,
+                                        array(
+                                            'melding_type'      => 'wijziging',
+                                            'wijziging_variant' => 'deposit',
+                                        )
+                                    );
+                                }
+                            } else {
+                                $deposit_stage = 'confirm';)
+                            }
                         }
                     }
 
@@ -256,6 +349,26 @@ function ggr_portal_investeren_shortcode() {
         $strategy_choice = $current_strategy;
     }
 
+    $latest_deposit_mutatie = ggr_portal_get_latest_inleg_mutatie( $user->ID );
+    if ( $latest_deposit_mutatie && function_exists( 'ggr_mollie_refresh_payment_status' ) ) {
+        $payment_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_status', true );
+        if ( in_array( $payment_status, array( 'open', 'pending' ), true ) ) {
+            ggr_mollie_refresh_payment_status( $latest_deposit_mutatie->ID );
+        }
+    }
+
+    if ( 'deposit' === $selected_action && '' === $submitted_action && $latest_deposit_mutatie ) {
+        $latest_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true );
+        $latest_payment_url = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_url', true );
+        $latest_amount = ggr_mutaties_parse_decimal( get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_amount', true ) );
+
+        if ( $latest_payment_url && ! in_array( $latest_status, array( 'betaald', 'afgewezen' ), true ) ) {
+            $deposit_stage = 'payment';
+        } elseif ( $latest_amount >= $deposit_threshold && in_array( $latest_status, array( 'in_behandeling', 'goedgekeurd' ), true ) ) {
+            $deposit_stage = 'review';
+        }
+    }
+
     ob_start();
     ?>
     <section class="ggrp-fe ggrp-fe--investeren">
@@ -356,10 +469,22 @@ function ggr_portal_investeren_shortcode() {
                         <div class="ggrp-fe-wijziging-content">
                         <?php
                         $deposit_step_label = '';
-                        if ( 'details' === $deposit_stage ) {
+                        $deposit_amount_check = $deposit_amount;
+                        if ( ! $deposit_amount_check && $latest_deposit_mutatie ) {
+                            $deposit_amount_check = ggr_mutaties_parse_decimal( get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_amount', true ) );
+                        }
+                        $deposit_needs_review = $deposit_amount_check >= $deposit_threshold;
+
+                        if ( 'questions' === $deposit_stage ) {
                             $deposit_step_label = 'Stap 2 van 3';
-                        } elseif ( 'done' !== $deposit_stage ) {
-                            $deposit_step_label = 'Stap 1 van 3';
+                        } elseif ( 'review' === $deposit_stage ) {
+                            $deposit_step_label = 'Stap 3 van 3';
+                        } elseif ( 'payment' === $deposit_stage ) {
+                            $deposit_step_label = $deposit_needs_review ? 'Stap 3 van 3' : 'Stap 2 van 2';
+                        } elseif ( 'confirm' === $deposit_stage ) {
+                            $deposit_step_label = $deposit_needs_review ? 'Stap 2 van 3' : 'Stap 2 van 2';
+                        } elseif ( 'amount' === $deposit_stage ) {
+                            $deposit_step_label = $deposit_needs_review ? 'Stap 1 van 3' : 'Stap 1 van 2';
                         }
                         ?>
 
@@ -371,39 +496,74 @@ function ggr_portal_investeren_shortcode() {
 
                         <p class="ggrp-fe-kicker">Storten</p>
                         <h2>Geld storten</h2>
+
+                        <?php
+                        $deposit_status_key = $latest_deposit_mutatie ? get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true ) : '';
+                        $deposit_statuses   = function_exists( 'ggr_mutaties_get_statuses' ) ? ggr_mutaties_get_statuses() : array();
+                        $deposit_status_label = $deposit_status_key && isset( $deposit_statuses[ $deposit_status_key ] )
+                            ? $deposit_statuses[ $deposit_status_key ]
+                            : '';
+                        ?>
+                        <?php if ( $deposit_status_label ) : ?>
+                            <p class="ggrp-fe-card-text"><strong>Status:</strong> <?php echo esc_html( $deposit_status_label ); ?></p>
+                        <?php endif; ?>
                         
-                            <?php if ( 'details' === $deposit_stage ) : ?>
-                                <p class="ggrp-fe-card-text">Controleer je bedrag en gebruik onderstaande betaalgegevens.</p>
+                            <?php if ( 'questions' === $deposit_stage ) : ?>
+                                <p class="ggrp-fe-card-text">Omdat je extra inleg €10.000 of hoger is, hebben we aanvullende informatie nodig.</p>
+                                <form method="post" class="ggrp-fe-form ggrp-fe-form--stacked">
+                                    <?php wp_nonce_field( 'ggr_wijziging', 'ggr_wijziging_nonce' ); ?>
+                                    <input type="hidden" name="ggr_change_action" value="deposit" />
+                                    <input type="hidden" name="ggr_flow_step" value="questions" />
+                                    <input type="hidden" name="ggr_deposit_amount" value="<?php echo esc_attr( $deposit_amount ); ?>" />
+                                    <input type="hidden" name="ggr_deposit_reference" value="<?php echo esc_attr( $deposit_reference ); ?>" />
+
+                                    <div class="ggrp-fe-form-row">
+                                        <label for="ggr_deposit_source">Wat is de herkomst van de middelen?</label>
+                                        <textarea id="ggr_deposit_source" name="ggr_deposit_source" rows="3" required><?php echo esc_textarea( $deposit_source ); ?></textarea>
+                                    </div>
+                                    <div class="ggrp-fe-form-row">
+                                        <label for="ggr_deposit_explanation">Toelichting / achtergrond bij deze extra inleg</label>
+                                        <textarea id="ggr_deposit_explanation" name="ggr_deposit_explanation" rows="3" required><?php echo esc_textarea( $deposit_explanation ); ?></textarea>
+                                    </div>
+
+                                    <button type="submit" class="ggrp-fe-button">Aanvraag versturen</button>
+                                </form>
+                            <?php elseif ( 'review' === $deposit_stage ) : ?>
+                                <div class="ggrp-fe-alert ggrp-fe-alert--success">
+                                    <p>Je aanvraag is verstuurd. We beoordelen de herkomst van de middelen en nemen contact met je op.</p>
+                                </div>
+                            <?php elseif ( 'payment' === $deposit_stage ) : ?>
+                                <?php
+                                $payment_url = $latest_deposit_mutatie ? get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_url', true ) : '';
+                                $payment_status = $latest_deposit_mutatie ? get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_status', true ) : '';
+                                ?>
+                                <p class="ggrp-fe-card-text">Gebruik de Mollie-betaallink om je extra inleg af te ronden.</p>
+                                <?php if ( $payment_url ) : ?>
+                                    <a class="ggrp-fe-button ggrp-fe-button--primary" href="<?php echo esc_url( $payment_url ); ?>" target="_blank" rel="noopener">Ga naar de betaling</a>
+                                <?php else : ?>
+                                    <div class="ggrp-fe-alert ggrp-fe-alert--error">
+                                        <p>We konden geen betaallink vinden. Neem contact op met ondersteuning.</p>
+                                    </div>
+                                <?php endif; ?>
+                                <?php if ( $payment_status ) : ?>
+                                    <p class="ggrp-fe-card-text"><strong>Betaalstatus:</strong> <?php echo esc_html( ucfirst( $payment_status ) ); ?></p>
+                                <?php endif; ?>
+                            <?php elseif ( 'confirm' === $deposit_stage ) : ?>
+                                <p class="ggrp-fe-card-text">Controleer je bedrag en start daarna de betaling via Mollie.</p>
                                 <ul class="ggrp-fe-summary-list">
                                     <li><strong>Bedrag:</strong> <?php echo wp_kses_post( ggrp_fe_format_money( $deposit_amount ) ); ?></li>
                                     <li><strong>Referentie:</strong> <?php echo $deposit_reference ? esc_html( $deposit_reference ) : '—'; ?></li>
                                 </ul>
-
-                                <div class="ggrp-fe-invest-details">
-                                    <h3>Betaalgegevens</h3>
-                                    <ul>
-                                        <li><strong>IBAN:</strong> <?php echo esc_html( $payment_details['iban'] ?? '' ); ?></li>
-                                        <li><strong>Tenaamstelling:</strong> <?php echo esc_html( $payment_details['tenaam'] ?? '' ); ?></li>
-                                        <li><strong>Bank:</strong> <?php echo esc_html( $payment_details['bank'] ?? '' ); ?></li>
-                                        <li><strong>Omschrijving:</strong> <?php echo esc_html( $payment_details['omschrijving'] ?? '' ); ?></li>
-                                    </ul>
-                                    <p class="ggrp-fe-invest-note">Maak het bedrag over en bevestig hieronder dat je de betaling hebt gedaan.</p>
-                                </div>
-
                                 <form method="post" class="ggrp-fe-form ggrp-fe-form--stacked ggrp-fe-form--inline-actions">
                                     <?php wp_nonce_field( 'ggr_wijziging', 'ggr_wijziging_nonce' ); ?>
                                     <input type="hidden" name="ggr_change_action" value="deposit" />
                                     <input type="hidden" name="ggr_flow_step" value="confirm" />
                                     <input type="hidden" name="ggr_deposit_amount" value="<?php echo esc_attr( $deposit_amount ); ?>" />
                                     <input type="hidden" name="ggr_deposit_reference" value="<?php echo esc_attr( $deposit_reference ); ?>" />
-                                    <button type="submit" class="ggrp-fe-button ggrp-fe-button--primary">Ik heb het bedrag overgemaakt</button>
+                                    <button type="submit" class="ggrp-fe-button ggrp-fe-button--primary">Betaallink aanmaken</button>
                                 </form>
-                            <?php elseif ( 'done' === $deposit_stage ) : ?>
-                                <div class="ggrp-fe-alert ggrp-fe-alert--success">
-                                    <p>Bedankt voor je bevestiging. We verwerken je storting.</p>
-                                </div>
                             <?php else : ?>
-                                <p class="ggrp-fe-card-text">Geef door hoeveel je wilt storten. We leiden je daarna langs de betaalgegevens.</p>
+                                <p class="ggrp-fe-card-text">Geef door hoeveel je wilt storten. Voor bedragen boven de €10.000 vragen we extra informatie.</p>
                                 <form method="post" class="ggrp-fe-form ggrp-fe-form--stacked">
                                     <?php wp_nonce_field( 'ggr_wijziging', 'ggr_wijziging_nonce' ); ?>
                                     <input type="hidden" name="ggr_change_action" value="deposit" />
@@ -419,7 +579,7 @@ function ggr_portal_investeren_shortcode() {
                                         <input type="text" id="ggr_deposit_reference" name="ggr_deposit_reference" value="<?php echo esc_attr( $deposit_reference ); ?>" placeholder="Bijv. bedrijfsnaam of opmerking" />
                                     </div>
 
-                                    <button type="submit" class="ggrp-fe-button">Verder naar betaalgegevens</button>
+                                    <button type="submit" class="ggrp-fe-button">Verder</button>
                                 </form>
                             <?php endif; ?>
                         </div>
