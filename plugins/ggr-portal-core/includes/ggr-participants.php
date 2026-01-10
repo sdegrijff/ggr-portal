@@ -2882,6 +2882,18 @@ function ggr_portal_handle_participant_onboarding_save() {
         ggr_portal_log_participant_profile_changes( $user_id, $before_snapshot );
     }
 
+    if ( isset( $_POST['ggr_approve_lead_participant'] ) && in_array( 'lead', (array) $user->roles, true ) ) {
+        $user->set_role( 'participant' );
+        if ( function_exists( 'ggr_portal_log_participant_action' ) ) {
+            ggr_portal_log_participant_action(
+                $user_id,
+                'role_updated',
+                'Lead omgezet naar participant.',
+                array()
+            );
+        }
+    }
+
     $redirect = add_query_arg(
         [
             'page'    => 'ggr-participant-profiel',
@@ -4938,7 +4950,14 @@ function ggr_portal_render_participant_profile_page() {
                             <th scope="row"><label for="ggr_role">Rol</label></th>
                             <td>
                                 <p><?php echo esc_html( $all_roles[ $current_role ]['name'] ?? ucfirst( $current_role ) ); ?></p>
-                                <p class="description">Rol kan niet worden aangepast.</p>
+                                <?php if ( 'lead' === $current_role ) : ?>
+                                    <label style="display:block; margin-top:8px;">
+                                        <input type="checkbox" name="ggr_approve_lead_participant" value="1" />
+                                        Lead goedkeuren als participant
+                                    </label>
+                                <?php else : ?>
+                                    <p class="description">Rol kan niet worden aangepast.</p>
+                                <?php endif; ?>
                                 <?php if ( $participant_enrolled_label ) : ?>
                                     <p class="ggr-admin-meta-note">Participant geworden op: <?php echo esc_html( $participant_enrolled_label ); ?>.</p>
                                 <?php endif; ?>
