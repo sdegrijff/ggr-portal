@@ -17,12 +17,25 @@ function ggr_mutaties_get_statuses() {
     return array(
         'nieuw'       => 'Nieuw',
         'in_behandeling' => 'In behandeling',
-        'goedgekeurd' => 'Goedgekeurd',
         'afgewezen'   => 'Afgewezen',
-        'betaald'     => 'Betaald',
         'ingepland'   => 'Ingepland',
         'uitgevoerd'  => 'Uitgevoerd',
         'geannuleerd' => 'Geannuleerd',
+        'goedgekeurd' => 'Goedgekeurd',
+        'betaald'     => 'Betaald (legacy)',
+    );
+}
+
+/**
+ * Betaalstatussen voor mutaties.
+ */
+function ggr_mutaties_get_payment_statuses() {
+    return array(
+        'open'       => 'Open',
+        'betaald'    => 'Betaald',
+        'mislukt'    => 'Mislukt',
+        'geannuleerd'=> 'Geannuleerd',
+        'verlopen'   => 'Verlopen',        
     );
 }
 
@@ -264,7 +277,12 @@ function ggr_mutaties_create_mutatie( $type, $user_id = 0, $amount = '', $partic
         return $post_id;
     }
 
-    update_post_meta( $post_id, 'ggr_mutatie_status', 'nieuw' );
+    $is_dividend = in_array( $type, array( 'dividend_herinvestering', 'dividend_uitkering' ), true );
+    $status      = $is_dividend ? 'nieuw' : 'in_behandeling';
+    $payment_status = $is_dividend ? 'betaald' : 'open';
+
+    update_post_meta( $post_id, 'ggr_mutatie_status', $status );
+    update_post_meta( $post_id, 'ggr_mutatie_betaalstatus', $payment_status );
     update_post_meta( $post_id, 'ggr_mutatie_type', $type );
     update_post_meta( $post_id, 'ggr_mutatie_amount', $amount );
     update_post_meta( $post_id, 'ggr_mutatie_participaties', $participaties );
@@ -389,6 +407,7 @@ function ggr_mutaties_move_publish_box() {
 
 function ggr_mutaties_render_metabox( $post ) {
     $status  = get_post_meta( $post->ID, 'ggr_mutatie_status', true );
+    $payment_status = get_post_meta( $post->ID, 'ggr_mutatie_betaalstatus', true );    
     $type    = get_post_meta( $post->ID, 'ggr_mutatie_type', true );
     $amount  = get_post_meta( $post->ID, 'ggr_mutatie_amount', true );
     $units   = get_post_meta( $post->ID, 'ggr_mutatie_participaties', true );    
@@ -402,6 +421,10 @@ function ggr_mutaties_render_metabox( $post ) {
     
     if ( ! $status ) {
         $status = 'nieuw';
+    }
+
+    if ( ! $payment_status ) {
+        $payment_status = in_array( $type, array( 'dividend_herinvestering', 'dividend_uitkering' ), true ) ? 'betaald' : 'open';
     }
 
     if ( ! $type ) {
@@ -509,6 +532,16 @@ function ggr_mutaties_render_metabox( $post ) {
                 </select>
             </td>
         </tr>
+        <tr>
+            <th scope="row"><label for="ggr_mutatie_payment_status">Betaalstatus</label></th>
+            <td>
+                <select name="ggr_mutatie_payment_status" id="ggr_mutatie_payment_status">
+                    <?php foreach ( ggr_mutaties_get_payment_statuses() as $key => $label ) : ?>
+                        <option value="<?php echo esc_attr( $key ); ?>" <?php selected( $payment_status, $key ); ?>><?php echo esc_html( $label ); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </td>
+        </tr>        
         <tr>
             <th scope="row"><label for="ggr_mutatie_schedule_enabled">Inplannen</label></th>
             <td>
@@ -653,11 +686,13 @@ function ggr_mutaties_save_meta( $post_id ) {
     $scope   = isset( $_POST['ggr_mutatie_scope'] ) ? sanitize_key( wp_unslash( $_POST['ggr_mutatie_scope'] ) ) : 'all';
     $user_id = isset( $_POST['ggr_mutatie_user_id'] ) ? (int) $_POST['ggr_mutatie_user_id'] : 0;
     $status  = isset( $_POST['ggr_mutatie_status'] ) ? sanitize_key( wp_unslash( $_POST['ggr_mutatie_status'] ) ) : 'nieuw';
+    $payment_status = isset( $_POST['ggr_mutatie_payment_status'] ) ? sanitize_key( wp_unslash( $_POST['ggr_mutatie_payment_status'] ) ) : '';    
     $planned = isset( $_POST['ggr_mutatie_planned_date'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_mutatie_planned_date'] ) ) : '';
     $schedule_enabled = isset( $_POST['ggr_mutatie_schedule_enabled'] ) && '1' === $_POST['ggr_mutatie_schedule_enabled'];
     
     $types    = ggr_mutaties_get_types();
     $statuses = ggr_mutaties_get_statuses();
+    $payment_statuses = ggr_mutaties_get_payment_statuses();    
 
     if ( ! isset( $types[ $type ] ) ) {
         $type = 'dividend_herinvestering';
@@ -665,6 +700,10 @@ function ggr_mutaties_save_meta( $post_id ) {
 
     if ( ! isset( $statuses[ $status ] ) ) {
         $status = 'nieuw';
+    }
+
+    if ( ! isset( $payment_statuses[ $payment_status ] ) ) {
+        $payment_status = in_array( $type, array( 'dividend_herinvestering', 'dividend_uitkering' ), true ) ? 'betaald' : 'open';
     }
 
     if ( ! in_array( $scope, array( 'all', 'user' ), true ) ) {
@@ -677,6 +716,7 @@ function ggr_mutaties_save_meta( $post_id ) {
     update_post_meta( $post_id, 'ggr_mutatie_scope', $scope );
     update_post_meta( $post_id, 'ggr_mutatie_user_id', 'all' === $scope ? 0 : $user_id );
     update_post_meta( $post_id, 'ggr_mutatie_status', $status );
+    update_post_meta( $post_id, 'ggr_mutatie_betaalstatus', $payment_status );    
     update_post_meta( $post_id, 'ggr_mutatie_schedule_enabled', $schedule_enabled ? 1 : 0 );    
     $direct_apply = isset( $_POST['ggr_mutatie_direct_apply'] ) && '1' === $_POST['ggr_mutatie_direct_apply'];
     if ( $schedule_enabled || $direct_apply ) {
@@ -691,6 +731,10 @@ function ggr_mutaties_save_meta( $post_id ) {
         update_post_meta( $post_id, 'ggr_mutatie_nav_date', ggr_mutaties_get_nav_date_for_planned_date( $planned ) );
     } else {
         delete_post_meta( $post_id, 'ggr_mutatie_nav_date' );
+    }
+
+    if ( ! $direct_apply ) {
+        ggr_mutaties_sync_status_with_payment( $post_id, $type, $payment_status, $schedule_enabled );
     }
 
     $post = get_post( $post_id );
@@ -719,6 +763,55 @@ function ggr_mutaties_save_meta( $post_id ) {
         if ( $errors ) {
             set_transient( 'ggr_mutatie_direct_apply_errors_' . $post_id, $errors, MINUTE_IN_SECONDS );
         }
+    }
+}
+
+function ggr_mutaties_sync_status_with_payment( $post_id, $type, $payment_status, $schedule_enabled ) {
+    $post_id = (int) $post_id;
+    if ( $post_id <= 0 ) {
+        return;
+    }
+
+    if ( in_array( $type, array( 'dividend_herinvestering', 'dividend_uitkering' ), true ) ) {
+        return;
+    }
+
+    $current_status = get_post_meta( $post_id, 'ggr_mutatie_status', true );
+    if ( 'uitgevoerd' === $current_status ) {
+        return;
+    }
+
+    if ( 'betaald' === $payment_status ) {
+        update_post_meta( $post_id, 'ggr_mutatie_status', 'ingepland' );
+        update_post_meta( $post_id, 'ggr_mutatie_schedule_enabled', 1 );
+        $planned_date = get_post_meta( $post_id, 'ggr_mutatie_planned_date', true );
+        if ( ! $planned_date ) {
+            $planned_date = ggr_mutaties_get_next_run_date();
+            update_post_meta( $post_id, 'ggr_mutatie_planned_date', $planned_date );
+            update_post_meta( $post_id, 'ggr_mutatie_publication_date', $planned_date );
+            if ( in_array( $type, array( 'inleg', 'opname' ), true ) ) {
+                update_post_meta( $post_id, 'ggr_mutatie_nav_date', ggr_mutaties_get_nav_date_for_planned_date( $planned_date ) );
+            }
+        }
+
+        if ( function_exists( 'ggr_portal_create_single_transaction_message' ) ) {
+            $user_id = (int) get_post_meta( $post_id, 'ggr_mutatie_user_id', true );
+            if ( $user_id > 0 ) {
+                $amount_raw = get_post_meta( $post_id, 'ggr_mutatie_amount', true );
+                $amount     = ggr_mutaties_parse_decimal( $amount_raw );
+                ggr_portal_create_single_transaction_message(
+                    $user_id,
+                    array(
+                        'reference' => 'mutatie-' . $post_id,
+                        'amount'    => $amount,
+                        'date'      => current_time( 'Y-m-d' ),
+                        'title'     => 'Transactiebevestiging',
+                    )
+                );
+            }
+        }
+    } else {
+        update_post_meta( $post_id, 'ggr_mutatie_status', 'in_behandeling' );
     }
 }
 
@@ -805,6 +898,10 @@ function ggr_mutaties_apply_to_history( $mutatie_id, $planned_date, array &$erro
     $participates = ggr_mutaties_parse_decimal( $units_raw );
 
     $needs_nav = in_array( $type, array( 'inleg', 'opname', 'dividend_herinvestering' ), true );
+    $no_participations = (bool) get_post_meta( $mutatie_id, 'ggr_mutatie_no_participations', true );
+    if ( $no_participations && 'inleg' === $type ) {
+        $needs_nav = false;
+    }    
     $nav_price = null;
     $dividend_rate = null;
     
@@ -850,6 +947,9 @@ function ggr_mutaties_apply_to_history( $mutatie_id, $planned_date, array &$erro
                 $participates_for_user = round( $amount_for_user / $nav_price, 4 );
             }
         }
+        if ( $no_participations && 'inleg' === $type ) {
+            $participates_for_user = 0.0;
+        }        
 
         $inleg      = 0.0;
         $opname     = 0.0;
@@ -1033,16 +1133,22 @@ function ggr_mutaties_render_admin_page() {
                         }
                     }
 
-                    update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'goedgekeurd' );
-                    update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 0 );
-                    update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', '' );
+                    $planned_date = ggr_mutaties_get_next_run_date();
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_betaalstatus', 'open' );
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'in_behandeling' );
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 1 );
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', $planned_date );
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_publication_date', $planned_date );
+                    if ( $planned_date ) {
+                        update_post_meta( $mutatie_id, 'ggr_mutatie_nav_date', ggr_mutaties_get_nav_date_for_planned_date( $planned_date ) );
+                    }
                     continue;
                 }
 
                 $schedule_enabled = (int) get_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', true );
                 if ( ! $schedule_enabled ) {
                     update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', '' );
-                    update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'goedgekeurd' );
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'in_behandeling' );
                     continue;
                 }
                 
@@ -1057,7 +1163,7 @@ function ggr_mutaties_render_admin_page() {
                         update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'uitgevoerd' );
                         $applied++;
                     } else {
-                        update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'goedgekeurd' );
+                        update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'in_behandeling' );
                     }
                 } else {
                     update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'ingepland' );
