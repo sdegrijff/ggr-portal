@@ -38,34 +38,17 @@ function ggr_portal_verwijs_vriend_shortcode() {
 
                 $sent = false;
 
-                if ( function_exists( 'ggr_portal_render_email' ) ) {
+                if ( function_exists( 'ggr_portal_send_templated_email_to_address' ) ) {
                     $placeholders = array(
                         'referrer_name'  => $referrer_name,
                         'referrer_email' => $user->user_email,
                         'referral_link'  => home_url( '/investeerder-worden/' ),
                     );
 
-                    $rendered = ggr_portal_render_email( 'referral_invite', $placeholders );
-
-                    if ( $rendered ) {
-                        $sent = wp_mail(
-                            $friend_email,
-                            $rendered['subject'],
-                            $rendered['body'],
-                            array( 'Content-Type: text/html; charset=UTF-8' )
-                        );
-                    }
-                }
-
-                if ( ! $sent ) {
-                    $subject = 'U bent verwezen door ' . $referrer_name;
-                    $message = sprintf( 'U bent verwezen door %s.', $referrer_name );
-
-                    $sent = wp_mail(
+                    $sent = ggr_portal_send_templated_email_to_address(
+                        'referral_invite',
                         $friend_email,
-                        $subject,
-                        $message,
-                        array( 'Content-Type: text/plain; charset=UTF-8' )
+                        $placeholders
                     );
                 }
 
