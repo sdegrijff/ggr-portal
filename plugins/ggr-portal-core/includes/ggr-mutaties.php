@@ -413,11 +413,11 @@ function ggr_mutaties_render_metabox( $post ) {
     }
 
     if ( '' === $schedule_enabled ) {
-        $schedule_enabled = in_array( $type, array( 'inleg', 'opname' ), true ) ? 1 : 0;
+        $schedule_enabled = 1;
     }
 
     if ( $schedule_enabled && ! $planned ) {
-        $planned = ggr_mutaties_get_current_run_date();
+        $planned = ggr_mutaties_get_next_run_date();
     } elseif ( ! $schedule_enabled ) {
         $planned = '';
     }
@@ -1181,7 +1181,9 @@ function ggr_mutaties_render_admin_page() {
                             $planned    = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
                             $user_id    = (int) get_post_meta( $mutatie_id, 'ggr_mutatie_user_id', true );
                             $user_name  = $user_id ? ( get_user_by( 'ID', $user_id )->display_name ?? '' ) : '';
-                            $user_edit_link = $user_id ? get_edit_user_link( $user_id ) : '';                            
+                            $user_profile_link = $user_id
+                                ? admin_url( 'users.php?page=ggr-participant-profiel&user_id=' . $user_id )
+                                : '';                         
                             $price_used = null;
                             $amount_value = $amount !== '' ? ggr_mutaties_parse_decimal( $amount ) : null;
                             $units_value  = $units !== '' ? ggr_mutaties_parse_decimal( $units ) : null;
@@ -1259,8 +1261,8 @@ function ggr_mutaties_render_admin_page() {
                                 <td>
                                     <?php
                                     if ( 'user' === $scope && $user_name ) {
-                                        if ( $user_edit_link ) {
-                                            echo '<a href="' . esc_url( $user_edit_link ) . '">' . esc_html( $user_name ) . '</a>';
+                                        if ( $user_profile_link ) {
+                                            echo '<a href="' . esc_url( $user_profile_link ) . '">' . esc_html( $user_name ) . '</a>';
                                         } else {
                                             echo esc_html( $user_name );
                                         }
@@ -1327,6 +1329,9 @@ function ggr_mutaties_render_admin_page() {
                         $planned    = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
                         $user_id    = (int) get_post_meta( $mutatie_id, 'ggr_mutatie_user_id', true );
                         $user_name  = $user_id ? ( get_user_by( 'ID', $user_id )->display_name ?? '' ) : '';
+                        $user_profile_link = $user_id
+                            ? admin_url( 'users.php?page=ggr-participant-profiel&user_id=' . $user_id )
+                            : '';                        
                         $price_used = null;
                         $amount_value = $amount !== '' ? ggr_mutaties_parse_decimal( $amount ) : null;
                         $units_value  = $units !== '' ? ggr_mutaties_parse_decimal( $units ) : null;
@@ -1382,7 +1387,11 @@ function ggr_mutaties_render_admin_page() {
                             <td>
                                 <?php
                                 if ( 'user' === $scope && $user_name ) {
-                                    echo esc_html( $user_name );
+                                    if ( $user_profile_link ) {
+                                        echo '<a href="' . esc_url( $user_profile_link ) . '">' . esc_html( $user_name ) . '</a>';
+                                    } else {
+                                        echo esc_html( $user_name );
+                                    }
                                 } else {
                                     echo esc_html( 'Alle participanten' );
                                 }
