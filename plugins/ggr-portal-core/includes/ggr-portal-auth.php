@@ -88,11 +88,11 @@ function ggr_portal_generate_2fa_code() {
  */
 function ggr_portal_send_2fa_code_email( $user, $code ) {
     if ( ! $user || empty( $user->user_email ) ) {
-        return;
+        return false;
     }
 
     // Eerst proberen via de e-mailtemplate "two_factor_code"
-    $sent = ggr_portal_send_templated_email(
+    return ggr_portal_send_templated_email(
         'two_factor_code',  // MOET gelijk zijn aan de key in je CPT
         $user->ID,
         array(
@@ -100,24 +100,6 @@ function ggr_portal_send_2fa_code_email( $user, $code ) {
             'two_factor_valid_minutes' => '10',
         )
     );
-
-    // Als er geen actieve template is of iets faalt -> eenvoudige fallback
-    if ( ! $sent ) {
-        $subject = __( 'Je GGR bevestigingscode', 'ggr-portal-core' );
-        $name    = function_exists( 'ggr_portal_get_greeting_name' )
-            ? ggr_portal_get_greeting_name( $user )
-            : ( $user->first_name ?: $user->display_name );
-
-        $message  = sprintf( __( 'Beste %s,', 'ggr-portal-core' ), $name ) . "\n\n";
-        $message .= __( 'Je bevestigingscode voor het GGR portal is:', 'ggr-portal-core' ) . "\n\n";
-        $message .= $code . "\n\n";
-        $message .= __( 'Deze code is 10 minuten geldig.', 'ggr-portal-core' ) . "\n\n";
-        $message .= __( 'Heb jij dit niet aangevraagd? Neem dan direct contact op met GGR.', 'ggr-portal-core' ) . "\n\n";
-        $message .= __( 'Met vriendelijke groet,', 'ggr-portal-core' ) . "\n";
-        $message .= __( 'GGR funds', 'ggr-portal-core' );
-
-        wp_mail( $user->user_email, $subject, $message );
-    }
 }
 
 /**
@@ -436,7 +418,34 @@ function ggr_login_form_shortcode() {
 
     $state      = isset( $_GET['login'] ) ? sanitize_text_field( $_GET['login'] ) : '';
     $is_failed  = ( $state === 'failed' );
+    $resend_notice = '';
+    $resend_email  = isset( $_GET['user'] ) ? sanitize_email( wp_unslash( $_GET['user'] ) ) : '';
 
+    if ( isset( $_POST['ggr_resend_verification'] ) ) {
+        if ( ! isset( $_POST['ggr_resend_verification_nonce'] )
+            || ! wp_verify_nonce( $_POST['ggr_resend_verification_nonce'], 'ggr_resend_verification' )
+        ) {
+            $resend_notice = 'De bevestigingsmail kon niet worden verstuurd. Probeer het opnieuw.';
+        } else {
+            $submitted_email = isset( $_POST['ggr_resend_email'] )
+                ? sanitize_email( wp_unslash( $_POST['ggr_resend_email'] ) )
+                : '';
+            if ( $submitted_email ) {
+                $resend_email = $submitted_email;
+                $resend_user  = get_user_by( 'email', $submitted_email );
+                if ( $resend_user
+                    && in_array( 'lead', (array) $resend_user->roles, true )
+                    && ! get_user_meta( $resend_user->ID, 'ggr_email_verified', true )
+                    && function_exists( 'ggr_onboarding_send_verification_email' )
+                ) {
+                    ggr_onboarding_send_verification_email( $resend_user->ID );
+                }
+            }
+
+            $resend_notice = 'Als er een account bestaat, is er een nieuwe bevestigingsmail verstuurd.';
+        }
+    }
+    
     $args = array(
         'echo'           => false,
         'redirect'       => home_url( '/dashboard/' ),
@@ -525,6 +534,12 @@ function ggr_login_form_shortcode() {
             <h1 class="ggr-login-title">Welkom bij het GGR Portaal!</h1>
             <p class="ggr-login-subtitle">Inloggen</p>
 
+            <?php if ( $resend_notice ) : ?>
+                <div class="ggr-login-notice ggr-login-notice--info">
+                    <p><?php echo esc_html( $resend_notice ); ?></p>
+                </div>
+            <?php endif; ?>
+
             <div class="ggr-login-fields">
                 <?php echo $form; ?>
             </div>
@@ -540,6 +555,28 @@ function ggr_login_form_shortcode() {
                     Investeerder worden
                 </a>
             </div>
+
+            <?php if ( 'unverified' === $state ) : ?>
+                <div class="ggr-login-resend" style="margin-top:16px;">
+                    <p style="margin:0 0 12px; color:#5b6b73; font-size:14px;">
+                        Je e-mailadres is nog niet bevestigd. Verstuur de bevestigingsmail opnieuw om verder te gaan.
+                    </p>
+                    <form method="post" class="ggr-login-resend-form">
+                        <?php wp_nonce_field( 'ggr_resend_verification', 'ggr_resend_verification_nonce' ); ?>
+                        <input
+                            type="email"
+                            name="ggr_resend_email"
+                            value="<?php echo esc_attr( $resend_email ); ?>"
+                            placeholder="E-mailadres"
+                            required
+                            style="width:100%; padding:10px 12px; margin-bottom:10px;"
+                        />
+                        <button type="submit" name="ggr_resend_verification" value="1" class="ggr-login-submit" style="width:100%;">
+                            Bevestigingsmail opnieuw versturen
+                        </button>
+                    </form>
+                </div>
+            <?php endif; ?>
 
             <?php if ( $is_failed ) : ?>
                 <div class="ggr-login-toast ggr-login-toast--error" data-ggr-login-toast>
@@ -767,6 +804,14 @@ document.addEventListener('DOMContentLoaded', function() {
             'E-mailadres bevestigd',
             'Je e-mailadres is bevestigd. Log opnieuw in om verder te gaan.'
         );
+    } 
+
+    if (verifyState === 'failed') {
+        showToast(
+            'error',
+            'Verificatie mislukt',
+            'De verificatielink is ongeldig of verlopen. Vraag een nieuwe bevestigingsmail aan.'
+        );
     }    
 });
 </script>
@@ -824,7 +869,11 @@ function ggr_login_failed_redirect( $username ) {
         $login_state = $GLOBALS['ggr_portal_last_login_error'];
         $GLOBALS['ggr_portal_last_login_error'] = '';
     }
-    wp_safe_redirect( add_query_arg( 'login', $login_state, $login_page ) );
+    $query_args = array( 'login' => $login_state );
+    if ( $username ) {
+        $query_args['user'] = $username;
+    }
+    wp_safe_redirect( add_query_arg( $query_args, $login_page ) );
     exit;
 }
 add_action( 'wp_login_failed', 'ggr_login_failed_redirect' );
