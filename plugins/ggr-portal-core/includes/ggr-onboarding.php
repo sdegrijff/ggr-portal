@@ -1491,20 +1491,22 @@ function ggr_onboarding_render_pdf_html( $user_id, $type = 'application' ) {
 							<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_iban', true ) ?: '—' ); ?></td>
 						<?php endif; ?>
 					</tr>
-					<tr>
-						<td>Bedrijfsnaam</td>
-						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_company', true ) ?: '—' ); ?></td>
-						<?php if ( 'ja' === $has_co ) : ?>
-							<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_company', true ) ?: '—' ); ?></td>
-						<?php endif; ?>
-					</tr>
-					<tr>
-						<td>KVK nummer</td>
-						<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_kvk', true ) ?: '—' ); ?></td>
-						<?php if ( 'ja' === $has_co ) : ?>
-							<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_kvk', true ) ?: '—' ); ?></td>
-						<?php endif; ?>
-					</tr>
+					<?php if ( $is_business ) : ?>
+						<tr>
+							<td>Bedrijfsnaam</td>
+							<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_company', true ) ?: '—' ); ?></td>
+							<?php if ( 'ja' === $has_co ) : ?>
+								<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_company', true ) ?: '—' ); ?></td>
+							<?php endif; ?>
+						</tr>
+						<tr>
+							<td>KVK nummer</td>
+							<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_kyc_kvk', true ) ?: '—' ); ?></td>
+							<?php if ( 'ja' === $has_co ) : ?>
+								<td><?php echo esc_html( get_user_meta( $user_id, 'ggr_co_kvk', true ) ?: '—' ); ?></td>
+							<?php endif; ?>
+						</tr>
+					<?php endif; ?>
 					<tr>
 						<td>Politiek Prominent Persoon</td>
 						<td><?php echo esc_html( ( get_user_meta( $user_id, 'ggr_kyc_pep', true ) === 'ja' ) ? 'Ja' : 'Nee' ); ?></td>
@@ -3311,8 +3313,8 @@ function ggr_onboarding_dashboard_shortcode() {
     }
     
     $collecting_step_keys = $available_collecting_steps;
-    $should_show_collecting_switch = true;
-    if ( $investment_amount > 0 && $investment_amount < 100000 && ! $intake_completed ) {
+    $should_show_collecting_switch = ( 'collecting' === $status );
+    if ( $should_show_collecting_switch && $investment_amount > 0 && $investment_amount < 100000 && ! $intake_completed ) {
         $should_show_collecting_switch = false;
     }
     $collecting_prev_step = '';
@@ -3536,7 +3538,7 @@ function ggr_onboarding_dashboard_shortcode() {
                         <?php endif; ?>
                         
                         <?php if ( $messages['success'] ) : ?>
-                            <div class="ggr-login-notice ggr-login-notice--info">
+                            <div class="ggr-onboarding-alert">
                                 <p><?php echo esc_html( $messages['success'] ); ?></p>
                             </div>
                         <?php endif; ?>
