@@ -441,7 +441,8 @@ function ggr_portal_save_email_template_meta( $post_id ) {
 
                 $subject_rendered = strtr( $subject_raw, $replacements );
                 $body_rendered    = strtr( $body_raw, $replacements );
-
+                $body_rendered    = ggr_portal_format_email_body( $body_rendered );
+                
                 $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
 
                 $sent = wp_mail( $test_email, $subject_rendered, $body_rendered, $headers );
@@ -513,11 +514,33 @@ function ggr_portal_render_email( $key, $placeholders = [] ) {
 
     $subject = strtr( $tpl['subject'], $replacements );
     $body    = strtr( $tpl['body'], $replacements );
-
+    $body    = ggr_portal_format_email_body( $body );
+    
     return [
         'subject' => $subject,
         'body'    => $body,
     ];
+}
+
+/**
+ * Formatteer e-mailbody zodat nieuwe regels binnen tekstblokken zichtbaar blijven.
+ */
+function ggr_portal_format_email_body( $body ) {
+    if ( strpos( $body, '<' ) === false || strpos( $body, '>' ) === false ) {
+        return nl2br( $body );
+    }
+
+    return preg_replace_callback(
+        '/>([^<]+)</',
+        function ( $matches ) {
+            if ( trim( $matches[1] ) === '' ) {
+                return '>' . $matches[1] . '<';
+            }
+
+            return '>' . nl2br( $matches[1], false ) . '<';
+        },
+        $body
+    );
 }
 
 /**
