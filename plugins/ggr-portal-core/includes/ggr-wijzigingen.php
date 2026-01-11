@@ -201,7 +201,7 @@ function ggr_portal_investeren_shortcode() {
 
                                 if ( empty( $errors ) && function_exists( 'ggr_mollie_create_payment_for_mutatie' ) ) {
                                     $description  = sprintf( 'Extra inleg van %s', $nice_user_name );
-                                    $redirect_url = esc_url_raw( add_query_arg( 'change', 'deposit', $back_link_url ) );
+                                    $redirect_url = '/portal/storten/bedankt/';
                                     $payment      = ggr_mollie_create_payment_for_mutatie( $mutatie_id, $deposit_amount, $description, $redirect_url );
                                     if ( is_wp_error( $payment ) ) {
                                         $errors[] = $payment->get_error_message();
@@ -371,7 +371,12 @@ function ggr_portal_investeren_shortcode() {
         $strategy_choice = $current_strategy;
     }
 
-    $latest_deposit_mutatie = ggr_portal_get_latest_inleg_mutatie( $user->ID );
+    $ignore_latest_deposit = false;
+    if ( isset( $_GET['new_deposit'] ) ) {
+        $ignore_latest_deposit = '1' === sanitize_text_field( wp_unslash( $_GET['new_deposit'] ) );
+    }
+
+    $latest_deposit_mutatie = $ignore_latest_deposit ? null : ggr_portal_get_latest_inleg_mutatie( $user->ID );
     $latest_payment_status  = '';
     $latest_payment_url     = '';
     if ( $latest_deposit_mutatie ) {
@@ -416,6 +421,10 @@ function ggr_portal_investeren_shortcode() {
         }
     }
 
+    if ( $ignore_latest_deposit && 'deposit' === $selected_action && '' === $submitted_action ) {
+        $deposit_stage = 'amount';
+    }
+
     if ( 'deposit' === $selected_action && '' === $submitted_action && $latest_deposit_mutatie ) {
         $latest_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true );
         $latest_amount = ggr_mutaties_parse_decimal( get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_amount', true ) );
@@ -427,8 +436,14 @@ function ggr_portal_investeren_shortcode() {
         }
     }
 
+    $resume_payment = false;
+    if ( isset( $_GET['resume_payment'] ) ) {
+        $resume_payment = '1' === sanitize_text_field( wp_unslash( $_GET['resume_payment'] ) );
+    }
+
     if (
-        'deposit' === $selected_action
+        $resume_payment
+        && 'deposit' === $selected_action
         && '' === $submitted_action
         && $latest_deposit_mutatie
         && $latest_payment_url
@@ -602,6 +617,11 @@ function ggr_portal_investeren_shortcode() {
                                 <div class="ggrp-fe-alert ggrp-fe-alert--success">
                                     <p>Je aanvraag is verstuurd. We beoordelen de herkomst van de middelen en nemen contact met je op.</p>
                                 </div>
+                                <p class="ggrp-fe-card-text">
+                                    <a class="ggrp-fe-button" href="<?php echo esc_url( add_query_arg( array( 'change' => 'deposit', 'new_deposit' => '1' ), $back_link_url ) ); ?>">
+                                        Nieuwe storting starten
+                                    </a>
+                                </p>                                
                             <?php elseif ( 'payment' === $deposit_stage ) : ?>
                                 <?php
                                 $payment_url = $latest_deposit_mutatie ? get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_url', true ) : '';
@@ -618,6 +638,11 @@ function ggr_portal_investeren_shortcode() {
                                 <?php if ( $payment_status ) : ?>
                                     <p class="ggrp-fe-card-text"><strong>Betaalstatus:</strong> <?php echo esc_html( ucfirst( $payment_status ) ); ?></p>
                                 <?php endif; ?>
+                                <p class="ggrp-fe-card-text">
+                                    <a class="ggrp-fe-button" href="<?php echo esc_url( add_query_arg( array( 'change' => 'deposit', 'new_deposit' => '1' ), $back_link_url ) ); ?>">
+                                        Nieuwe storting starten
+                                    </a>
+                                </p>                                
                             <?php elseif ( 'confirm' === $deposit_stage ) : ?>
                                 <p class="ggrp-fe-card-text">Controleer je gegevens en bevestig daarna je transactie door op de onderstaande knop te klikken. Vervolgens word je doorgestuurd naar onze beveiligde betaalomgeving.</p>
                                 <ul class="ggrp-fe-summary-list">
