@@ -400,6 +400,22 @@ function ggr_portal_investeren_shortcode() {
         $deposit_stage          = 'amount';
     }
 
+    if ( $latest_deposit_mutatie && function_exists( 'ggr_mutaties_find_history_entry_by_date' ) ) {
+        $planned_date  = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_planned_date', true );
+        $effective_date = function_exists( 'ggr_mutaties_get_effective_date' )
+            ? ggr_mutaties_get_effective_date( $latest_deposit_mutatie->ID, $planned_date )
+            : $planned_date;
+        if ( $effective_date ) {
+            $history_entry = ggr_mutaties_find_history_entry_by_date( $user->ID, $effective_date );
+            if ( $history_entry ) {
+                $latest_deposit_mutatie = null;
+                $latest_payment_status  = '';
+                $latest_payment_url     = '';
+                $deposit_stage          = 'amount';
+            }
+        }
+    }
+
     if ( 'deposit' === $selected_action && '' === $submitted_action && $latest_deposit_mutatie ) {
         $latest_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true );
         $latest_amount = ggr_mutaties_parse_decimal( get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_amount', true ) );
@@ -603,7 +619,7 @@ function ggr_portal_investeren_shortcode() {
                                     <p class="ggrp-fe-card-text"><strong>Betaalstatus:</strong> <?php echo esc_html( ucfirst( $payment_status ) ); ?></p>
                                 <?php endif; ?>
                             <?php elseif ( 'confirm' === $deposit_stage ) : ?>
-                                <p class="ggrp-fe-card-text">Controleer je bedrag en start daarna de betaling via Mollie.</p>
+                                <p class="ggrp-fe-card-text">Controleer je gegevens en bevestig daarna je transactie door op de onderstaande knop te klikken. Vervolgens word je doorgestuurd naar onze beveiligde betaalomgeving.</p>
                                 <ul class="ggrp-fe-summary-list">
                                     <li><strong>Bedrag:</strong> <?php echo wp_kses_post( ggrp_fe_format_money( $deposit_amount ) ); ?></li>
                                     <li><strong>Referentie:</strong> <?php echo $deposit_reference ? esc_html( $deposit_reference ) : '—'; ?></li>
@@ -614,7 +630,7 @@ function ggr_portal_investeren_shortcode() {
                                     <input type="hidden" name="ggr_flow_step" value="confirm" />
                                     <input type="hidden" name="ggr_deposit_amount" value="<?php echo esc_attr( $deposit_amount ); ?>" />
                                     <input type="hidden" name="ggr_deposit_reference" value="<?php echo esc_attr( $deposit_reference ); ?>" />
-                                    <button type="submit" class="ggrp-fe-button ggrp-fe-button--primary">Betaallink aanmaken</button>
+                                    <button type="submit" class="ggrp-fe-button ggrp-fe-button--primary">Bevestig transactie</button>
                                 </form>
                             <?php else : ?>
                                 <p class="ggrp-fe-card-text">Geef door hoeveel je wilt storten. Voor bedragen boven de €10.000 vragen we extra informatie.</p>
