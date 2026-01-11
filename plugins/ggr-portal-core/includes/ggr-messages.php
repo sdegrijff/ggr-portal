@@ -53,6 +53,8 @@ function ggr_register_bericht_cpt() {
 
 add_filter( 'manage_edit-ggr_bericht_columns', 'ggr_bericht_admin_columns' );
 add_action( 'manage_ggr_bericht_posts_custom_column', 'ggr_bericht_admin_column_render', 10, 2 );
+add_action( 'restrict_manage_posts', 'ggr_bericht_admin_filters' );
+add_action( 'pre_get_posts', 'ggr_bericht_admin_filter_query' );
 
 function ggr_bericht_admin_columns( $columns ) {
     $new_columns = array();
@@ -96,14 +98,77 @@ function ggr_bericht_admin_column_render( $column, $post_id ) {
         return;
     }
 
-    $role = get_post_meta( $post_id, '_ggr_message_role', true );
-    $recipient_label = 'Participant';
+    $audience = get_post_meta( $post_id, '_ggr_message_audience', true );
+    $role     = get_post_meta( $post_id, '_ggr_message_role', true );
+    $user_id  = (int) get_post_meta( $post_id, '_ggr_message_user_id', true );
 
+    if ( 'user' === $audience && $user_id ) {
+        $user = get_user_by( 'ID', $user_id );
+        $name = $user ? $user->display_name : 'Onbekende participant';
+        echo esc_html( 'Participant > ' . $name );
+        return;
+    }
+
+    $recipient_label = 'Alle participanten';
     if ( in_array( $role, array( 'administrator', 'admin' ), true ) ) {
         $recipient_label = 'Admin';
     }
 
     echo esc_html( $recipient_label );
+}
+
+function ggr_bericht_admin_filters() {
+    global $typenow;
+    if ( 'ggr_bericht' !== $typenow ) {
+        return;
+    }
+
+    $selected = isset( $_GET['ggr_message_audience_filter'] ) ? sanitize_key( wp_unslash( $_GET['ggr_message_audience_filter'] ) ) : '';
+    ?>
+    <label for="ggr_message_audience_filter" class="screen-reader-text">Filter ontvanger</label>
+    <select name="ggr_message_audience_filter" id="ggr_message_audience_filter">
+        <option value="" <?php selected( $selected, '' ); ?>>Alle ontvangers</option>
+        <option value="template" <?php selected( $selected, 'template' ); ?>>Template (alle participanten)</option>
+        <option value="specific" <?php selected( $selected, 'specific' ); ?>>Specifieke participant</option>
+    </select>
+    <?php
+}
+
+function ggr_bericht_admin_filter_query( $query ) {
+    if ( ! is_admin() || ! $query->is_main_query() ) {
+        return;
+    }
+
+    if ( 'ggr_bericht' !== $query->get( 'post_type' ) ) {
+        return;
+    }
+
+    $filter = isset( $_GET['ggr_message_audience_filter'] ) ? sanitize_key( wp_unslash( $_GET['ggr_message_audience_filter'] ) ) : '';
+    if ( ! in_array( $filter, array( 'template', 'specific' ), true ) ) {
+        return;
+    }
+
+    $meta_query = (array) $query->get( 'meta_query' );
+
+    if ( 'template' === $filter ) {
+        $meta_query[] = array(
+            'key'   => '_ggr_message_audience',
+            'value' => 'role',
+        );
+        $meta_query[] = array(
+            'key'   => '_ggr_message_role',
+            'value' => 'participant',
+        );
+    }
+
+    if ( 'specific' === $filter ) {
+        $meta_query[] = array(
+            'key'   => '_ggr_message_audience',
+            'value' => 'user',
+        );
+    }
+
+    $query->set( 'meta_query', $meta_query );
 }
 
 /**
@@ -138,14 +203,43 @@ function ggr_bericht_meta_box_callback( $post ) {
     <p class="description">Kies de ontvanger voor dit bericht.</p>
 
     <?php
-    $role = get_post_meta( $post->ID, '_ggr_message_role', true );
+    $audience = get_post_meta( $post->ID, '_ggr_message_audience', true );
+    $user_id  = (int) get_post_meta( $post->ID, '_ggr_message_user_id', true );
+    $role     = get_post_meta( $post->ID, '_ggr_message_role', true );
+
+    if ( ! $audience ) {
+        $audience = $user_id ? 'user' : 'role';
+    }
     if ( ! $role ) {
         $role = 'participant';
     }
     ?>
 
     <p>
-        <label for="ggr_message_role"><strong>Ontvanger</strong></label><br/>
+        <label for="ggr_message_audience"><strong>Ontvanger</strong></label><br/>
+        <select name="ggr_message_audience" id="ggr_message_audience">
+            <option value="role" <?php selected( $audience, 'role' ); ?>>Alle participanten</option>
+            <option value="user" <?php selected( $audience, 'user' ); ?>>Specifieke participant</option>
+        </select>
+    </p>
+
+    <p>
+        <label for="ggr_message_user_id"><strong>Participant</strong></label><br/>
+        <?php
+        wp_dropdown_users(
+            array(
+                'name'             => 'ggr_message_user_id',
+                'id'               => 'ggr_message_user_id',
+                'selected'         => $user_id,
+                'show_option_none' => '— Selecteer participant —',
+                'role__in'         => array( 'participant' ),
+            )
+        );
+        ?>
+    </p>
+
+    <p>
+        <label for="ggr_message_role"><strong>Rol (alleen voor rol-berichten)</strong></label><br/>
         <select name="ggr_message_role" id="ggr_message_role">
             <option value="participant" <?php selected( $role, 'participant' ); ?>>Participant</option>
             <option value="administrator" <?php selected( $role, 'administrator' ); ?>>Admin</option>
@@ -211,8 +305,11 @@ function ggr_bericht_meta_save( $post_id ) {
         return;
     }
 
-    $audience  = 'role';
-    $user_id   = 0;
+    $audience  = isset( $_POST['ggr_message_audience'] ) ? sanitize_key( $_POST['ggr_message_audience'] ) : 'role';
+    if ( ! in_array( $audience, array( 'role', 'user' ), true ) ) {
+        $audience = 'role';
+    }
+    $user_id = isset( $_POST['ggr_message_user_id'] ) ? absint( $_POST['ggr_message_user_id'] ) : 0;
     $role      = isset( $_POST['ggr_message_role'] ) ? sanitize_key( $_POST['ggr_message_role'] ) : 'participant';
     if ( ! in_array( $role, array( 'participant', 'administrator' ), true ) ) {
         $role = 'participant';
@@ -222,8 +319,12 @@ function ggr_bericht_meta_save( $post_id ) {
     $trans_ref = isset( $_POST['ggr_message_transaction_ref'] ) ? sanitize_text_field( $_POST['ggr_message_transaction_ref'] ) : '';
     $period    = isset( $_POST['ggr_message_period'] ) ? sanitize_text_field( $_POST['ggr_message_period'] ) : '';
 
+    if ( 'user' === $audience && $user_id <= 0 ) {
+        $audience = 'role';
+    }
+
     update_post_meta( $post_id, '_ggr_message_audience', $audience );
-    update_post_meta( $post_id, '_ggr_message_user_id', $user_id );
+    update_post_meta( $post_id, '_ggr_message_user_id', 'user' === $audience ? $user_id : 0 );
     update_post_meta( $post_id, '_ggr_message_role', $role );
     update_post_meta( $post_id, '_ggr_message_type', $type );
     update_post_meta( $post_id, '_ggr_message_date', $date );
