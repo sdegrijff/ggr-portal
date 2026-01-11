@@ -207,6 +207,10 @@ function ggr_portal_investeren_shortcode() {
                                         $errors[] = $payment->get_error_message();
                                     } else {
                                         $success_messages[] = 'De betaling is klaar om te starten via Mollie.';
+                                        if ( ! empty( $payment['checkout_url'] ) ) {
+                                            wp_redirect( $payment['checkout_url'] );
+                                            exit;
+                                        }                                        
                                     }
                                 } elseif ( empty( $errors ) ) {
                                     $errors[] = 'Mollie-functies ontbreken om de betaling te starten.';
@@ -368,16 +372,36 @@ function ggr_portal_investeren_shortcode() {
     }
 
     $latest_deposit_mutatie = ggr_portal_get_latest_inleg_mutatie( $user->ID );
-    if ( $latest_deposit_mutatie && function_exists( 'ggr_mollie_refresh_payment_status' ) ) {
-        $payment_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_status', true );
-        if ( in_array( $payment_status, array( 'open', 'pending' ), true ) ) {
+    $latest_payment_status  = '';
+    $latest_payment_url     = '';
+    if ( $latest_deposit_mutatie ) {
+        $latest_payment_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_status', true );
+        if ( function_exists( 'ggr_mollie_refresh_payment_status' ) && in_array( $latest_payment_status, array( 'open', 'pending' ), true ) ) {
             ggr_mollie_refresh_payment_status( $latest_deposit_mutatie->ID );
+            $latest_payment_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_status', true );
         }
+        $latest_payment_url  = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_url', true );
+    }
+
+    if ( $latest_deposit_mutatie && $latest_payment_status && ! in_array( $latest_payment_status, array( 'open', 'pending' ), true ) ) {
+        $latest_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true );
+        if ( 'uitgevoerd' !== $latest_status && function_exists( 'ggr_mutaties_apply_to_history' ) ) {
+            $history_errors = array();
+            $planned_date   = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_planned_date', true );
+            $updated        = ggr_mutaties_apply_to_history( $latest_deposit_mutatie->ID, $planned_date, $history_errors );
+            if ( $updated ) {
+                update_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', 'uitgevoerd' );
+            }
+            if ( $history_errors ) {
+                $errors = array_merge( $errors, $history_errors );
+            }
+        }
+        $latest_deposit_mutatie = null;
+        $deposit_stage          = 'amount';
     }
 
     if ( 'deposit' === $selected_action && '' === $submitted_action && $latest_deposit_mutatie ) {
         $latest_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true );
-        $latest_payment_url = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_url', true );
         $latest_amount = ggr_mutaties_parse_decimal( get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_amount', true ) );
 
         if ( $latest_payment_url && ! in_array( $latest_status, array( 'betaald', 'afgewezen' ), true ) ) {
@@ -385,6 +409,18 @@ function ggr_portal_investeren_shortcode() {
         } elseif ( $latest_amount >= $deposit_threshold && in_array( $latest_status, array( 'in_behandeling', 'goedgekeurd' ), true ) ) {
             $deposit_stage = 'review';
         }
+    }
+
+    if (
+        'deposit' === $selected_action
+        && '' === $submitted_action
+        && $latest_deposit_mutatie
+        && $latest_payment_url
+        && in_array( $latest_payment_status, array( 'open', 'pending' ), true )
+        && empty( $errors )
+    ) {
+        wp_redirect( $latest_payment_url );
+        exit;
     }
 
     ob_start();
