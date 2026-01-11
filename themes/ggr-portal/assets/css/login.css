@@ -234,6 +234,10 @@ footer,
                 background-color 0.15s ease;
 }
 
+.ggr-login-fields .ggr-field select.input {
+    padding: 15px 12px;
+}
+
 .ggr-input-wrapper {
     position: relative;
 }
@@ -327,8 +331,8 @@ footer,
 }
 
 .ggr-login-notice--info {
-    background: #eff6ff;
-    color: #1d4ed8;
+    background: rgba(113, 154, 168, 0.1);
+    color: #719aa8;
     text-align: center;
 }
 
