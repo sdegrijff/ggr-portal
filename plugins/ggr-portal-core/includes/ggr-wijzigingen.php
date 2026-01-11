@@ -126,9 +126,16 @@ function ggr_portal_investeren_shortcode() {
                                         if ( is_wp_error( $mutatie_id ) ) {
                                             $errors[] = 'Kon de mutatie voor de storting niet aanmaken.';
                                         } else {
+                                            $planned_date = function_exists( 'ggr_mutaties_get_next_run_date' )
+                                                ? ggr_mutaties_get_next_run_date()
+                                                : '';                                            
                                             update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'in_behandeling' );
-                                            update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 0 );
-                                            update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', '' );
+                                            update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 1 );
+                                            update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', $planned_date );
+                                            update_post_meta( $mutatie_id, 'ggr_mutatie_publication_date', $planned_date );
+                                            if ( $planned_date && function_exists( 'ggr_mutaties_get_nav_date_for_planned_date' ) ) {
+                                                update_post_meta( $mutatie_id, 'ggr_mutatie_nav_date', ggr_mutaties_get_nav_date_for_planned_date( $planned_date ) );
+                                            }
                                             update_post_meta( $mutatie_id, 'ggr_mutatie_deposit_reference', $deposit_reference );
                                             update_post_meta( $mutatie_id, 'ggr_mutatie_source', $deposit_source );
                                             update_post_meta( $mutatie_id, 'ggr_mutatie_source_explanation', $deposit_explanation );
@@ -172,9 +179,16 @@ function ggr_portal_investeren_shortcode() {
                                     if ( is_wp_error( $mutatie_id ) ) {
                                         $errors[] = 'Kon de mutatie voor de storting niet aanmaken.';
                                     } else {
+                                        $planned_date = function_exists( 'ggr_mutaties_get_next_run_date' )
+                                            ? ggr_mutaties_get_next_run_date()
+                                            : '';                                       
                                         update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'in_behandeling' );
-                                        update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 0 );
-                                        update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', '' );
+                                        update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 1 );
+                                        update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', $planned_date );
+                                        update_post_meta( $mutatie_id, 'ggr_mutatie_publication_date', $planned_date );
+                                        if ( $planned_date && function_exists( 'ggr_mutaties_get_nav_date_for_planned_date' ) ) {
+                                            update_post_meta( $mutatie_id, 'ggr_mutatie_nav_date', ggr_mutaties_get_nav_date_for_planned_date( $planned_date ) );
+                                        }
                                         update_post_meta( $mutatie_id, 'ggr_mutatie_deposit_reference', $deposit_reference );
                                     }
                                 } else {
@@ -213,7 +227,7 @@ function ggr_portal_investeren_shortcode() {
                                     );
                                 }
                             } else {
-                                $deposit_stage = 'confirm';)
+                                $deposit_stage = 'confirm';
                             }
                         }
                     }
