@@ -91,6 +91,13 @@ function ggr_onboarding_update_status( $user_id, $status ) {
         update_user_meta( $user_id, 'ggr_participant_enrolled_at', current_time( 'mysql' ) );
     }
     
+    if ( 'active_participant' === $status ) {
+        $user = get_user_by( 'ID', $user_id );
+        if ( $user && in_array( 'lead', (array) $user->roles, true ) ) {
+            $user->set_role( 'participant' );
+        }
+    }    
+    
     if ( function_exists( 'ggr_hubspot_sync_user' ) ) {
         ggr_hubspot_sync_user( $user_id, $status );
     }
@@ -2189,18 +2196,7 @@ function ggr_onboarding_register_shortcode() {
         <select id="ggr_nationality"
                 name="ggr_nationality"
                 class="input"
-                required
-                style="
-                    width: 100%;
-                    box-sizing: border-box;
-                    border-radius: 8px;
-                    border: 1px solid #d1d5db;
-                    padding: 10px 12px;
-                    font-size: 14px;
-                    color: #111827;
-                    background: #ffffff;
-                    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
-                ">
+                required>
             <option value="">Maak een keuze</option>
             <?php foreach ( $countries as $country ) : ?>
                 <option value="<?php echo esc_attr( $country ); ?>"
@@ -2493,108 +2489,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
         }
-
-        const initializeOnboardingToast = (onboardingToast) => {
-            if (!onboardingToast || onboardingToast.dataset.toastInitialized === 'true') {
-                return;
-            }
-
-            onboardingToast.dataset.toastInitialized = 'true';
-            onboardingToast.classList.add('is-visible');
-            let isHiding = false;
-
-            const removeToast = () => {
-                if (onboardingToast.parentElement) {
-                    onboardingToast.remove();
-                }
-            };
-
-            const hideToast = () => {
-                if (isHiding) {
-                    return;
-                }
-
-                isHiding = true;
-                onboardingToast.classList.remove('is-visible');
-                onboardingToast.addEventListener('transitionend', removeToast, { once: true });
-                window.setTimeout(removeToast, 500);
-            };
-
-            const closeButton = onboardingToast.querySelector('[data-toast-close]')
-                || onboardingToast.querySelector('.ggr-onboarding-toast__close')
-                || onboardingToast.querySelector('.ggr-login-toast__close');
-            const scheduleAutoHide = () => window.setTimeout(hideToast, 6000);
-            let hideTimer = scheduleAutoHide();
-
-            onboardingToast.addEventListener('mouseenter', () => {
-                if (hideTimer) {
-                    window.clearTimeout(hideTimer);
-                }
-            });
-
-            onboardingToast.addEventListener('mouseleave', () => {
-                if (!isHiding) {
-                    hideTimer = scheduleAutoHide();
-                }
-            });
-            
-            onboardingToast.addEventListener('keydown', (event) => {
-                if (event.key === 'Escape') {
-                    hideToast();
-                }
-            });
-
-            if (closeButton) {
-                closeButton.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    hideToast();
-                });
-            }
-
-            onboardingToast.addEventListener('click', (event) => {
-                if (event.target === onboardingToast) {
-                    hideToast();
-                }
-            });
-        };
-
-        document.querySelectorAll('[data-ggr-onboarding-toast]').forEach(initializeOnboardingToast);
-        document.body.addEventListener('click', (event) => {
-            const closeButton = event.target.closest('[data-toast-close]');
-            if (!closeButton) {
-                return;
-            }
-
-            const toast = closeButton.closest('[data-ggr-onboarding-toast]');
-            if (!toast) {
-                return;
-            }
-
-            toast.classList.remove('is-visible');
-            window.setTimeout(() => {
-                if (toast.parentElement) {
-                    toast.remove();
-                }
-            }, 300);
-        });
         
-        const toastObserver = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                mutation.addedNodes.forEach((node) => {
-                    if (!(node instanceof HTMLElement)) {
-                        return;
-                    }
-
-                    if (node.matches('[data-ggr-onboarding-toast]')) {
-                        initializeOnboardingToast(node);
-                    } else {
-                        node.querySelectorAll('[data-ggr-onboarding-toast]').forEach(initializeOnboardingToast);
-                    }
-                });
-            });
-        });
-
-        toastObserver.observe(document.body, { childList: true, subtree: true });
     });
     </script>
     <?php
@@ -2685,14 +2580,25 @@ function ggr_onboarding_maybe_handle_email_verification() {
  * Verificatiemail (opnieuw) versturen.
  */
 function ggr_onboarding_send_verification_email( $user_id ) {
+    static $sent_this_request = array();    
     $user_id = (int) $user_id;
     $user    = get_user_by( 'id', $user_id );
     if ( ! $user ) {
         return false;
     }
+    
+    if ( isset( $sent_this_request[ $user_id ] ) ) {
+        return false;
+    }
 
+    $now       = current_time( 'timestamp' );
+    $last_sent = (int) get_user_meta( $user_id, 'ggr_onboarding_email_last_sent', true );
+    if ( $last_sent && ( $now - $last_sent ) < MINUTE_IN_SECONDS ) {
+        return false;
+    }
+
+    $sent_this_request[ $user_id ] = true;
     $token  = wp_generate_password( 32, false, false );
-    $now    = current_time( 'timestamp' );
     $expiry = $now + ( 30 * MINUTE_IN_SECONDS ); // 30 minuten geldig
 
     update_user_meta( $user_id, 'ggr_onboarding_email_token', $token );
@@ -2720,11 +2626,17 @@ function ggr_onboarding_send_verification_email( $user_id ) {
             'reset_valid_minutes'        => $valid_minutes,
         );
 
-        return ggr_portal_send_templated_email(
+        $sent = ggr_portal_send_templated_email(
             'onboarding_email_verification',
             $user_id,
             $extra_placeholders
         );
+
+        if ( $sent ) {
+            update_user_meta( $user_id, 'ggr_onboarding_email_last_sent', $now );
+        }
+
+        return $sent;        
     }
 
     return false;
@@ -2929,14 +2841,22 @@ function ggr_onboarding_handle_registration_submit() {
 
     if ( function_exists( 'ggr_portal_send_admin_templated_email' ) ) {
         $amount_display = '€ ' . number_format( (float) $investment, 0, ',', '.' );
+        $full_name      = trim( $first_name . ' ' . $last_name );        
         ggr_portal_send_admin_templated_email(
             'new_registration',
             array(
-                'user_display_name'       => trim( $first_name . ' ' . $last_name ),
+                'user_display_name'       => $full_name,
                 'account_email'           => $email,
+                'lead_first_name'         => $first_name,
+                'lead_last_name'          => $last_name,
+                'lead_full_name'          => $full_name,
+                'lead_email'              => $email,
                 'lead_phone'              => $phone,
+                'lead_nationality'        => $nationality,
                 'lead_account_type'       => $account_type,
                 'lead_investment_amount'  => $amount_display,
+                'lead_marketing_optin'    => $marketing ? 'ja' : 'nee',
+                'lead_terms_accepted'     => $terms ? 'ja' : 'nee',
                 'portal_link'             => home_url( '/onboarding/' ),
             )
         );
@@ -3616,13 +3536,8 @@ function ggr_onboarding_dashboard_shortcode() {
                         <?php endif; ?>
                         
                         <?php if ( $messages['success'] ) : ?>
-                            <div class="ggr-onboarding-toast ggr-onboarding-toast--success is-visible" data-ggr-onboarding-toast>
-                                <div class="ggr-onboarding-toast__icon">✓</div>
-                                <div class="ggr-onboarding-toast__content">
-                                    <div class="ggr-onboarding-toast__title">Opgeslagen</div>
-                                    <div class="ggr-onboarding-toast__message"><?php echo esc_html( $messages['success'] ); ?></div>
-                                </div>
-                                <button type="button" class="ggr-onboarding-toast__close" aria-label="Sluiten" data-toast-close>×</button>
+                            <div class="ggr-login-notice ggr-login-notice--info">
+                                <p><?php echo esc_html( $messages['success'] ); ?></p>
                             </div>
                         <?php endif; ?>
 
@@ -5033,7 +4948,6 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
         'ggr_kyc_postcode',
         'ggr_kyc_city',
         'ggr_kyc_country',
-        'ggr_kyc_birth_country',
         'ggr_kyc_birth_place',
         'ggr_kyc_nationality',
         'ggr_kyc_phone',
@@ -5061,7 +4975,6 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
                 'ggr_co_postcode',
                 'ggr_co_city',
                 'ggr_co_country',
-                'ggr_co_birth_country',
                 'ggr_co_birth_place',
                 'ggr_co_nationality',
                 'ggr_co_bsn',
@@ -5091,7 +5004,6 @@ function ggr_onboarding_handle_collecting_personal( $user_id ) {
         'ggr_kyc_postcode',
         'ggr_kyc_city',
         'ggr_kyc_country',
-        'ggr_kyc_birth_country',
         'ggr_kyc_birth_place',
         'ggr_kyc_nationality',
         'ggr_kyc_phone',
@@ -5304,7 +5216,6 @@ function ggr_onboarding_is_personal_data_complete( $user_id ) {
         'ggr_kyc_postcode',
         'ggr_kyc_city',
         'ggr_kyc_country',
-        'ggr_kyc_birth_country',
         'ggr_kyc_birth_place',
         'ggr_kyc_nationality',
         'ggr_kyc_phone',
