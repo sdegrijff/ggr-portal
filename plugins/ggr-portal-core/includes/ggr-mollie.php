@@ -300,26 +300,6 @@ function ggr_mollie_handle_payment_status_update( $mutatie_id, array $payment_da
         ggr_mutaties_sync_status_with_payment( $mutatie_id, $type, $betaalstatus, 1 );
     }
 
-    if ( 'betaald' === $betaalstatus && function_exists( 'ggr_portal_create_single_transaction_message' ) ) {
-        $user_id = (int) get_post_meta( $mutatie_id, 'ggr_mutatie_user_id', true );
-        if ( $user_id > 0 ) {
-            $amount_raw = get_post_meta( $mutatie_id, 'ggr_mutatie_amount', true );
-            $amount     = function_exists( 'ggr_mutaties_parse_decimal' )
-                ? ggr_mutaties_parse_decimal( $amount_raw )
-                : (float) $amount_raw;
-
-            ggr_portal_create_single_transaction_message(
-                $user_id,
-                array(
-                    'reference' => 'mutatie-' . $mutatie_id,
-                    'amount'    => $amount,
-                    'date'      => current_time( 'Y-m-d' ),
-                    'title'     => 'Bevestiging storting',
-                )
-            );
-        }
-    }
-
     ggr_mollie_log(
         'Status updated',
         array(
