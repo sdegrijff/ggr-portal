@@ -129,4 +129,5 @@ define( 'GGR_IBKR_FLEX_ACCRUALS_QUERY_ID', '1359137' );
 
 // MOLLIE API KEY
 define( 'GGR_MOLLIE_API_KEY', 'test_u7sn5haP2jfyFzUrTEFa6qxMx8qrPe' );
+define('GGR_MOLLIE_WEBHOOK_SECRET', 'zet-hier-een-lange-random-string');
 
