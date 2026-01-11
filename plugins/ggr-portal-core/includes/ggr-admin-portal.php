@@ -277,9 +277,13 @@ function ggr_admin_render_dashboard() {
 			$planned    = get_post_meta( $mutatie->ID, 'ggr_mutatie_planned_date', true );
 
 			$user_label = 'Alle participanten';
+			$user_link  = '';
 			if ( 'user' === $scope && $user_id ) {
 				$user = get_user_by( 'id', $user_id );
 				$user_label = $user ? $user->display_name : 'Onbekend';
+				if ( $user ) {
+					$user_link = admin_url( 'users.php?page=ggr-participant-profiel&user_id=' . $user_id );
+				}				
 			}
 
 			$type_label   = isset( $mutatie_types[ $type_key ] ) ? $mutatie_types[ $type_key ] : $type_key;
@@ -289,8 +293,11 @@ function ggr_admin_render_dashboard() {
 			echo '<tr>';
 			echo '<td>' . esc_html( $date_label ) . '</td>';
 			echo '<td>' . esc_html( $type_label ) . '</td>';
-			echo '<td>' . esc_html( $user_label ) . '</td>';
-			echo '<td>' . esc_html( $format_money( $amount ) ) . '</td>';
+			if ( $user_link ) {
+				echo '<td><a href="' . esc_url( $user_link ) . '">' . esc_html( $user_label ) . '</a></td>';
+			} else {
+				echo '<td>' . esc_html( $user_label ) . '</td>';
+			}			echo '<td>' . esc_html( $format_money( $amount ) ) . '</td>';
 			echo '<td>' . esc_html( $status_label ) . '</td>';
 			echo '</tr>';
 		}
@@ -506,7 +513,8 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 		$has_pending_meldingen = true;
 	}
 
-	$has_mutatie_alert = $has_pending_mutaties;	
+	$has_mutatie_alert = $has_pending_mutaties;
+	$has_melding_alert = $has_pending_meldingen;
 
 	$nav_primary = [
 		[
@@ -532,6 +540,7 @@ add_action( 'admin_enqueue_scripts', function( $hook_suffix ) {
 			'label' => 'Meldingen/taken',
 			'icon'  => 'ri-notification-3-line',
 			'url'   => admin_url( 'admin.php?page=ggr-meldingen' ),
+			'hasAlert' => $has_melding_alert,			
 		],
 		[
 			'slug'  => 'ggr_bericht',
