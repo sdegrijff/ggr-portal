@@ -666,36 +666,8 @@ function ggr_ibkr_nav_send_admin_notification( $date, $nav_per_participation, $s
             'ibkr_participations'       => null !== $total_participations ? number_format( (float) $total_participations, 4, ',', '.' ) : '',
         );
 
-        $sent = ggr_portal_send_admin_templated_email( 'admin_ibkr_nav_success', $placeholders );
-        if ( $sent ) {
-            return;
-        }
-    }    
-    $admin_email = get_option( 'admin_email' );
-
-    if ( ! $admin_email || ! is_email( $admin_email ) ) {
-        return;
+        ggr_portal_send_admin_templated_email( 'admin_ibkr_nav_success', $placeholders );
     }
-
-    $subject = sprintf( 'IBKR NAV opgeslagen voor %s', $formatted_date );
-
-    $lines   = array();
-    $lines[] = sprintf( 'De IBKR Flex API is succesvol uitgevoerd op %s.', wp_date( 'Y-m-d H:i:s' ) );
-    $lines[] = sprintf( 'Datum rapport: %s', $formatted_date );
-    $lines[] = sprintf( 'NAV per participatie: € %s', number_format( (float) $nav_per_participation, 6, ',', '.' ) );
-
-    if ( null !== $fund_total ) {
-        $lines[] = sprintf( 'Totaal uit IBKR: € %s', number_format( (float) $fund_total, 2, ',', '.' ) );
-    }
-
-    if ( null !== $total_participations ) {
-        $lines[] = sprintf( 'Participaties: %s', number_format( (float) $total_participations, 4, ',', '.' ) );
-    }
-
-    $lines[] = '';
-    $lines[] = 'Dit is een automatische melding vanuit de GGR Portal.';
-
-    wp_mail( $admin_email, $subject, implode( "\n", $lines ) );
 }
 add_action( 'ggr_ibkr_nav_stored', 'ggr_ibkr_nav_send_admin_notification', 10, 5 );
 
