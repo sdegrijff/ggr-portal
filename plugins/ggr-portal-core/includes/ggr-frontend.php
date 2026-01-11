@@ -97,6 +97,66 @@ function ggr_portal_format_datetime_nl( $value ) {
     return date_i18n( 'd-m-Y H:i', $timestamp );
 }
 
+function ggrp_fe_get_mutatie_payment_status_label( $status_key ) {
+    if ( ! $status_key ) {
+        return '';
+    }
+
+    if ( function_exists( 'ggr_mutaties_get_payment_statuses' ) ) {
+        $payment_statuses = ggr_mutaties_get_payment_statuses();
+        if ( isset( $payment_statuses[ $status_key ] ) ) {
+            return $payment_statuses[ $status_key ];
+        }
+    }
+
+    return $status_key;
+}
+
+function ggrp_fe_get_mutatie_amount_for_user( $mutatie_id, $user_id ) {
+    if ( ! function_exists( 'ggr_mutaties_parse_decimal' ) ) {
+        return 0.0;
+    }
+
+    $type       = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
+    $amount_raw = get_post_meta( $mutatie_id, 'ggr_mutatie_amount', true );
+    $units_raw  = get_post_meta( $mutatie_id, 'ggr_mutatie_participaties', true );
+    $planned    = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
+
+    $amount = ggr_mutaties_parse_decimal( $amount_raw );
+    $units  = ggr_mutaties_parse_decimal( $units_raw );
+
+    $effective_date = function_exists( 'ggr_mutaties_get_effective_date' )
+        ? ggr_mutaties_get_effective_date( $mutatie_id, $planned )
+        : $planned;
+
+    $needs_nav = in_array( $type, array( 'inleg', 'opname', 'dividend_herinvestering' ), true );
+    $no_participations = (bool) get_post_meta( $mutatie_id, 'ggr_mutatie_no_participations', true );
+    if ( $no_participations && 'inleg' === $type ) {
+        $needs_nav = false;
+    }
+
+    if ( in_array( $type, array( 'dividend_herinvestering', 'dividend_uitkering' ), true ) && $effective_date && function_exists( 'ggr_mutaties_get_dividend_per_participation' ) ) {
+        $dividend_rate = ggr_mutaties_get_dividend_per_participation( $effective_date );
+        if ( null !== $dividend_rate && $amount <= 0 && function_exists( 'ggr_mutaties_get_user_participations_at_date' ) ) {
+            $user_parts = ggr_mutaties_get_user_participations_at_date( $user_id, $effective_date );
+            $amount = $user_parts > 0 ? round( $dividend_rate * $user_parts, 2 ) : 0.0;
+        }
+    }
+
+    if ( $needs_nav && $effective_date && function_exists( 'ggr_get_stock_price_for_date' ) ) {
+        $nav_price = ggr_get_stock_price_for_date( $effective_date );
+        if ( $nav_price ) {
+            if ( $units > 0 && $amount <= 0 ) {
+                $amount = round( $units * $nav_price, 2 );
+            } elseif ( $amount > 0 && $units <= 0 ) {
+                $units = round( $amount / $nav_price, 4 );
+            }
+        }
+    }
+
+    return $amount;
+}
+
 /**
  * Redirect alle frontend 404's naar het portal/dashboard.
  *
@@ -659,7 +719,48 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
     $inv_total     = $current_card_snapshot['investeringsrendement'];
     $parts_total   = $current_card_snapshot['totaal_participaties'];
     $div_total     = $current_card_snapshot['dividend_cumul'];
+    $scheduled_delta = 0.0;
 
+    $scheduled_mutaties = get_posts(
+        array(
+            'post_type'      => 'ggr_mutatie',
+            'posts_per_page' => -1,
+            'post_status'    => array( 'publish' ),
+            'meta_query'     => array(
+                array(
+                    'key'   => 'ggr_mutatie_status',
+                    'value' => 'ingepland',
+                ),
+            ),
+        )
+    );
+
+    if ( ! empty( $scheduled_mutaties ) ) {
+        foreach ( $scheduled_mutaties as $mutatie ) {
+            $mutatie_id = $mutatie->ID;
+            $scope      = get_post_meta( $mutatie_id, 'ggr_mutatie_scope', true );
+            $mut_user   = (int) get_post_meta( $mutatie_id, 'ggr_mutatie_user_id', true );
+            if ( 'user' === $scope && $mut_user !== $user_id ) {
+                continue;
+            }
+
+            $type   = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
+            $amount = ggrp_fe_get_mutatie_amount_for_user( $mutatie_id, $user_id );
+
+            if ( ! $amount ) {
+                continue;
+            }
+
+            if ( 'inleg' === $type || 'dividend_herinvestering' === $type ) {
+                $scheduled_delta += $amount;
+            } elseif ( 'opname' === $type ) {
+                $scheduled_delta -= $amount;
+            }
+        }
+    }
+
+    $positie_total_display = $positie_total + $scheduled_delta;
+    
     /**
      * Chips: t.o.v. VORIGE transactie voor positie + rendement
      *
@@ -957,7 +1058,7 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
             <article class="ggrp-fe-card">
                 <h2 class="ggrp-fe-card-title">Positiewaarde</h2>
                 <div class="ggrp-fe-card-value">
-                    <?php echo esc_html( ggrp_fe_format_money( $positie_total ) ); ?>
+                    <?php echo esc_html( ggrp_fe_format_money( $positie_total_display ) ); ?>
                 </div>
                 <div class="ggrp-fe-card-meta">
                     <span class="<?php echo esc_attr( $chip_pos_class ); ?>">
@@ -1652,9 +1753,88 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
         return strcmp( $b->datum, $a->datum );
     });
 
+    $mutatie_entries = array();
+    if ( function_exists( 'ggr_mutaties_get_statuses' ) ) {
+        $mutatie_posts = get_posts(
+            array(
+                'post_type'      => 'ggr_mutatie',
+                'posts_per_page' => -1,
+                'post_status'    => array( 'publish' ),
+                'meta_query'     => array(
+                    array(
+                        'key'     => 'ggr_mutatie_status',
+                        'value'   => array( 'uitgevoerd', 'afgewezen', 'geannuleerd' ),
+                        'compare' => 'NOT IN',
+                    ),
+                ),
+            )
+        );
+
+        if ( ! empty( $mutatie_posts ) ) {
+            $mutatie_statuses = ggr_mutaties_get_statuses();
+            foreach ( $mutatie_posts as $mutatie ) {
+                $mutatie_id = $mutatie->ID;
+                $scope      = get_post_meta( $mutatie_id, 'ggr_mutatie_scope', true );
+                $mut_user   = (int) get_post_meta( $mutatie_id, 'ggr_mutatie_user_id', true );
+                if ( 'user' === $scope && $mut_user !== $user_id ) {
+                    continue;
+                }
+
+                $type        = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
+                $status_key  = get_post_meta( $mutatie_id, 'ggr_mutatie_status', true );
+                $status_raw  = $status_key && isset( $mutatie_statuses[ $status_key ] ) ? $mutatie_statuses[ $status_key ] : $status_key;
+                $planned     = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
+                $effective   = function_exists( 'ggr_mutaties_get_effective_date' ) ? ggr_mutaties_get_effective_date( $mutatie_id, $planned ) : $planned;
+                $entry_date  = $effective ? $effective : ( $planned ? $planned : substr( (string) $mutatie->post_date, 0, 10 ) );
+                $amount      = ggrp_fe_get_mutatie_amount_for_user( $mutatie_id, $user_id );
+
+                if ( ! $entry_date ) {
+                    continue;
+                }
+
+                $payment_status_key = get_post_meta( $mutatie_id, 'ggr_mutatie_payment_status', true );
+                if ( ! $payment_status_key ) {
+                    $payment_status_key = get_post_meta( $mutatie_id, 'ggr_mutatie_betaalstatus', true );
+                }
+                $payment_status_label = ggrp_fe_get_mutatie_payment_status_label( $payment_status_key );
+
+                $entry = (object) array(
+                    'datum'                 => $entry_date,
+                    'inlegbedrag'           => 0.0,
+                    'opnamebedrag'          => 0.0,
+                    'distributievergoeding' => 0.0,
+                    'status'                => $status_raw,
+                    'transactie_code'       => 'Mutatie #' . $mutatie_id,
+                    'is_mutatie'            => true,
+                    'payment_status_label'  => $payment_status_label,
+                );
+
+                if ( 'inleg' === $type ) {
+                    $entry->inlegbedrag = $amount;
+                } elseif ( 'opname' === $type ) {
+                    $entry->opnamebedrag = $amount;
+                } elseif ( 'dividend_herinvestering' === $type ) {
+                    $entry->distributievergoeding = $amount;
+                } elseif ( 'dividend_uitkering' === $type ) {
+                    $entry->distributievergoeding = $amount;
+                    $entry->opnamebedrag          = $amount;
+                } else {
+                    $entry->distributievergoeding = $amount;
+                }
+
+                $mutatie_entries[] = $entry;
+            }
+        }
+    }
+
+    $entries = array_merge( $history, $mutatie_entries );
+    usort( $entries, function( $a, $b ) {
+        return strcmp( $b->datum, $a->datum );
+    });
+
     // Beschikbare jaren bepalen
     $years = [];
-    foreach ( $history as $row ) {
+    foreach ( $entries as $row ) {
         $d = DateTime::createFromFormat( 'Y-m-d', $row->datum );
         if ( ! $d ) {
             continue;
@@ -1683,9 +1863,9 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
 
     // Filter transacties op jaar
     if ( 'all' === $selected_year ) {
-        $filtered = $history;
+        $filtered = $entries;
     } else {
-        $filtered = array_filter( $history, function( $row ) use ( $selected_year ) {
+        $filtered = array_filter( $entries, function( $row ) use ( $selected_year ) {
             $d = DateTime::createFromFormat( 'Y-m-d', $row->datum );
             if ( ! $d ) {
                 return false;
@@ -1853,6 +2033,9 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
                                             <div class="ggrp-fe-trans-netto">
                                                 Netto geldmutatie: <?php echo esc_html( ggrp_fe_format_signed_money( $netto ) ); ?>
                                             </div>
+                                            <?php if ( ! empty( $row->is_mutatie ) && ! empty( $row->payment_status_label ) ) : ?>
+                                                <div>Betaalstatus: <?php echo esc_html( $row->payment_status_label ); ?></div>
+                                            <?php endif; ?>                                            
                                         <?php else : ?>
                                             Geen geldmutatie geregistreerd.
                                         <?php endif; ?>
