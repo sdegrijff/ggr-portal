@@ -215,13 +215,23 @@ function ggr_bericht_meta_box_callback( $post ) {
     }
     ?>
 
+    <?php
+    $recipient = 'all';
+    if ( 'user' === $audience ) {
+        $recipient = 'user';
+    } elseif ( in_array( $role, array( 'administrator', 'admin' ), true ) ) {
+        $recipient = 'admin';
+    }
+    ?>
+
     <p>
-        <label for="ggr_message_audience"><strong>Ontvanger</strong></label><br/>
-        <select name="ggr_message_audience" id="ggr_message_audience">
-            <option value="role" <?php selected( $audience, 'role' ); ?>>Alle participanten</option>
-            <option value="user" <?php selected( $audience, 'user' ); ?>>Specifieke participant</option>
+        <label for="ggr_message_recipient"><strong>Ontvanger</strong></label><br/>
+        <select name="ggr_message_recipient" id="ggr_message_recipient">
+            <option value="admin" <?php selected( $recipient, 'admin' ); ?>>Admin</option>
+            <option value="all" <?php selected( $recipient, 'all' ); ?>>Alle participanten</option>
+            <option value="user" <?php selected( $recipient, 'user' ); ?>>Specifieke participant</option>
         </select>
-    </p>
+    <p id="ggr_message_user_row">
 
     <p>
         <label for="ggr_message_user_id"><strong>Participant</strong></label><br/>
@@ -238,13 +248,34 @@ function ggr_bericht_meta_box_callback( $post ) {
         ?>
     </p>
 
-    <p>
-        <label for="ggr_message_role"><strong>Rol (alleen voor rol-berichten)</strong></label><br/>
-        <select name="ggr_message_role" id="ggr_message_role">
-            <option value="participant" <?php selected( $role, 'participant' ); ?>>Participant</option>
-            <option value="administrator" <?php selected( $role, 'administrator' ); ?>>Admin</option>
-        </select>
-    </p>
+    <input type="hidden" name="ggr_message_audience" id="ggr_message_audience" value="<?php echo esc_attr( $audience ); ?>" />
+    <input type="hidden" name="ggr_message_role" id="ggr_message_role" value="<?php echo esc_attr( $role ); ?>" />
+
+    <script>
+        (function() {
+            const recipientSelect = document.getElementById('ggr_message_recipient');
+            const userRow = document.getElementById('ggr_message_user_row');
+            const audienceInput = document.getElementById('ggr_message_audience');
+            const roleInput = document.getElementById('ggr_message_role');
+
+            const updateRecipient = () => {
+                const value = recipientSelect.value;
+                if (value === 'user') {
+                    userRow.style.display = '';
+                    audienceInput.value = 'user';
+                    roleInput.value = 'participant';
+                    return;
+                }
+
+                userRow.style.display = 'none';
+                audienceInput.value = 'role';
+                roleInput.value = value === 'admin' ? 'administrator' : 'participant';
+            };
+
+            recipientSelect.addEventListener('change', updateRecipient);
+            updateRecipient();
+        })();
+    </script>
 
     <p><strong>Type bericht</strong></p>
     <p>
@@ -305,12 +336,18 @@ function ggr_bericht_meta_save( $post_id ) {
         return;
     }
 
+    $recipient = isset( $_POST['ggr_message_recipient'] ) ? sanitize_key( $_POST['ggr_message_recipient'] ) : '';
     $audience  = isset( $_POST['ggr_message_audience'] ) ? sanitize_key( $_POST['ggr_message_audience'] ) : 'role';
+    $role      = isset( $_POST['ggr_message_role'] ) ? sanitize_key( $_POST['ggr_message_role'] ) : 'participant';
+    $user_id   = isset( $_POST['ggr_message_user_id'] ) ? absint( $_POST['ggr_message_user_id'] ) : 0;
+
+    if ( in_array( $recipient, array( 'admin', 'all', 'user' ), true ) ) {
+        $audience = 'user' === $recipient ? 'user' : 'role';
+        $role = 'admin' === $recipient ? 'administrator' : 'participant';
+    }
     if ( ! in_array( $audience, array( 'role', 'user' ), true ) ) {
         $audience = 'role';
     }
-    $user_id = isset( $_POST['ggr_message_user_id'] ) ? absint( $_POST['ggr_message_user_id'] ) : 0;
-    $role      = isset( $_POST['ggr_message_role'] ) ? sanitize_key( $_POST['ggr_message_role'] ) : 'participant';
     if ( ! in_array( $role, array( 'participant', 'administrator' ), true ) ) {
         $role = 'participant';
     }
@@ -1495,7 +1532,7 @@ function ggr_portal_create_transaction_message( $user_id, $args = array() ) {
     $body_lines[] = 'Voor vragen over dit afschrift of uw deelname kunt u contact opnemen via bovenstaande contactgegevens.';
     $body_lines[] = '';
     $body_lines[] = 'Met vriendelijke groet,';
-    $body_lines[] = 'GGR Monthly Income Fund';
+    $body_lines[] = 'GGR Funds';
 
     $body = implode( "\n", $body_lines );
 
@@ -1590,7 +1627,7 @@ function ggr_portal_create_single_transaction_message( $user_id, $args = array()
         $body_lines[] = 'Deze transactie wordt verwerkt op de eerstvolgende handelsdag.';
         $body_lines[] = '';
         $body_lines[] = 'Met vriendelijke groet,';
-        $body_lines[] = 'GGR Monthly Income Fund';
+        $body_lines[] = 'GGR Funds';
         $body         = implode( "\n", $body_lines );
     }
 
