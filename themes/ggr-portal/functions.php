@@ -163,6 +163,15 @@ function ggr_portal_access_control() {
 
     // LEAD: alleen login-achtige + onboarding
     if ( in_array( 'lead', $roles, true ) ) {
+        $onboarding_status = function_exists( 'ggr_onboarding_get_status' )
+            ? ggr_onboarding_get_status( $user->ID )
+            : get_user_meta( $user->ID, 'ggr_onboarding_status', true );
+
+        if ( 'active_participant' === $onboarding_status ) {
+            $user->set_role( 'participant' );
+            wp_safe_redirect( $dashboard_url );
+            exit;
+        }        
 
         // Onboarding of login-achtige pagina? → toegestaan
         if ( ggr_portal_is_onboarding_page() || ggr_portal_is_login_like_page() ) {
@@ -273,6 +282,13 @@ function ggr_portal_theme_assets() {
         'ggr-portal-frontend',
         get_theme_file_uri( 'assets/css/portal.css' ),
         [ 'ggr-portal-shell' ],
+        '1.0'
+    );
+
+    wp_enqueue_style(
+        'ggr-portal-temp',
+        get_theme_file_uri( 'assets/css/temp.css' ),
+        [ 'ggr-portal-frontend' ],
         '1.0'
     );
 }
