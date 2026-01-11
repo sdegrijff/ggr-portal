@@ -1980,17 +1980,79 @@ add_shortcode( 'ggr_onboarding_register', 'ggr_onboarding_register_shortcode' );
 
 function ggr_onboarding_register_shortcode() {
     $has_verification_request = isset( $_GET['ggr_verify'], $_GET['uid'], $_GET['token'] );
-    if ( is_user_logged_in() && ! $has_verification_request ) {
-        // Kritisch: al ingelogd → geen registratie aanbieden
-        return '<p>Je bent al ingelogd.</p>';
-    }
-
     $user_id = get_current_user_id();
     
     $messages = array(
         'error'   => array(),
         'success' => '',
     );
+
+    if ( is_user_logged_in() && ! $has_verification_request ) {
+        $is_verified = (bool) get_user_meta( $user_id, 'ggr_email_verified', true );
+
+        if ( ! $is_verified ) {
+            if ( isset( $_POST['ggr_onboarding_resend_verification'] ) ) {
+                if (
+                    ! isset( $_POST['ggr_onboarding_resend_verification_nonce'] )
+                    || ! wp_verify_nonce( $_POST['ggr_onboarding_resend_verification_nonce'], 'ggr_onboarding_resend_verification' )
+                ) {
+                    $messages['error'][] = 'Ongeldige sessie. Probeer het opnieuw.';
+                } elseif ( function_exists( 'ggr_onboarding_send_verification_email' ) ) {
+                    $sent = ggr_onboarding_send_verification_email( $user_id );
+                    if ( $sent ) {
+                        $messages['success'] = 'We hebben een nieuwe verificatielink naar je e-mailadres gestuurd.';
+                    } else {
+                        $messages['error'][] = 'Het versturen van de verificatielink is mislukt. Probeer het opnieuw.';
+                    }
+                } else {
+                    $messages['error'][] = 'Het versturen van de verificatielink is momenteel niet beschikbaar.';
+                }
+            }
+
+            ob_start();
+            ?>
+            <div class="ggr-login-wrapper">
+                <div class="ggr-login-shell">
+                    <div class="ggr-logo-top">
+                        <img src="https://145546258.fs1.hubspotusercontent-eu1.net/hubfs/145546258/GRR%20full%20logo%20-%20Blue%20-%20Black.png" alt="GGR Logo">
+                    </div>
+
+                    <div class="ggr-login-card">
+                        <h1 class="ggr-login-title">Bevestig je e-mailadres</h1>
+                        <p class="ggr-login-subtitle">
+                            Je bent ingelogd, maar je e-mailadres is nog niet bevestigd. Verstuur de verificatielink opnieuw om verder te gaan.
+                        </p>
+
+                        <?php if ( ! empty( $messages['error'] ) ) : ?>
+                            <div class="ggr-login-notice ggr-login-notice--error">
+                                <?php foreach ( $messages['error'] as $err ) : ?>
+                                    <p><?php echo esc_html( $err ); ?></p>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if ( ! empty( $messages['success'] ) ) : ?>
+                            <div class="ggr-login-notice ggr-login-notice--info">
+                                <p><?php echo esc_html( $messages['success'] ); ?></p>
+                            </div>
+                        <?php endif; ?>
+
+                        <form method="post" class="ggr-login-fields">
+                            <?php wp_nonce_field( 'ggr_onboarding_resend_verification', 'ggr_onboarding_resend_verification_nonce' ); ?>
+                            <button type="submit" name="ggr_onboarding_resend_verification" value="1" class="ggr-login-submit" style="width:100%;">
+                                Verificatielink opnieuw versturen
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <?php
+            return ob_get_clean();
+        }
+
+        // Kritisch: al ingelogd → geen registratie aanbieden
+        return '<p>Je bent al ingelogd.</p>';
+    }
 
     $contract_signed_at      = get_user_meta( $user_id, 'ggr_contract_signed_at', true );
     $payment_confirmation_at = get_user_meta( $user_id, 'ggr_payment_confirmation_at', true );
@@ -2581,9 +2643,9 @@ function ggr_onboarding_handle_email_verification() {
 
     // Onboarding status op "confirmed"
     if ( function_exists( 'ggr_onboarding_update_status' ) ) {
-        ggr_onboarding_update_status( $user_id, 'confirmed' );
+        ggr_onboarding_update_status( $user_id, 'collecting' );
     } else {
-        update_user_meta( $user_id, 'ggr_onboarding_status', 'confirmed' );
+        update_user_meta( $user_id, 'ggr_onboarding_status', 'collecting' );
     }
 
     return true;
