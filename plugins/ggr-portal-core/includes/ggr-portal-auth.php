@@ -555,29 +555,6 @@ function ggr_login_form_shortcode() {
                     Investeerder worden
                 </a>
             </div>
-
-            <?php if ( 'unverified' === $state ) : ?>
-                <div class="ggr-login-resend" style="margin-top:16px;">
-                    <p style="margin:0 0 12px; color:#5b6b73; font-size:14px;">
-                        Je e-mailadres is nog niet bevestigd. Verstuur de bevestigingsmail opnieuw om verder te gaan.
-                    </p>
-                    <form method="post" class="ggr-login-resend-form">
-                        <?php wp_nonce_field( 'ggr_resend_verification', 'ggr_resend_verification_nonce' ); ?>
-                        <input
-                            type="email"
-                            name="ggr_resend_email"
-                            value="<?php echo esc_attr( $resend_email ); ?>"
-                            placeholder="E-mailadres"
-                            required
-                            style="width:100%; padding:10px 12px; margin-bottom:10px;"
-                        />
-                        <button type="submit" name="ggr_resend_verification" value="1" class="ggr-login-submit" style="width:100%;">
-                            Bevestigingsmail opnieuw versturen
-                        </button>
-                    </form>
-                </div>
-            <?php endif; ?>
-
             <?php if ( $is_failed ) : ?>
                 <div class="ggr-login-toast ggr-login-toast--error" data-ggr-login-toast>
                     <div class="ggr-login-toast__icon">!</div>
