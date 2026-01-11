@@ -327,6 +327,11 @@ function ggr_portal_get_transactions_for_message_month( $user_id, $message_id ) 
 
         // Alleen rijen uit de DOELmaand (afrekenmaand) teruggeven
         if ( $row_dt->format( 'Y-m' ) === $target_ym ) {
+            $has_participation_change = (float) $row->nieuwe_participaties !== 0.0 || (float) $row->verkochte_participaties !== 0.0;
+            $has_dividend             = (float) $row->distributievergoeding !== 0.0;
+            if ( ! $has_participation_change && ! $has_dividend ) {
+                continue;
+            }            
             $row->totaal_participaties = $cumul_participaties;
             $row->participatie_mutatie = $parts_mutatie;
             $row->positiewaarde        = $current_pos;
@@ -530,8 +535,12 @@ function ggr_portal_user_can_read_message( $post, $user_id ) {
     }
 
     // Extra filter voor transactienota's: alleen tonen als er in die maand transacties zijn
-    $type = get_post_meta( $post->ID, '_ggr_message_type', true );
+    $type          = get_post_meta( $post->ID, '_ggr_message_type', true );
+    $is_single_tx  = (bool) get_post_meta( $post->ID, '_ggr_message_single_transaction', true );
     if ( $type === 'transaction' && function_exists( 'ggr_portal_get_history_for_user' ) ) {
+        if ( $is_single_tx ) {
+            return true;
+        }
         $rows = ggr_portal_get_transactions_for_message_month( $user_id, $post->ID );
         if ( empty( $rows ) ) {
             return false;
@@ -1418,6 +1427,94 @@ function ggr_portal_create_transaction_message( $user_id, $args = array() ) {
     return (int) $post_id;
 }
 
+/**
+ * 8b. Losse transactieberichten per betaling.
+ */
+function ggr_portal_create_single_transaction_message( $user_id, $args = array() ) {
+    $defaults = array(
+        'reference' => '',
+        'amount'    => 0,
+        'date'      => current_time( 'Y-m-d' ),
+        'title'     => 'Transactiebevestiging',
+        'body'      => '',
+    );
+    $data = wp_parse_args( $args, $defaults );
+
+    $user_id   = (int) $user_id;
+    $reference = sanitize_text_field( $data['reference'] );
+    if ( ! $user_id || '' === $reference ) {
+        return 0;
+    }
+
+    $existing = get_posts( array(
+        'post_type'      => 'ggr_bericht',
+        'post_status'    => array( 'draft', 'pending', 'publish' ),
+        'posts_per_page' => 1,
+        'meta_query'     => array(
+            array(
+                'key'   => '_ggr_message_transaction_ref',
+                'value' => $reference,
+            ),
+            array(
+                'key'   => '_ggr_message_user_id',
+                'value' => $user_id,
+            ),
+        ),
+        'fields' => 'ids',
+    ) );
+
+    if ( ! empty( $existing ) ) {
+        return (int) $existing[0];
+    }
+
+    $date_raw = $data['date'] ? $data['date'] : current_time( 'Y-m-d' );
+    $dt       = DateTime::createFromFormat( 'Y-m-d', $date_raw );
+    if ( ! $dt ) {
+        $dt = new DateTime( current_time( 'Y-m-d' ) );
+    }
+    $message_date = $dt->format( 'Y-m-d' );
+    $period       = $dt->format( 'Y-m' );
+
+    $amount_value = (float) $data['amount'];
+    $amount_label = function_exists( 'ggrp_fe_format_money' )
+        ? ggrp_fe_format_money( $amount_value )
+        : '€ ' . number_format( $amount_value, 2, ',', '.' );
+
+    $body = $data['body'];
+    if ( '' === $body ) {
+        $body_lines   = array();
+        $body_lines[] = 'Beste [ggr_user_firstname],';
+        $body_lines[] = '';
+        $body_lines[] = sprintf( 'We hebben je storting van %s ontvangen.', $amount_label );
+        $body_lines[] = 'Deze transactie wordt verwerkt op de eerstvolgende handelsdag.';
+        $body_lines[] = '';
+        $body_lines[] = 'Met vriendelijke groet,';
+        $body_lines[] = 'GGR Monthly Income Fund';
+        $body         = implode( "\n", $body_lines );
+    }
+
+    $post_id = wp_insert_post( array(
+        'post_type'    => 'ggr_bericht',
+        'post_status'  => 'publish',
+        'post_title'   => sanitize_text_field( $data['title'] ),
+        'post_content' => $body,
+    ), true );
+
+    if ( ! $post_id || is_wp_error( $post_id ) ) {
+        return 0;
+    }
+
+    update_post_meta( $post_id, '_ggr_message_audience', 'user' );
+    update_post_meta( $post_id, '_ggr_message_user_id', $user_id );
+    update_post_meta( $post_id, '_ggr_message_role', 'participant' );
+    update_post_meta( $post_id, '_ggr_message_type', 'transaction' );
+    update_post_meta( $post_id, '_ggr_message_date', $message_date );
+    update_post_meta( $post_id, '_ggr_message_transaction_ref', $reference );
+    update_post_meta( $post_id, '_ggr_message_period', $period );
+    update_post_meta( $post_id, '_ggr_message_single_transaction', 1 );
+
+    return (int) $post_id;
+}
 
 /**
  * 9. Shortcode: voornaam van ingelogde gebruiker
@@ -1654,7 +1751,7 @@ ob_start();
 
                 <th>
                     Positiewaarde per<br>
-                    <?php echo esc_html( $label_prev_end ); ?> 
+                    <?php echo esc_html( $label_new_start ); ?> 
                 </th>
             </tr>
             </thead>
