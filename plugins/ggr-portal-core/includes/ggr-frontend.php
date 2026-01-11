@@ -157,6 +157,103 @@ function ggrp_fe_get_mutatie_amount_for_user( $mutatie_id, $user_id ) {
     return $amount;
 }
 
+function ggrp_fe_get_mutatie_fallback_history( $user_id ) {
+    if ( ! function_exists( 'ggr_mutaties_parse_decimal' ) ) {
+        return array();
+    }
+
+    $mutatie_posts = get_posts(
+        array(
+            'post_type'      => 'ggr_mutatie',
+            'posts_per_page' => -1,
+            'post_status'    => array( 'publish' ),
+            'meta_query'     => array(
+                array(
+                    'key'     => 'ggr_mutatie_status',
+                    'value'   => array( 'afgewezen', 'geannuleerd' ),
+                    'compare' => 'NOT IN',
+                ),
+            ),
+        )
+    );
+
+    if ( empty( $mutatie_posts ) ) {
+        return array();
+    }
+
+    $today_date = current_time( 'Y-m-d' );
+    $entries    = array();
+
+    foreach ( $mutatie_posts as $mutatie ) {
+        $mutatie_id = $mutatie->ID;
+        $scope      = get_post_meta( $mutatie_id, 'ggr_mutatie_scope', true );
+        $mut_user   = (int) get_post_meta( $mutatie_id, 'ggr_mutatie_user_id', true );
+        if ( 'user' === $scope && $mut_user !== $user_id ) {
+            continue;
+        }
+
+        $type        = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
+        $planned     = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
+        $effective   = function_exists( 'ggr_mutaties_get_effective_date' ) ? ggr_mutaties_get_effective_date( $mutatie_id, $planned ) : $planned;
+        $post_date   = substr( (string) $mutatie->post_date, 0, 10 );
+        $entry_date  = $effective ? $effective : ( $planned ? $planned : $post_date );
+        $amount      = ggrp_fe_get_mutatie_amount_for_user( $mutatie_id, $user_id );
+        $units_raw   = get_post_meta( $mutatie_id, 'ggr_mutatie_participaties', true );
+        $units       = ggr_mutaties_parse_decimal( $units_raw );
+        $needs_nav   = in_array( $type, array( 'inleg', 'opname', 'dividend_herinvestering' ), true );
+        $no_parts    = (bool) get_post_meta( $mutatie_id, 'ggr_mutatie_no_participations', true );
+
+        if ( $entry_date && $entry_date > $today_date ) {
+            $entry_date = $post_date ? $post_date : $today_date;
+        }
+
+        if ( ! $entry_date ) {
+            continue;
+        }
+
+        if ( $no_parts && 'inleg' === $type ) {
+            $needs_nav = false;
+            $units     = 0.0;
+        }
+
+        if ( $needs_nav && $entry_date && function_exists( 'ggr_get_stock_price_for_date' ) && $units <= 0 && $amount > 0 ) {
+            $nav_price = ggr_get_stock_price_for_date( $entry_date );
+            if ( $nav_price ) {
+                $units = round( $amount / $nav_price, 4 );
+            }
+        }
+
+        $entry = (object) array(
+            'datum'                 => $entry_date,
+            'inlegbedrag'           => 0.0,
+            'opnamebedrag'          => 0.0,
+            'distributievergoeding' => 0.0,
+            'nieuwe_participaties'  => 0.0,
+            'verkochte_participaties' => 0.0,
+        );
+
+        if ( 'inleg' === $type ) {
+            $entry->inlegbedrag          = $amount;
+            $entry->nieuwe_participaties = $units;
+        } elseif ( 'opname' === $type ) {
+            $entry->opnamebedrag            = $amount;
+            $entry->verkochte_participaties = $units;
+        } elseif ( 'dividend_herinvestering' === $type ) {
+            $entry->distributievergoeding = $amount;
+            $entry->nieuwe_participaties  = $units;
+        } elseif ( 'dividend_uitkering' === $type ) {
+            $entry->distributievergoeding = $amount;
+            $entry->opnamebedrag          = $amount;
+        } else {
+            $entry->distributievergoeding = $amount;
+        }
+
+        $entries[] = $entry;
+    }
+
+    return $entries;
+}
+
 /**
  * Redirect alle frontend 404's naar het portal/dashboard.
  *
@@ -475,9 +572,14 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
         return '<section class="ggrp-fe"><h1>Dashboard</h1><p>Historie niet beschikbaar.</p></section>';
     }
 
-    $history_raw = ggr_portal_get_history_for_user( $user_id );
+    $history_raw         = ggr_portal_get_history_for_user( $user_id );
+    $history_is_fallback = false;
     if ( ! $history_raw ) {
-        return '<section class="ggrp-fe"><h1>Dashboard</h1><p>Nog geen historie beschikbaar.</p></section>';
+        $history_raw         = ggrp_fe_get_mutatie_fallback_history( $user_id );
+        $history_is_fallback = ! empty( $history_raw );
+    }
+    if ( ! $history_raw ) {
+        return '<section class="ggrp-fe"><h1>Dashboard</h1><p>Nog geen historie of mutaties beschikbaar.</p></section>';
     }
 
     $today_date = current_time( 'Y-m-d' );
@@ -491,7 +593,7 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
     );
 
     if ( empty( $history_raw ) ) {
-        return '<section class="ggrp-fe"><h1>Dashboard</h1><p>Nog geen historie beschikbaar.</p></section>';
+        return '<section class="ggrp-fe"><h1>Dashboard</h1><p>Nog geen historie of mutaties beschikbaar.</p></section>';
     }
 
 
@@ -519,10 +621,11 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
     $first_row  = reset( $history );
     $first_date = ( $first_row && ! empty( $first_row->datum ) ) ? $first_row->datum : null;
 
+    $force_simple_valuation = $history_is_fallback;
     $stock_rows  = [];
     $stock_table = $wpdb->prefix . 'ggr_stock_prices';
 
-    if ( $first_date ) {
+    if ( $first_date && ! $force_simple_valuation ) {
         $stock_rows = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT price_date, price_value
@@ -1052,7 +1155,12 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
                 </span>
             </div>            
         </header>
-
+        <?php if ( $history_is_fallback ) : ?>
+            <div class="ggrp-fe-alert ggrp-fe-alert--info">
+                <p>We tonen je recente mutaties zolang de eerste transactie nog verwerkt wordt.</p>
+            </div>
+        <?php endif; ?>
+        
         <div class="ggrp-fe-kpi-row">
             <!-- Positiewaarde -->
             <article class="ggrp-fe-card">
@@ -1695,7 +1803,7 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
 
     $history = ggr_portal_get_history_for_user( $user_id );
     if ( ! $history ) {
-        return '<section class="ggrp-fe"><h1>Transacties</h1><p>Nog geen transacties gevonden.</p></section>';
+        $history = array();
     }
 
     $today_date = current_time( 'Y-m-d' );
@@ -1709,41 +1817,43 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
     );
 
     if ( empty( $history ) ) {
-        return '<section class="ggrp-fe"><h1>Transacties</h1><p>Nog geen transacties gevonden.</p></section>';
+        $history = array();
     }
 
     /**
      * 1) Chronologisch: positiewaarde + participaties voor/na per transactie uitrekenen.
      *    Boekhoudkundige logica: netto inleg + cumulatief dividend.
      */
-    $history_asc = $history;
-    usort( $history_asc, function( $a, $b ) {
-        return strcmp( $a->datum, $b->datum );
-    } );
+    if ( ! empty( $history ) ) {
+        $history_asc = $history;
+        usort( $history_asc, function( $a, $b ) {
+            return strcmp( $a->datum, $b->datum );
+        } );
 
-    $cumul_inleg         = 0.0;
-    $cumul_opname        = 0.0;
-    $cumul_distributie   = 0.0;
-    $cumul_participaties = 0.0;
-    $current_pos         = 0.0;
+        $cumul_inleg         = 0.0;
+        $cumul_opname        = 0.0;
+        $cumul_distributie   = 0.0;
+        $cumul_participaties = 0.0;
+        $current_pos         = 0.0;
 
-    foreach ( $history_asc as $row ) {
-        $old_pos   = $current_pos;
-        $old_parts = $cumul_participaties;
+        foreach ( $history_asc as $row ) {
+            $old_pos   = $current_pos;
+            $old_parts = $cumul_participaties;
 
-        $cumul_inleg         += (float) $row->inlegbedrag;
-        $cumul_opname        += (float) $row->opnamebedrag;
-        $cumul_distributie   += (float) $row->distributievergoeding;
-        $cumul_participaties += (float) $row->nieuwe_participaties - (float) $row->verkochte_participaties;
-        $cumul_participaties = ggr_portal_truncate_participaties( $cumul_participaties, 4 );
+            $cumul_inleg         += (float) $row->inlegbedrag;
+            $cumul_opname        += (float) $row->opnamebedrag;
+            $cumul_distributie   += (float) $row->distributievergoeding;
+            $cumul_participaties += (float) $row->nieuwe_participaties - (float) $row->verkochte_participaties;
+            $cumul_participaties = ggr_portal_truncate_participaties( $cumul_participaties, 4 );
 
-        $netto_inleg = $cumul_inleg - $cumul_opname;
-        $current_pos = $netto_inleg + $cumul_distributie;
+            $netto_inleg = $cumul_inleg - $cumul_opname;
+            $current_pos = $netto_inleg + $cumul_distributie;
 
-        $row->old_positiewaarde = $old_pos;
-        $row->new_positiewaarde = $current_pos;
-        $row->old_participaties = ggr_portal_truncate_participaties( $old_parts, 4 );
-        $row->new_participaties = $cumul_participaties;
+            $row->old_positiewaarde = $old_pos;
+            $row->new_positiewaarde = $current_pos;
+            $row->old_participaties = ggr_portal_truncate_participaties( $old_parts, 4 );
+            $row->new_participaties = $cumul_participaties;
+        }
     }
 
     /**
