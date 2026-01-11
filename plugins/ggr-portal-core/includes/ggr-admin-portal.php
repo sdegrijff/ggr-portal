@@ -171,8 +171,9 @@ function ggr_admin_render_dashboard() {
 		'order'          => 'DESC',
 	] );
 
-	$mutatie_types    = function_exists( 'ggr_mutaties_get_types' ) ? ggr_mutaties_get_types() : [];
-	$mutatie_statuses = function_exists( 'ggr_mutaties_get_statuses' ) ? ggr_mutaties_get_statuses() : [];
+	$mutatie_types           = function_exists( 'ggr_mutaties_get_types' ) ? ggr_mutaties_get_types() : [];
+	$mutatie_statuses        = function_exists( 'ggr_mutaties_get_statuses' ) ? ggr_mutaties_get_statuses() : [];
+	$mutatie_payment_statuses = function_exists( 'ggr_mutaties_get_payment_statuses' ) ? ggr_mutaties_get_payment_statuses() : [];
 
 	$meldingen = get_posts( [
 		'post_type'      => 'ggr_melding',
@@ -266,6 +267,7 @@ function ggr_admin_render_dashboard() {
 		echo '<th>Deelnemer</th>';
 		echo '<th>Bedrag</th>';
 		echo '<th>Status</th>';
+		echo '<th>Betaalstatus</th>';		
 		echo '</tr></thead>';
 		echo '<tbody>';
 		foreach ( $mutaties as $mutatie ) {
@@ -275,7 +277,11 @@ function ggr_admin_render_dashboard() {
 			$user_id    = (int) get_post_meta( $mutatie->ID, 'ggr_mutatie_user_id', true );
 			$scope      = get_post_meta( $mutatie->ID, 'ggr_mutatie_scope', true );
 			$planned    = get_post_meta( $mutatie->ID, 'ggr_mutatie_planned_date', true );
-
+			$payment_status_key = get_post_meta( $mutatie->ID, 'ggr_mutatie_payment_status', true );
+			if ( ! $payment_status_key ) {
+				$payment_status_key = get_post_meta( $mutatie->ID, 'ggr_mutatie_betaalstatus', true );
+			}
+			
 			$user_label = 'Alle participanten';
 			$user_link  = '';
 			if ( 'user' === $scope && $user_id ) {
@@ -288,6 +294,7 @@ function ggr_admin_render_dashboard() {
 
 			$type_label   = isset( $mutatie_types[ $type_key ] ) ? $mutatie_types[ $type_key ] : $type_key;
 			$status_label = isset( $mutatie_statuses[ $status_key ] ) ? $mutatie_statuses[ $status_key ] : $status_key;
+			$payment_label = isset( $mutatie_payment_statuses[ $payment_status_key ] ) ? $mutatie_payment_statuses[ $payment_status_key ] : $payment_status_key;			
 			$date_label   = $planned ? date_i18n( 'd-m-Y', strtotime( $planned ) ) : get_the_date( 'd-m-Y', $mutatie );
 
 			echo '<tr>';
@@ -299,6 +306,7 @@ function ggr_admin_render_dashboard() {
 				echo '<td>' . esc_html( $user_label ) . '</td>';
 			}			echo '<td>' . esc_html( $format_money( $amount ) ) . '</td>';
 			echo '<td>' . esc_html( $status_label ) . '</td>';
+			echo '<td>' . esc_html( $payment_label ? $payment_label : '—' ) . '</td>';			
 			echo '</tr>';
 		}
 		echo '</tbody></table>';
