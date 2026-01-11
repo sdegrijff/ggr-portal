@@ -1630,12 +1630,15 @@ function ggr_portal_create_single_transaction_message( $user_id, $args = array()
         $body         = implode( "\n", $body_lines );
     }
 
-    $post_id = wp_insert_post( array(
-        'post_type'    => 'ggr_bericht',
-        'post_status'  => 'publish',
-        'post_title'   => sanitize_text_field( $data['title'] ),
-        'post_content' => $body,
-    ), true );
+    $post_id = wp_insert_post(
+        array(
+            'post_type'    => 'ggr_bericht',
+            'post_status'  => 'draft',
+            'post_title'   => sanitize_text_field( $data['title'] ),
+            'post_content' => $body,
+        ),
+        true
+    );
 
     if ( ! $post_id || is_wp_error( $post_id ) ) {
         return 0;
@@ -1650,6 +1653,16 @@ function ggr_portal_create_single_transaction_message( $user_id, $args = array()
     update_post_meta( $post_id, '_ggr_message_period', $period );
     update_post_meta( $post_id, '_ggr_message_single_transaction', 1 );
 
+    $post_id = wp_insert_post(
+        array(
+            'post_type'    => 'ggr_bericht',
+            'post_status'  => 'draft',
+            'post_title'   => sanitize_text_field( $data['title'] ),
+            'post_content' => $body,
+        ),
+        true
+    );
+    
     return (int) $post_id;
 }
 
