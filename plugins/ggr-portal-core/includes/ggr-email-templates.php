@@ -213,6 +213,7 @@ function ggr_portal_render_email_template_metabox( $post ) {
         'password_changed'             => 'Wachtwoord gewijzigd',
         'email_changed'                => 'E-mailadres gewijzigd',
         'new_portal_message'           => 'Nieuw portalbericht',
+        'new_registration'             => 'Nieuwe lead registratie',        
         'help_request_confirmation'    => 'Helpvraag bevestiging',
         'feedback_thanks'              => 'Bedankt voor je feedback',        
         'documents_approved'           => 'Documenten goedgekeurd',
@@ -256,6 +257,10 @@ function ggr_portal_render_email_template_metabox( $post ) {
         'contract_link'            => 'Link naar contract in onboarding',
         'rejection_feedback'       => 'Feedback bij afkeuring',
         'verification_link'        => 'Verificatielink',
+        'verification_valid_minutes' => 'Geldigheid verificatielink (minuten)',
+        'lead_phone'               => 'Telefoonnummer van lead',
+        'lead_investment_amount'   => 'Investeringsbedrag van lead',
+        'lead_account_type'        => 'Account type van lead (private/business)',        
         'ibkr_run_timestamp'       => 'Datum/tijd van IBKR Flex run',
         'ibkr_report_date'         => 'Rapportdatum (IBKR NAV)',
         'ibkr_nav_per_participation' => 'NAV per participatie',
@@ -436,7 +441,8 @@ function ggr_portal_save_email_template_meta( $post_id ) {
 
                 $subject_rendered = strtr( $subject_raw, $replacements );
                 $body_rendered    = strtr( $body_raw, $replacements );
-
+                $body_rendered    = ggr_portal_wrap_email_body( $body_rendered, $subject_rendered );
+                
                 $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
 
                 $sent = wp_mail( $test_email, $subject_rendered, $body_rendered, $headers );
@@ -492,6 +498,56 @@ function ggr_portal_get_email_template( $key ) {
 }
 
 /**
+ * Wrap de body in de gedeelde e-mail template.
+ */
+function ggr_portal_wrap_email_body( $body, $subject = '' ) {
+    $site_name = wp_specialchars_decode( get_option( 'blogname' ), ENT_QUOTES );
+    $site_url  = home_url( '/' );
+
+    $email_subject = $subject;
+    $email_body    = $body;
+
+    ob_start();
+    ?>
+    <!doctype html>
+    <html lang="nl">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title><?php echo esc_html( $email_subject ); ?></title>
+    </head>
+    <body style="margin:0; padding:0; background-color:#f5f7fa; font-family:Arial, Helvetica, sans-serif; color:#1f2937;">
+        <div style="padding:32px 16px;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width:640px; margin:0 auto; background:#ffffff; border-radius:12px; overflow:hidden;">
+                <tr>
+                    <td style="padding:24px 32px; background:#0f3d4f; color:#ffffff;">
+                        <h1 style="margin:0; font-size:20px; font-weight:600;"><?php echo esc_html( $site_name ); ?></h1>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:32px; font-size:15px; line-height:1.6;">
+                        <?php echo wp_kses_post( $email_body ); ?>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:24px 32px; background:#f0f4f8; font-size:12px; color:#6b7280;">
+                        <?php echo esc_html( $site_name ); ?> &middot;
+                        <a href="<?php echo esc_url( $site_url ); ?>" style="color:#0f3d4f; text-decoration:none;">
+                            <?php echo esc_html( $site_url ); ?>
+                        </a>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </body>
+    </html>
+    <?php
+    $wrapped = ob_get_clean();
+
+    return $wrapped ? $wrapped : $body;
+}
+
+/**
  * 5. Renderen met placeholders
  */
 function ggr_portal_render_email( $key, $placeholders = [] ) {
@@ -508,7 +564,8 @@ function ggr_portal_render_email( $key, $placeholders = [] ) {
 
     $subject = strtr( $tpl['subject'], $replacements );
     $body    = strtr( $tpl['body'], $replacements );
-
+    $body    = ggr_portal_wrap_email_body( $body, $subject );
+    
     return [
         'subject' => $subject,
         'body'    => $body,
@@ -524,12 +581,12 @@ function ggr_portal_send_templated_email( $template_key, $user_id, $extra_placeh
         return false;
     }
 
-        $default_placeholders = [
-            'user_display_name' => ggr_portal_get_nice_user_name( $user ),
-            'account_email'     => $user->user_email,
-            'portal_link'       => home_url( '/' ),
-            'login_link'        => wp_login_url(),
-        ];
+    $default_placeholders = [
+        'user_display_name' => ggr_portal_get_nice_user_name( $user ),
+        'account_email'     => $user->user_email,
+        'portal_link'       => home_url( '/' ),
+        'login_link'        => wp_login_url(),
+    ];
 
 
     $placeholders = array_merge( $default_placeholders, $extra_placeholders );
@@ -542,6 +599,34 @@ function ggr_portal_send_templated_email( $template_key, $user_id, $extra_placeh
     $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
 
     return wp_mail( $user->user_email, $rendered['subject'], $rendered['body'], $headers );
+}
+
+/**
+ * Helper om een template te sturen naar een specifiek e-mailadres.
+ */
+function ggr_portal_send_templated_email_to_address( $template_key, $email, $extra_placeholders = [], $default_placeholders = [] ) {
+    $email = sanitize_email( $email );
+    if ( ! $email || ! is_email( $email ) ) {
+        return false;
+    }
+
+    $placeholders = array_merge(
+        [
+            'portal_link' => home_url( '/' ),
+            'login_link'  => wp_login_url(),
+        ],
+        $default_placeholders,
+        $extra_placeholders
+    );
+
+    $rendered = ggr_portal_render_email( $template_key, $placeholders );
+    if ( ! $rendered ) {
+        return false;
+    }
+
+    $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
+
+    return wp_mail( $email, $rendered['subject'], $rendered['body'], $headers );
 }
 
 /**
