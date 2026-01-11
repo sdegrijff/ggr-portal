@@ -2497,19 +2497,33 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
         if ( ! $previous_payment_received ) {
             update_user_meta( $user_id, 'ggr_payment_received_at', $profile_timestamp );
 
-            // Eerste storting vastleggen als transactie wanneer er nog geen historie is.
-            if ( function_exists( 'ggr_portal_get_history_for_user' ) && function_exists( 'ggr_portal_add_history_entry' ) ) {
-                $existing_history = ggr_portal_get_history_for_user( $user_id );
-                $initial_logged   = get_user_meta( $user_id, 'ggr_initial_deposit_recorded', true );
+            $deposit_amount = (float) get_user_meta( $user_id, 'ggr_participation_amount', true );
+            if ( $deposit_amount > 0 && function_exists( 'ggr_mutaties_create_mutatie' ) ) {
+                $mutatie_id = ggr_mutaties_create_mutatie( 'inleg', $user_id, $deposit_amount );
+                if ( ! is_wp_error( $mutatie_id ) ) {
+                    $planned_date = function_exists( 'ggr_mutaties_get_next_run_date' )
+                        ? ggr_mutaties_get_next_run_date()
+                        : '';
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'ingepland' );
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_betaalstatus', 'betaald' );
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 1 );
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', $planned_date );
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_publication_date', $planned_date );
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_source', 'onboarding' );
+                    if ( $planned_date && function_exists( 'ggr_mutaties_get_nav_date_for_planned_date' ) ) {
+                        update_post_meta( $mutatie_id, 'ggr_mutatie_nav_date', ggr_mutaties_get_nav_date_for_planned_date( $planned_date ) );
+                    }
 
-                if ( empty( $existing_history ) && ! $initial_logged ) {
-                    $deposit_amount = (float) get_user_meta( $user_id, 'ggr_participation_amount', true );
-                    if ( $deposit_amount > 0 ) {
-                        $deposit_date = wp_date( 'Y-m-d', strtotime( $profile_timestamp ) );
-                        $added        = ggr_portal_add_history_entry( $user_id, $deposit_date, $deposit_amount, 0, 0, 0, 0 );
-                        if ( $added ) {
-                            update_user_meta( $user_id, 'ggr_initial_deposit_recorded', 1 );
-                        }
+                    if ( function_exists( 'ggr_portal_create_single_transaction_message' ) ) {
+                        ggr_portal_create_single_transaction_message(
+                            $user_id,
+                            array(
+                                'reference' => 'mutatie-' . $mutatie_id,
+                                'amount'    => $deposit_amount,
+                                'date'      => wp_date( 'Y-m-d', strtotime( $profile_timestamp ) ),
+                                'title'     => 'Bevestiging storting',
+                            )
+                        );
                     }
                 }
             }
