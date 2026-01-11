@@ -1226,8 +1226,9 @@ function ggr_mutaties_render_admin_page() {
         ),
     ) );    
 
-    $statuses = ggr_mutaties_get_statuses();
-    $types    = ggr_mutaties_get_types();
+    $statuses         = ggr_mutaties_get_statuses();
+    $types            = ggr_mutaties_get_types();
+    $payment_statuses = ggr_mutaties_get_payment_statuses();
     $new_url  = admin_url( 'post-new.php?post_type=ggr_mutatie' );
 
     ?>
@@ -1270,6 +1271,7 @@ function ggr_mutaties_render_admin_page() {
                             <th scope="col">Participaties</th>     
                             <th scope="col">Koers</th>
                             <th scope="col">Status</th>
+                            <th scope="col">Betaalstatus</th>                            
                             <th scope="col">Gepland</th>
                             <th scope="col">Aangemaakt</th>
                             <th scope="col">Acties</th>                            
@@ -1284,6 +1286,13 @@ function ggr_mutaties_render_admin_page() {
                             $amount     = get_post_meta( $mutatie_id, 'ggr_mutatie_amount', true );
                             $units      = get_post_meta( $mutatie_id, 'ggr_mutatie_participaties', true );                            
                             $scope      = get_post_meta( $mutatie_id, 'ggr_mutatie_scope', true );
+                            $payment_status_key = get_post_meta( $mutatie_id, 'ggr_mutatie_payment_status', true );
+                            if ( ! $payment_status_key ) {
+                                $payment_status_key = get_post_meta( $mutatie_id, 'ggr_mutatie_betaalstatus', true );
+                            }
+                            $payment_status_label = $payment_status_key && isset( $payment_statuses[ $payment_status_key ] )
+                                ? $payment_statuses[ $payment_status_key ]
+                                : $payment_status_key;                            
                             $planned    = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
                             $user_id    = (int) get_post_meta( $mutatie_id, 'ggr_mutatie_user_id', true );
                             $user_name  = $user_id ? ( get_user_by( 'ID', $user_id )->display_name ?? '' ) : '';
@@ -1381,6 +1390,7 @@ function ggr_mutaties_render_admin_page() {
                                 <td><?php echo $display_units !== null ? esc_html( number_format( (float) $display_units, 4, ',', '.' ) ) : '—'; ?></td>
                                 <td><?php echo $price_used ? esc_html( '€ ' . number_format( (float) $price_used, 4, ',', '.' ) ) : '—'; ?></td>
                                 <td><?php echo esc_html( $statuses[ $status ] ?? $status ); ?></td>
+                                <td><?php echo esc_html( $payment_status_label ? $payment_status_label : '—' ); ?></td>                                
                                 <td><?php echo esc_html( ggr_mutaties_format_nl_date( $planned ) ); ?></td>
                                 <td><?php echo esc_html( ggr_mutaties_format_nl_date( $mutatie->post_date ) ); ?></td>
                                 <td>
@@ -1418,6 +1428,7 @@ function ggr_mutaties_render_admin_page() {
                         <th scope="col">Participaties</th>
                         <th scope="col">Koers</th>
                         <th scope="col">Status</th>
+                        <th scope="col">Betaalstatus</th>                        
                         <th scope="col">Gepland</th>
                         <th scope="col">Aangemaakt</th>
                         <th scope="col">Acties</th>                        
@@ -1432,6 +1443,13 @@ function ggr_mutaties_render_admin_page() {
                         $amount     = get_post_meta( $mutatie_id, 'ggr_mutatie_amount', true );
                         $units      = get_post_meta( $mutatie_id, 'ggr_mutatie_participaties', true );
                         $scope      = get_post_meta( $mutatie_id, 'ggr_mutatie_scope', true );
+                        $payment_status_key = get_post_meta( $mutatie_id, 'ggr_mutatie_payment_status', true );
+                        if ( ! $payment_status_key ) {
+                            $payment_status_key = get_post_meta( $mutatie_id, 'ggr_mutatie_betaalstatus', true );
+                        }
+                        $payment_status_label = $payment_status_key && isset( $payment_statuses[ $payment_status_key ] )
+                            ? $payment_statuses[ $payment_status_key ]
+                            : $payment_status_key;                        
                         $planned    = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
                         $user_id    = (int) get_post_meta( $mutatie_id, 'ggr_mutatie_user_id', true );
                         $user_name  = $user_id ? ( get_user_by( 'ID', $user_id )->display_name ?? '' ) : '';
@@ -1507,6 +1525,7 @@ function ggr_mutaties_render_admin_page() {
                             <td><?php echo $display_units !== null ? esc_html( number_format( (float) $display_units, 4, ',', '.' ) ) : '—'; ?></td>
                             <td><?php echo $price_used ? esc_html( '€ ' . number_format( (float) $price_used, 4, ',', '.' ) ) : '—'; ?></td>
                             <td><?php echo esc_html( $statuses[ $status ] ?? $status ); ?></td>
+                            <td><?php echo esc_html( $payment_status_label ? $payment_status_label : '—' ); ?></td>                            
                             <td><?php echo esc_html( ggr_mutaties_format_nl_date( $planned ) ); ?></td>
                             <td><?php echo esc_html( ggr_mutaties_format_nl_date( $mutatie->post_date ) ); ?></td>
                             <td>
