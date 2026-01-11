@@ -523,6 +523,37 @@ function ggr_portal_render_email( $key, $placeholders = [] ) {
 }
 
 /**
+ * Wrap e-mail body in a basic HTML document.
+ */
+function ggr_portal_wrap_email_body( $body, $subject = '' ) {
+    $body = trim( (string) $body );
+    if ( '' === $body ) {
+        return $body;
+    }
+
+    if ( false !== stripos( $body, '<html' ) || false !== stripos( $body, '<body' ) || false !== stripos( $body, '<!doctype' ) ) {
+        return $body;
+    }
+
+    $language  = get_bloginfo( 'language' );
+    $direction = is_rtl() ? 'rtl' : 'ltr';
+    $title     = wp_strip_all_tags( $subject );
+    $styles    = 'body{margin:0;padding:0;background-color:#f3f6f7;color:#111827;font-family:Arial,Helvetica,sans-serif;}img{border:0;line-height:100%;outline:none;text-decoration:none;}table{border-collapse:collapse;}';
+
+    return '<!DOCTYPE html>'
+        . '<html lang="' . esc_attr( $language ) . '" dir="' . esc_attr( $direction ) . '">'
+        . '<head>'
+        . '<meta charset="UTF-8">'
+        . '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+        . '<meta http-equiv="X-UA-Compatible" content="IE=edge">'
+        . '<title>' . esc_html( $title ) . '</title>'
+        . '<style type="text/css">' . $styles . '</style>'
+        . '</head>'
+        . '<body>' . $body . '</body>'
+        . '</html>';
+}
+
+/**
  * 6. Helper om direct een mail te sturen (productiegebruik)
  */
 function ggr_portal_send_templated_email( $template_key, $user_id, $extra_placeholders = [] ) {
