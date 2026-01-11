@@ -4918,9 +4918,6 @@ function ggr_portal_render_participant_profile_page() {
                             <input type="checkbox" name="ggr_payment_received" value="1" <?php checked( $payment_received, 1 ); ?> /> Betaling ontvangen en gecontroleerd
                         </label>
                         <div class="ggr-admin-inline-actions">
-                            <?php if ( ! $payment_confirmation_at ) : ?>
-                                <button type="submit" class="button" name="ggr_payment_confirm_admin" value="1">Betaling bevestigd door lead registreren</button>
-                            <?php endif; ?>
                         </div>                        
                         <p class="description">Back-end stappen voor deze fase:</p>
                         <ul class="ggr-admin-meta-list">
