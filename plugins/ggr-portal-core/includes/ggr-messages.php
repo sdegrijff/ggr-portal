@@ -231,9 +231,8 @@ function ggr_bericht_meta_box_callback( $post ) {
             <option value="all" <?php selected( $recipient, 'all' ); ?>>Alle participanten</option>
             <option value="user" <?php selected( $recipient, 'user' ); ?>>Specifieke participant</option>
         </select>
+    </p>        
     <p id="ggr_message_user_row">
-
-    <p>
         <label for="ggr_message_user_id"><strong>Participant</strong></label><br/>
         <?php
         wp_dropdown_users(
