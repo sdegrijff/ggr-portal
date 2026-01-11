@@ -57,6 +57,8 @@ function ggr_portal_investeren_shortcode() {
     $active_flow       = '';
     $selected_action   = isset( $_GET['change'] ) ? sanitize_key( wp_unslash( $_GET['change'] ) ) : '';
     $available_actions = array( 'deposit', 'withdrawal', 'strategy', 'bank_change' );
+    $created_deposit_mutatie = null;
+    $is_deposit_submission   = false;
 
     if ( ! in_array( $selected_action, $available_actions, true ) ) {
         $selected_action = '';
@@ -96,6 +98,7 @@ function ggr_portal_investeren_shortcode() {
 
             switch ( $action ) {
                 case 'deposit':
+                    $is_deposit_submission = true;                    
                     $deposit_amount_raw = isset( $_POST['ggr_deposit_amount'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_deposit_amount'] ) ) : '';
                     $deposit_amount     = (float) str_replace( ',', '.', $deposit_amount_raw );
                     $deposit_reference  = isset( $_POST['ggr_deposit_reference'] ) ? sanitize_text_field( wp_unslash( $_POST['ggr_deposit_reference'] ) ) : '';
@@ -126,6 +129,7 @@ function ggr_portal_investeren_shortcode() {
                                         if ( is_wp_error( $mutatie_id ) ) {
                                             $errors[] = 'Kon de mutatie voor de storting niet aanmaken.';
                                         } else {
+                                            $created_deposit_mutatie = get_post( $mutatie_id );                                            
                                             $planned_date = function_exists( 'ggr_mutaties_get_next_run_date' )
                                                 ? ggr_mutaties_get_next_run_date()
                                                 : '';                                            
@@ -181,6 +185,7 @@ function ggr_portal_investeren_shortcode() {
                                     if ( is_wp_error( $mutatie_id ) ) {
                                         $errors[] = 'Kon de mutatie voor de storting niet aanmaken.';
                                     } else {
+                                        $created_deposit_mutatie = get_post( $mutatie_id );                                        
                                         $planned_date = function_exists( 'ggr_mutaties_get_next_run_date' )
                                             ? ggr_mutaties_get_next_run_date()
                                             : '';                                       
@@ -375,8 +380,16 @@ function ggr_portal_investeren_shortcode() {
     if ( isset( $_GET['new_deposit'] ) ) {
         $ignore_latest_deposit = '1' === sanitize_text_field( wp_unslash( $_GET['new_deposit'] ) );
     }
-
-    $latest_deposit_mutatie = $ignore_latest_deposit ? null : ggr_portal_get_latest_inleg_mutatie( $user->ID );
+    if ( $is_deposit_submission && ! $created_deposit_mutatie ) {
+        $ignore_latest_deposit = true;
+    }
+    
+    $latest_deposit_mutatie = null;
+    if ( $created_deposit_mutatie ) {
+        $latest_deposit_mutatie = $created_deposit_mutatie;
+    } elseif ( ! $ignore_latest_deposit ) {
+        $latest_deposit_mutatie = ggr_portal_get_latest_inleg_mutatie( $user->ID );
+    }
     $latest_payment_status  = '';
     $latest_payment_url     = '';
     if ( $latest_deposit_mutatie ) {
