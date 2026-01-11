@@ -130,6 +130,8 @@ function ggr_portal_investeren_shortcode() {
                                                 ? ggr_mutaties_get_next_run_date()
                                                 : '';                                            
                                             update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'in_behandeling' );
+                                            update_post_meta( $mutatie_id, 'ggr_mutatie_betaalstatus', 'open' );
+                                            update_post_meta( $mutatie_id, 'ggr_mutatie_no_participations', 1 );                                            
                                             update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 1 );
                                             update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', $planned_date );
                                             update_post_meta( $mutatie_id, 'ggr_mutatie_publication_date', $planned_date );
@@ -183,6 +185,8 @@ function ggr_portal_investeren_shortcode() {
                                             ? ggr_mutaties_get_next_run_date()
                                             : '';                                       
                                         update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'in_behandeling' );
+                                        update_post_meta( $mutatie_id, 'ggr_mutatie_betaalstatus', 'open' );
+                                        update_post_meta( $mutatie_id, 'ggr_mutatie_no_participations', 1 );                                        
                                         update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 1 );
                                         update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', $planned_date );
                                         update_post_meta( $mutatie_id, 'ggr_mutatie_publication_date', $planned_date );
