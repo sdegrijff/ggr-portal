@@ -441,8 +441,7 @@ function ggr_portal_save_email_template_meta( $post_id ) {
 
                 $subject_rendered = strtr( $subject_raw, $replacements );
                 $body_rendered    = strtr( $body_raw, $replacements );
-                $body_rendered    = ggr_portal_wrap_email_body( $body_rendered, $subject_rendered );
-                
+
                 $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
 
                 $sent = wp_mail( $test_email, $subject_rendered, $body_rendered, $headers );
@@ -488,63 +487,13 @@ function ggr_portal_get_email_template( $key ) {
     }
 
     $subject = get_post_meta( $post->ID, '_ggr_email_subject', true );
-    $body    = apply_filters( 'the_content', $post->post_content );
+    $body    = $post->post_content;
 
     return [
         'id'      => $post->ID,
         'subject' => $subject,
         'body'    => $body,
     ];
-}
-
-/**
- * Wrap de body in de gedeelde e-mail template.
- */
-function ggr_portal_wrap_email_body( $body, $subject = '' ) {
-    $site_name = wp_specialchars_decode( get_option( 'blogname' ), ENT_QUOTES );
-    $site_url  = home_url( '/' );
-
-    $email_subject = $subject;
-    $email_body    = $body;
-
-    ob_start();
-    ?>
-    <!doctype html>
-    <html lang="nl">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title><?php echo esc_html( $email_subject ); ?></title>
-    </head>
-    <body style="margin:0; padding:0; background-color:#f5f7fa; font-family:Arial, Helvetica, sans-serif; color:#1f2937;">
-        <div style="padding:32px 16px;">
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width:640px; margin:0 auto; background:#ffffff; border-radius:12px; overflow:hidden;">
-                <tr>
-                    <td style="padding:24px 32px; background:#0f3d4f; color:#ffffff;">
-                        <h1 style="margin:0; font-size:20px; font-weight:600;"><?php echo esc_html( $site_name ); ?></h1>
-                    </td>
-                </tr>
-                <tr>
-                    <td style="padding:32px; font-size:15px; line-height:1.6;">
-                        <?php echo wp_kses_post( $email_body ); ?>
-                    </td>
-                </tr>
-                <tr>
-                    <td style="padding:24px 32px; background:#f0f4f8; font-size:12px; color:#6b7280;">
-                        <?php echo esc_html( $site_name ); ?> &middot;
-                        <a href="<?php echo esc_url( $site_url ); ?>" style="color:#0f3d4f; text-decoration:none;">
-                            <?php echo esc_html( $site_url ); ?>
-                        </a>
-                    </td>
-                </tr>
-            </table>
-        </div>
-    </body>
-    </html>
-    <?php
-    $wrapped = ob_get_clean();
-
-    return $wrapped ? $wrapped : $body;
 }
 
 /**
@@ -564,8 +513,7 @@ function ggr_portal_render_email( $key, $placeholders = [] ) {
 
     $subject = strtr( $tpl['subject'], $replacements );
     $body    = strtr( $tpl['body'], $replacements );
-    $body    = ggr_portal_wrap_email_body( $body, $subject );
-    
+
     return [
         'subject' => $subject,
         'body'    => $body,
