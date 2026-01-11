@@ -2590,6 +2590,36 @@ function ggr_onboarding_handle_email_verification() {
 }
 
 /**
+ * Verificatielink afhandelen vanaf elke pagina.
+ */
+add_action( 'template_redirect', 'ggr_onboarding_maybe_handle_email_verification' );
+function ggr_onboarding_maybe_handle_email_verification() {
+    if ( is_admin() || wp_doing_ajax() ) {
+        return;
+    }
+
+    if ( ! isset( $_GET['ggr_verify'], $_GET['uid'], $_GET['token'] ) ) {
+        return;
+    }
+
+    $verify_result = ggr_onboarding_handle_email_verification();
+    $verified_user_id = isset( $_GET['uid'] ) ? (int) $_GET['uid'] : 0;
+
+    if ( ! is_wp_error( $verify_result )
+        && is_user_logged_in()
+        && $verified_user_id
+        && get_current_user_id() === $verified_user_id
+    ) {
+        wp_safe_redirect( home_url( '/onboarding/' ) );
+        exit;
+    }
+
+    $status = is_wp_error( $verify_result ) ? 'failed' : 'success';
+    wp_safe_redirect( add_query_arg( 'verify', $status, home_url( '/login/' ) ) );
+    exit;
+}
+
+/**
  * Verificatiemail (opnieuw) versturen.
  */
 function ggr_onboarding_send_verification_email( $user_id ) {
@@ -2601,7 +2631,7 @@ function ggr_onboarding_send_verification_email( $user_id ) {
 
     $token  = wp_generate_password( 32, false, false );
     $now    = current_time( 'timestamp' );
-    $expiry = $now + DAY_IN_SECONDS * 2; // 48 uur geldig
+    $expiry = $now + ( 30 * MINUTE_IN_SECONDS ); // 30 minuten geldig
 
     update_user_meta( $user_id, 'ggr_onboarding_email_token', $token );
     update_user_meta( $user_id, 'ggr_onboarding_email_token_expires', $expiry );
@@ -2624,7 +2654,8 @@ function ggr_onboarding_send_verification_email( $user_id ) {
         $extra_placeholders = array(
             'verification_link'  => $verify_url,
             'login_link'         => home_url( '/login/' ),
-            'reset_valid_minutes'=> $valid_minutes,
+            'verification_valid_minutes' => $valid_minutes,
+            'reset_valid_minutes'        => $valid_minutes,
         );
 
         return ggr_portal_send_templated_email(
@@ -2833,6 +2864,21 @@ function ggr_onboarding_handle_registration_submit() {
     }
 
     ggr_onboarding_send_verification_email( $user_id );
+
+    if ( function_exists( 'ggr_portal_send_admin_templated_email' ) ) {
+        $amount_display = '€ ' . number_format( (float) $investment, 0, ',', '.' );
+        ggr_portal_send_admin_templated_email(
+            'new_registration',
+            array(
+                'user_display_name'       => trim( $first_name . ' ' . $last_name ),
+                'account_email'           => $email,
+                'lead_phone'              => $phone,
+                'lead_account_type'       => $account_type,
+                'lead_investment_amount'  => $amount_display,
+                'portal_link'             => home_url( '/onboarding/' ),
+            )
+        );
+    }
 
     if ( function_exists( 'ggr_hubspot_sync_user' ) ) {
         ggr_hubspot_sync_user( $user_id, 'register' );
