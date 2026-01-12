@@ -405,7 +405,7 @@ function ggr_portal_investeren_shortcode() {
         $latest_amount       = ggr_mutaties_parse_decimal( get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_amount', true ) );
     }
 
-    if ( $latest_deposit_mutatie ) {
+    if ( $latest_deposit_mutatie && ! $is_deposit_submission ) {
         $deposit_requires_review = $latest_amount >= $deposit_threshold
             && in_array( $latest_status, array( 'in_behandeling', 'goedgekeurd' ), true );
         $deposit_has_open_payment = $latest_payment_status
@@ -422,6 +422,7 @@ function ggr_portal_investeren_shortcode() {
     }
 
     if ( $latest_deposit_mutatie && $latest_payment_status && ! in_array( $latest_payment_status, array( 'open', 'pending' ), true ) ) {
+        $latest_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true );
         if ( 'uitgevoerd' !== $latest_status && function_exists( 'ggr_mutaties_apply_to_history' ) ) {
             $history_errors = array();
             $planned_date   = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_planned_date', true );
