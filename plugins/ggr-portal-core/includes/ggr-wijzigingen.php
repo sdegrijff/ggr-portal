@@ -396,6 +396,10 @@ function ggr_portal_investeren_shortcode() {
     $latest_amount          = 0.0;    
     if ( $latest_deposit_mutatie ) {
         $latest_payment_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_status', true );
+        $latest_betaalstatus  = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_betaalstatus', true );
+        if ( ! $latest_payment_status && $latest_betaalstatus ) {
+            $latest_payment_status = $latest_betaalstatus;
+        }        
         if ( function_exists( 'ggr_mollie_refresh_payment_status' ) && in_array( $latest_payment_status, array( 'open', 'pending' ), true ) ) {
             ggr_mollie_refresh_payment_status( $latest_deposit_mutatie->ID );
             $latest_payment_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_status', true );
@@ -454,6 +458,20 @@ function ggr_portal_investeren_shortcode() {
         }
     }
 
+    $resume_payment = false;
+    if ( isset( $_GET['resume_payment'] ) ) {
+        $resume_payment = '1' === sanitize_text_field( wp_unslash( $_GET['resume_payment'] ) );
+    }
+
+    if ( 'deposit' === $selected_action && '' === $submitted_action && ! $resume_payment ) {
+        $latest_deposit_mutatie = null;
+        $latest_payment_status  = '';
+        $latest_payment_url     = '';
+        $latest_status          = '';
+        $latest_amount          = 0.0;
+        $deposit_stage          = 'amount';
+    }
+
     if ( $ignore_latest_deposit && 'deposit' === $selected_action && '' === $submitted_action ) {
         $deposit_stage = 'amount';
     }
@@ -462,16 +480,11 @@ function ggr_portal_investeren_shortcode() {
         $latest_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true );
         $latest_amount = ggr_mutaties_parse_decimal( get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_amount', true ) );
 
-        if ( $latest_payment_url && ! in_array( $latest_status, array( 'betaald', 'afgewezen' ), true ) ) {
+        if ( $latest_payment_url && in_array( $latest_payment_status, array( 'open', 'pending' ), true ) && ! in_array( $latest_status, array( 'betaald', 'afgewezen' ), true ) ) {
             $deposit_stage = 'payment';
         } elseif ( $latest_amount >= $deposit_threshold && in_array( $latest_status, array( 'in_behandeling', 'goedgekeurd' ), true ) ) {
             $deposit_stage = 'review';
         }
-    }
-
-    $resume_payment = false;
-    if ( isset( $_GET['resume_payment'] ) ) {
-        $resume_payment = '1' === sanitize_text_field( wp_unslash( $_GET['resume_payment'] ) );
     }
 
     if (
