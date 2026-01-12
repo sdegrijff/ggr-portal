@@ -392,6 +392,8 @@ function ggr_portal_investeren_shortcode() {
     }
     $latest_payment_status  = '';
     $latest_payment_url     = '';
+    $latest_status          = '';
+    $latest_amount          = 0.0;    
     if ( $latest_deposit_mutatie ) {
         $latest_payment_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_status', true );
         if ( function_exists( 'ggr_mollie_refresh_payment_status' ) && in_array( $latest_payment_status, array( 'open', 'pending' ), true ) ) {
@@ -399,10 +401,27 @@ function ggr_portal_investeren_shortcode() {
             $latest_payment_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_status', true );
         }
         $latest_payment_url  = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_url', true );
+        $latest_status       = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true );
+        $latest_amount       = ggr_mutaties_parse_decimal( get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_amount', true ) );
+    }
+
+    if ( $latest_deposit_mutatie ) {
+        $deposit_requires_review = $latest_amount >= $deposit_threshold
+            && in_array( $latest_status, array( 'in_behandeling', 'goedgekeurd' ), true );
+        $deposit_has_open_payment = $latest_payment_status
+            && in_array( $latest_payment_status, array( 'open', 'pending' ), true );
+
+        if ( '' === $latest_payment_status && ! $deposit_requires_review && ! $deposit_has_open_payment ) {
+            $latest_deposit_mutatie = null;
+            $latest_payment_status  = '';
+            $latest_payment_url     = '';
+            $latest_status          = '';
+            $latest_amount          = 0.0;
+            $deposit_stage          = 'amount';
+        }        
     }
 
     if ( $latest_deposit_mutatie && $latest_payment_status && ! in_array( $latest_payment_status, array( 'open', 'pending' ), true ) ) {
-        $latest_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true );
         if ( 'uitgevoerd' !== $latest_status && function_exists( 'ggr_mutaties_apply_to_history' ) ) {
             $history_errors = array();
             $planned_date   = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_planned_date', true );
