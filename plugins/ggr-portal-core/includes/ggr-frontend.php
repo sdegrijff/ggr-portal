@@ -192,6 +192,13 @@ function ggrp_fe_get_mutatie_fallback_history( $user_id ) {
             continue;
         }
 
+        $standard_status = function_exists( 'ggr_mutaties_get_standard_status' )
+            ? ggr_mutaties_get_standard_status( $mutatie_id )
+            : '';
+        if ( $standard_status && ! in_array( $standard_status, array( 'VOORLOPIG_GEBOEKT', 'DEFINITIEF_GEBOEKT' ), true ) ) {
+            continue;
+        }
+
         $type        = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
         $planned     = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
         $effective   = function_exists( 'ggr_mutaties_get_effective_date' ) ? ggr_mutaties_get_effective_date( $mutatie_id, $planned ) : $planned;
@@ -229,6 +236,102 @@ function ggrp_fe_get_mutatie_fallback_history( $user_id ) {
             'opnamebedrag'          => 0.0,
             'distributievergoeding' => 0.0,
             'nieuwe_participaties'  => 0.0,
+            'verkochte_participaties' => 0.0,
+        );
+
+        if ( 'inleg' === $type ) {
+            $entry->inlegbedrag          = $amount;
+            $entry->nieuwe_participaties = $units;
+        } elseif ( 'opname' === $type ) {
+            $entry->opnamebedrag            = $amount;
+            $entry->verkochte_participaties = $units;
+        } elseif ( 'dividend_herinvestering' === $type ) {
+            $entry->distributievergoeding = $amount;
+            $entry->nieuwe_participaties  = $units;
+        } elseif ( 'dividend_uitkering' === $type ) {
+            $entry->distributievergoeding = $amount;
+            $entry->opnamebedrag          = $amount;
+        } else {
+            $entry->distributievergoeding = $amount;
+        }
+
+        $entries[] = $entry;
+    }
+
+    return $entries;
+}
+
+function ggrp_fe_get_pending_mutatie_history_entries( $user_id ) {
+    if ( ! function_exists( 'ggr_mutaties_parse_decimal' ) ) {
+        return array();
+    }
+
+    $mutatie_posts = get_posts(
+        array(
+            'post_type'      => 'ggr_mutatie',
+            'posts_per_page' => -1,
+            'post_status'    => array( 'publish' ),
+            'meta_query'     => array(
+                array(
+                    'key'   => 'ggr_mutatie_tx_source',
+                    'value' => 'PARTICIPANT_PORTAL',
+                ),
+            ),
+        )
+    );
+
+    if ( empty( $mutatie_posts ) ) {
+        return array();
+    }
+
+    $entries = array();
+    foreach ( $mutatie_posts as $mutatie ) {
+        $mutatie_id = $mutatie->ID;
+        $scope      = get_post_meta( $mutatie_id, 'ggr_mutatie_scope', true );
+        $mut_user   = (int) get_post_meta( $mutatie_id, 'ggr_mutatie_user_id', true );
+        if ( 'user' === $scope && $mut_user !== $user_id ) {
+            continue;
+        }
+
+        $standard_status = function_exists( 'ggr_mutaties_get_standard_status' )
+            ? ggr_mutaties_get_standard_status( $mutatie_id )
+            : '';
+        if ( 'VOORLOPIG_GEBOEKT' !== $standard_status ) {
+            continue;
+        }
+
+        $type        = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
+        $planned     = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
+        $effective   = function_exists( 'ggr_mutaties_get_effective_date' ) ? ggr_mutaties_get_effective_date( $mutatie_id, $planned ) : $planned;
+        $entry_date  = $effective ? $effective : ( $planned ? $planned : substr( (string) $mutatie->post_date, 0, 10 ) );
+        $amount      = ggrp_fe_get_mutatie_amount_for_user( $mutatie_id, $user_id );
+        $units_raw   = get_post_meta( $mutatie_id, 'ggr_mutatie_participaties', true );
+        $units       = ggr_mutaties_parse_decimal( $units_raw );
+        $needs_nav   = in_array( $type, array( 'inleg', 'opname', 'dividend_herinvestering' ), true );
+        $no_parts    = (bool) get_post_meta( $mutatie_id, 'ggr_mutatie_no_participations', true );
+
+        if ( ! $entry_date ) {
+            continue;
+        }
+
+        if ( $no_parts && 'inleg' === $type ) {
+            $needs_nav = false;
+            $units     = 0.0;
+        }
+
+        if ( $needs_nav && $entry_date && function_exists( 'ggr_get_stock_price_for_date' ) && $units <= 0 && $amount > 0 ) {
+            $nav_price = ggr_get_stock_price_for_date( $entry_date );
+            if ( $nav_price ) {
+                $units = round( $amount / $nav_price, 4 );
+            }
+        }
+
+        $entry = (object) array(
+            'datum'                   => $entry_date,
+            'inlegbedrag'             => 0.0,
+            'opnamebedrag'            => 0.0,
+            'distributievergoeding'   => 0.0,
+            'nieuwe_participaties'    => 0.0,
             'verkochte_participaties' => 0.0,
         );
 
@@ -582,6 +685,11 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
         return '<section class="ggrp-fe"><h1>Dashboard</h1><p>Nog geen historie of mutaties beschikbaar.</p></section>';
     }
 
+    $pending_entries = ggrp_fe_get_pending_mutatie_history_entries( $user_id );
+    if ( $pending_entries ) {
+        $history_raw = array_merge( $history_raw, $pending_entries );
+    }
+
     $today_date = current_time( 'Y-m-d' );
     $history_raw = array_values(
         array_filter(
@@ -830,6 +938,11 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
             'posts_per_page' => -1,
             'post_status'    => array( 'publish' ),
             'meta_query'     => array(
+                'relation' => 'OR',
+                array(
+                    'key'   => 'ggr_mutatie_tx_status',
+                    'value' => 'VOORLOPIG_GEBOEKT',
+                ),                
                 array(
                     'key'   => 'ggr_mutatie_status',
                     'value' => 'ingepland',
@@ -1871,9 +1984,15 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
                 'posts_per_page' => -1,
                 'post_status'    => array( 'publish' ),
                 'meta_query'     => array(
+                    'relation' => 'OR',
+                    array(
+                        'key'     => 'ggr_mutatie_tx_status',
+                        'value'   => array( 'GEANNULEERD', 'GEFAALD' ),
+                        'compare' => 'NOT IN',
+                    ),                    
                     array(
                         'key'     => 'ggr_mutatie_status',
-                        'value'   => array( 'uitgevoerd', 'afgewezen', 'geannuleerd' ),
+                        'value'   => array( 'afgewezen', 'geannuleerd' ),
                         'compare' => 'NOT IN',
                     ),
                 ),
@@ -1881,7 +2000,6 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
         );
 
         if ( ! empty( $mutatie_posts ) ) {
-            $mutatie_statuses = ggr_mutaties_get_statuses();
             foreach ( $mutatie_posts as $mutatie ) {
                 $mutatie_id = $mutatie->ID;
                 $scope      = get_post_meta( $mutatie_id, 'ggr_mutatie_scope', true );
@@ -1891,8 +2009,29 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
                 }
 
                 $type        = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
-                $status_key  = get_post_meta( $mutatie_id, 'ggr_mutatie_status', true );
-                $status_raw  = $status_key && isset( $mutatie_statuses[ $status_key ] ) ? $mutatie_statuses[ $status_key ] : $status_key;
+                $standard_status = function_exists( 'ggr_mutaties_get_standard_status' )
+                    ? ggr_mutaties_get_standard_status( $mutatie_id )
+                    : '';
+                $source = get_post_meta( $mutatie_id, 'ggr_mutatie_tx_source', true );
+                if ( ! $source ) {
+                    $source = 'INTERNAL';
+                }
+
+                if ( 'INTERNAL' === $source && 'DEFINITIEF_GEBOEKT' !== $standard_status ) {
+                    continue;
+                }
+
+                if ( 'SYSTEM_DIVIDEND_RUN' === $source && 'DEFINITIEF_GEBOEKT' !== $standard_status ) {
+                    continue;
+                }
+
+                if ( 'PARTICIPANT_PORTAL' === $source && ! in_array( $standard_status, array( 'AANGEMAAKT', 'IN_BEHANDELING', 'VOORLOPIG_GEBOEKT', 'DEFINITIEF_GEBOEKT' ), true ) ) {
+                    continue;
+                }
+
+                $status_raw = function_exists( 'ggr_mutaties_get_participant_status_label' )
+                    ? ggr_mutaties_get_participant_status_label( $standard_status )
+                    : $standard_status;
                 $planned     = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
                 $effective   = function_exists( 'ggr_mutaties_get_effective_date' ) ? ggr_mutaties_get_effective_date( $mutatie_id, $planned ) : $planned;
                 $entry_date  = $effective ? $effective : ( $planned ? $planned : substr( (string) $mutatie->post_date, 0, 10 ) );
