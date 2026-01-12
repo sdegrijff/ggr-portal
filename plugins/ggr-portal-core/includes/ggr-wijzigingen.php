@@ -125,7 +125,17 @@ function ggr_portal_investeren_shortcode() {
                                     $deposit_stage    = 'review';
 
                                     if ( function_exists( 'ggr_mutaties_create_mutatie' ) ) {
-                                        $mutatie_id = ggr_mutaties_create_mutatie( 'inleg', $user->ID, $deposit_amount );
+                                        $mutatie_id = ggr_mutaties_create_mutatie(
+                                            'inleg',
+                                            $user->ID,
+                                            $deposit_amount,
+                                            '',
+                                            '',
+                                            array(
+                                                'source'           => 'PARTICIPANT_PORTAL',
+                                                'transaction_type' => 'ONLINE_STORTING',
+                                            )
+                                        );
                                         if ( is_wp_error( $mutatie_id ) ) {
                                             $errors[] = 'Kon de mutatie voor de storting niet aanmaken.';
                                         } else {
@@ -133,7 +143,14 @@ function ggr_portal_investeren_shortcode() {
                                             $planned_date = function_exists( 'ggr_mutaties_get_next_run_date' )
                                                 ? ggr_mutaties_get_next_run_date()
                                                 : '';                                            
-                                            update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'in_behandeling' );
+                                            ggr_mutaties_update_status(
+                                                $mutatie_id,
+                                                'IN_BEHANDELING',
+                                                array(
+                                                    'reason' => 'Aanvraag ingediend door participant',
+                                                    'source' => 'PARTICIPANT_PORTAL',
+                                                )
+                                            );
                                             update_post_meta( $mutatie_id, 'ggr_mutatie_betaalstatus', 'open' );
                                             update_post_meta( $mutatie_id, 'ggr_mutatie_no_participations', 1 );                                            
                                             update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 1 );
@@ -145,6 +162,15 @@ function ggr_portal_investeren_shortcode() {
                                             update_post_meta( $mutatie_id, 'ggr_mutatie_deposit_reference', $deposit_reference );
                                             update_post_meta( $mutatie_id, 'ggr_mutatie_source', $deposit_source );
                                             update_post_meta( $mutatie_id, 'ggr_mutatie_source_explanation', $deposit_explanation );
+                                            if ( function_exists( 'ggr_mutaties_sync_transaction_fields' ) ) {
+                                                ggr_mutaties_sync_transaction_fields(
+                                                    $mutatie_id,
+                                                    array(
+                                                        'source'       => 'PARTICIPANT_PORTAL',
+                                                        'planned_date' => $planned_date,
+                                                    )
+                                                );
+                                            }                                            
                                             $success_messages[] = 'Je aanvraag is ontvangen en staat klaar voor beoordeling.';
                                         }
                                     } else {
@@ -181,7 +207,17 @@ function ggr_portal_investeren_shortcode() {
                                 $deposit_stage    = 'payment';
 
                                 if ( function_exists( 'ggr_mutaties_create_mutatie' ) ) {
-                                    $mutatie_id = ggr_mutaties_create_mutatie( 'inleg', $user->ID, $deposit_amount );
+                                    $mutatie_id = ggr_mutaties_create_mutatie(
+                                        'inleg',
+                                        $user->ID,
+                                        $deposit_amount,
+                                        '',
+                                        '',
+                                        array(
+                                            'source'           => 'PARTICIPANT_PORTAL',
+                                            'transaction_type' => 'ONLINE_STORTING',
+                                        )
+                                    );
                                     if ( is_wp_error( $mutatie_id ) ) {
                                         $errors[] = 'Kon de mutatie voor de storting niet aanmaken.';
                                     } else {
@@ -189,7 +225,14 @@ function ggr_portal_investeren_shortcode() {
                                         $planned_date = function_exists( 'ggr_mutaties_get_next_run_date' )
                                             ? ggr_mutaties_get_next_run_date()
                                             : '';                                       
-                                        update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'in_behandeling' );
+                                        ggr_mutaties_update_status(
+                                            $mutatie_id,
+                                            'IN_BEHANDELING',
+                                            array(
+                                                'reason' => 'Betaling gestart',
+                                                'source' => 'PARTICIPANT_PORTAL',
+                                            )
+                                        );
                                         update_post_meta( $mutatie_id, 'ggr_mutatie_betaalstatus', 'open' );
                                         update_post_meta( $mutatie_id, 'ggr_mutatie_no_participations', 1 );                                        
                                         update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 1 );
@@ -199,6 +242,15 @@ function ggr_portal_investeren_shortcode() {
                                             update_post_meta( $mutatie_id, 'ggr_mutatie_nav_date', ggr_mutaties_get_nav_date_for_planned_date( $planned_date ) );
                                         }
                                         update_post_meta( $mutatie_id, 'ggr_mutatie_deposit_reference', $deposit_reference );
+                                        if ( function_exists( 'ggr_mutaties_sync_transaction_fields' ) ) {
+                                            ggr_mutaties_sync_transaction_fields(
+                                                $mutatie_id,
+                                                array(
+                                                    'source'       => 'PARTICIPANT_PORTAL',
+                                                    'planned_date' => $planned_date,
+                                                )
+                                            );
+                                        }                                        
                                     }
                                 } else {
                                     $errors[] = 'Mutatie-functies ontbreken om de storting te verwerken.';
@@ -264,10 +316,27 @@ function ggr_portal_investeren_shortcode() {
                             $withdrawal_stage = 'done';
 
                             if ( function_exists( 'ggr_mutaties_create_mutatie' ) ) {
-                                $mutatie_id = ggr_mutaties_create_mutatie( 'opname', $user->ID, $withdrawal_amount );
+                                $mutatie_id = ggr_mutaties_create_mutatie(
+                                    'opname',
+                                    $user->ID,
+                                    $withdrawal_amount,
+                                    '',
+                                    '',
+                                    array(
+                                        'source'           => 'INTERNAL',
+                                        'transaction_type' => 'MANUAL_OPNAME',
+                                    )
+                                );
                                 if ( is_wp_error( $mutatie_id ) ) {
                                     $errors[] = 'Kon de mutatie voor de opname niet aanmaken.';
                                 } else {
+                                    ggr_mutaties_update_status(
+                                        $mutatie_id,
+                                        'IN_BEHANDELING',
+                                        array(
+                                            'reason' => 'Opname aangevraagd door participant',
+                                        )
+                                    );                                    
                                     $success_messages[] = 'Je opname is direct doorgevoerd als mutatie.';
                                 }
                             } else {
@@ -405,13 +474,15 @@ function ggr_portal_investeren_shortcode() {
             $latest_payment_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_status', true );
         }
         $latest_payment_url  = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_payment_url', true );
-        $latest_status       = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true );
+        $latest_status       = function_exists( 'ggr_mutaties_get_standard_status' )
+            ? ggr_mutaties_get_standard_status( $latest_deposit_mutatie->ID )
+            : get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true );
         $latest_amount       = ggr_mutaties_parse_decimal( get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_amount', true ) );
     }
 
     if ( $latest_deposit_mutatie && ! $is_deposit_submission ) {
         $deposit_requires_review = $latest_amount >= $deposit_threshold
-            && in_array( $latest_status, array( 'in_behandeling', 'goedgekeurd' ), true );
+            && in_array( $latest_status, array( 'IN_BEHANDELING', 'AANGEMAAKT' ), true );
         $deposit_has_open_payment = $latest_payment_status
             && in_array( $latest_payment_status, array( 'open', 'pending' ), true );
 
@@ -426,13 +497,22 @@ function ggr_portal_investeren_shortcode() {
     }
 
     if ( $latest_deposit_mutatie && $latest_payment_status && ! in_array( $latest_payment_status, array( 'open', 'pending' ), true ) ) {
-        $latest_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true );
-        if ( 'uitgevoerd' !== $latest_status && function_exists( 'ggr_mutaties_apply_to_history' ) ) {
+        $latest_status = function_exists( 'ggr_mutaties_get_standard_status' )
+            ? ggr_mutaties_get_standard_status( $latest_deposit_mutatie->ID )
+            : get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true );
+        $payment_can_book = in_array( $latest_payment_status, array( 'betaald', 'paid', 'authorized' ), true );
+        if ( $payment_can_book && 'DEFINITIEF_GEBOEKT' !== $latest_status && function_exists( 'ggr_mutaties_apply_to_history' ) ) {
             $history_errors = array();
             $planned_date   = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_planned_date', true );
             $updated        = ggr_mutaties_apply_to_history( $latest_deposit_mutatie->ID, $planned_date, $history_errors );
             if ( $updated ) {
-                update_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', 'uitgevoerd' );
+                ggr_mutaties_update_status(
+                    $latest_deposit_mutatie->ID,
+                    'DEFINITIEF_GEBOEKT',
+                    array(
+                        'reason' => 'Mutatie verwerkt na betaling',
+                    )
+                );
             }
             if ( $history_errors ) {
                 $errors = array_merge( $errors, $history_errors );
@@ -477,12 +557,14 @@ function ggr_portal_investeren_shortcode() {
     }
 
     if ( 'deposit' === $selected_action && '' === $submitted_action && $latest_deposit_mutatie ) {
-        $latest_status = get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true );
+        $latest_status = function_exists( 'ggr_mutaties_get_standard_status' )
+            ? ggr_mutaties_get_standard_status( $latest_deposit_mutatie->ID )
+            : get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true );
         $latest_amount = ggr_mutaties_parse_decimal( get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_amount', true ) );
 
-        if ( $latest_payment_url && in_array( $latest_payment_status, array( 'open', 'pending' ), true ) && ! in_array( $latest_status, array( 'betaald', 'afgewezen' ), true ) ) {
+        if ( $latest_payment_url && in_array( $latest_payment_status, array( 'open', 'pending' ), true ) && ! in_array( $latest_status, array( 'GEFAALD', 'GEANNULEERD' ), true ) ) {
             $deposit_stage = 'payment';
-        } elseif ( $latest_amount >= $deposit_threshold && in_array( $latest_status, array( 'in_behandeling', 'goedgekeurd' ), true ) ) {
+        } elseif ( $latest_amount >= $deposit_threshold && in_array( $latest_status, array( 'IN_BEHANDELING', 'AANGEMAAKT' ), true ) ) {
             $deposit_stage = 'review';
         }
     }
@@ -629,10 +711,11 @@ function ggr_portal_investeren_shortcode() {
                         <h2>Geld storten</h2>
 
                         <?php
-                        $deposit_status_key = $latest_deposit_mutatie ? get_post_meta( $latest_deposit_mutatie->ID, 'ggr_mutatie_status', true ) : '';
-                        $deposit_statuses   = function_exists( 'ggr_mutaties_get_statuses' ) ? ggr_mutaties_get_statuses() : array();
-                        $deposit_status_label = $deposit_status_key && isset( $deposit_statuses[ $deposit_status_key ] )
-                            ? $deposit_statuses[ $deposit_status_key ]
+                        $deposit_status_key = $latest_deposit_mutatie && function_exists( 'ggr_mutaties_get_standard_status' )
+                            ? ggr_mutaties_get_standard_status( $latest_deposit_mutatie->ID )
+                            : '';
+                        $deposit_status_label = function_exists( 'ggr_mutaties_get_participant_status_label' )
+                            ? ggr_mutaties_get_participant_status_label( $deposit_status_key )
                             : '';
                         ?>
                         <?php if ( $deposit_status_label ) : ?>
