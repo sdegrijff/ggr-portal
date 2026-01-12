@@ -1572,7 +1572,7 @@ function ggr_portal_create_single_transaction_message( $user_id, $args = array()
         'reference' => '',
         'amount'    => 0,
         'date'      => current_time( 'Y-m-d' ),
-        'title'     => 'Transactiebevestiging',
+        'title'     => 'Transactiebevestiging storting',
         'body'      => '',
     );
     $data = wp_parse_args( $args, $defaults );
@@ -1653,16 +1653,6 @@ function ggr_portal_create_single_transaction_message( $user_id, $args = array()
     update_post_meta( $post_id, '_ggr_message_period', $period );
     update_post_meta( $post_id, '_ggr_message_single_transaction', 1 );
 
-    $post_id = wp_insert_post(
-        array(
-            'post_type'    => 'ggr_bericht',
-            'post_status'  => 'draft',
-            'post_title'   => sanitize_text_field( $data['title'] ),
-            'post_content' => $body,
-        ),
-        true
-    );
-    
     return (int) $post_id;
 }
 
@@ -1773,6 +1763,12 @@ function ggr_transacties_overzicht_shortcode( $atts ) {
     $history = ggr_portal_get_history_for_user( $user_id );
     if ( ! $history ) {
         return '<p>Er zijn geen transacties voor deze afwikkelmaand.</p>';
+    }
+    if ( function_exists( 'ggrp_fe_get_pending_mutatie_history_entries' ) ) {
+        $pending_entries = ggrp_fe_get_pending_mutatie_history_entries( $user_id );
+        if ( $pending_entries ) {
+            $history = array_merge( $history, $pending_entries );
+        }
     }
 
     $cumul_inleg         = 0.0;
