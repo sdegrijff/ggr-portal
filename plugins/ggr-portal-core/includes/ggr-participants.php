@@ -2499,12 +2499,28 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
 
             $deposit_amount = (float) get_user_meta( $user_id, 'ggr_participation_amount', true );
             if ( $deposit_amount > 0 && function_exists( 'ggr_mutaties_create_mutatie' ) ) {
-                $mutatie_id = ggr_mutaties_create_mutatie( 'inleg', $user_id, $deposit_amount );
+                $mutatie_id = ggr_mutaties_create_mutatie(
+                    'inleg',
+                    $user_id,
+                    $deposit_amount,
+                    '',
+                    '',
+                    array(
+                        'source'           => 'INTERNAL',
+                        'transaction_type' => 'MANUAL_INLEG',
+                    )
+                );
                 if ( ! is_wp_error( $mutatie_id ) ) {
                     $planned_date = function_exists( 'ggr_mutaties_get_next_run_date' )
                         ? ggr_mutaties_get_next_run_date()
                         : '';
-                    update_post_meta( $mutatie_id, 'ggr_mutatie_status', 'ingepland' );
+                    ggr_mutaties_update_status(
+                        $mutatie_id,
+                        'IN_BEHANDELING',
+                        array(
+                            'reason' => 'Inleg bevestigd in onboarding',
+                        )
+                    );
                     update_post_meta( $mutatie_id, 'ggr_mutatie_betaalstatus', 'betaald' );
                     update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 1 );
                     update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', $planned_date );
@@ -2513,7 +2529,15 @@ function ggr_portal_store_participant_profile_data( $user_id ) {
                     if ( $planned_date && function_exists( 'ggr_mutaties_get_nav_date_for_planned_date' ) ) {
                         update_post_meta( $mutatie_id, 'ggr_mutatie_nav_date', ggr_mutaties_get_nav_date_for_planned_date( $planned_date ) );
                     }
-
+                    if ( function_exists( 'ggr_mutaties_sync_transaction_fields' ) ) {
+                        ggr_mutaties_sync_transaction_fields(
+                            $mutatie_id,
+                            array(
+                                'planned_date' => $planned_date,
+                            )
+                        );
+                    }
+                    
                     if ( function_exists( 'ggr_portal_create_single_transaction_message' ) ) {
                         ggr_portal_create_single_transaction_message(
                             $user_id,
