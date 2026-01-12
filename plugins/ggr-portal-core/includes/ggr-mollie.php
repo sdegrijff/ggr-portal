@@ -297,6 +297,15 @@ function ggr_mollie_handle_payment_status_update( $mutatie_id, array $payment_da
 
     if ( function_exists( 'ggr_mutaties_sync_status_with_payment' ) ) {
         $type = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
+        if ( function_exists( 'ggr_mutaties_sync_transaction_fields' ) ) {
+            ggr_mutaties_sync_transaction_fields(
+                $mutatie_id,
+                array(
+                    'source'           => 'PARTICIPANT_PORTAL',
+                    'transaction_type' => 'ONLINE_STORTING',
+                )
+            );
+        }        
         ggr_mutaties_sync_status_with_payment( $mutatie_id, $type, $betaalstatus, 1 );
     }
 
