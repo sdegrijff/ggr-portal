@@ -296,6 +296,7 @@ function ggr_portal_get_audit_action_labels() {
         'profile_update'    => 'Profiel',
         'password_reset'    => 'Wachtwoord',
         'document_review'   => 'Documentcontrole',
+        'mutatie_status_change' => 'Mutatie status',        
     );
 }
 
