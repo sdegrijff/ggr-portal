@@ -241,10 +241,9 @@
 }
 
 .ggrp-fe-range-button {
-    color: var(--ggr-accent);
+    color: #374151;
     background: #fff;
     border: 0px solid rgba(242, 158, 117, 0.1);
-    background: rgba(242, 158, 117, 0.1);
     border-radius: 5px;
     padding: 6px 12px;
     font-size: 10px;
@@ -714,7 +713,6 @@
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
     display: flex;
     flex-direction: column;
-    gap: 12px;
 }
 
 .ggrp-fe-help-card .ggrp-fe-form {
@@ -998,7 +996,8 @@ body .ggrp-fe--transacties .ggrp-fe-trans-row-main .ggrp-fe-trans-col:nth-child(
 }
 
 .ggrp-fe-status-badge--verwerken,
-.ggrp-fe-status-badge--in-behandeling {
+.ggrp-fe-status-badge--in-behandeling,
+.ggrp-fe-status-badge--in-verwerking {
     background: #fef9c3;
     color: #854d0e;
     border-color: #facc15;
@@ -1009,6 +1008,14 @@ body .ggrp-fe--transacties .ggrp-fe-trans-row-main .ggrp-fe-trans-col:nth-child(
     background: #fef2f2;
     color: #b91c1c;
     border-color: #fecaca;
+}
+
+.ggrp-fe-trans-row--in-verwerking {
+    box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.35);
+}
+
+.ggrp-fe-trans-row--in-verwerking.is-open {
+    box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.35), 0 16px 32px rgba(15, 23, 42, 0.08);
 }
 
 /* Lege staat */
@@ -1360,6 +1367,9 @@ a.ggr-bericht-options-item.ggr-bericht-options-item--pdf {
 .ggr-bericht-detail-body {
     font-size: 0.98rem;
     line-height: 1.6;
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
 }
 
 .ggr-trans-table {
