@@ -13,10 +13,37 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Front-end flow voor deelnemers om wijzigingen door te geven.
  */
 function ggr_portal_get_latest_inleg_mutatie( $user_id ) {
+    if ( function_exists( 'ggr_mutaties_table_exists' ) && ggr_mutaties_table_exists() ) {
+        global $wpdb;
+
+        $table_name = function_exists( 'ggr_portal_get_mutaties_table_name' )
+            ? ggr_portal_get_mutaties_table_name()
+            : $wpdb->prefix . 'ggr_mutaties';
+
+        $mutatie_id = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT mutatie_id
+                 FROM {$table_name}
+                 WHERE type = %s
+                   AND user_id = %d
+                   AND post_status <> %s
+                 ORDER BY post_date DESC
+                 LIMIT 1",
+                'inleg',
+                (int) $user_id,
+                'trash'
+            )
+        );
+
+        if ( $mutatie_id ) {
+            return get_post( (int) $mutatie_id );
+        }
+    }
+    
     $mutaties = get_posts(
         array(
             'post_type'      => 'ggr_mutatie',
-            'post_status'    => 'any',
+            'post_status'    => array( 'publish', 'draft', 'pending', 'future', 'private' ),
             'numberposts'    => 1,
             'orderby'        => 'date',
             'order'          => 'DESC',
