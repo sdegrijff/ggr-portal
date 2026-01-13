@@ -186,12 +186,9 @@ function ggr_mutaties_get_statuses() {
     return array(
         'nieuw'       => 'Nieuw',
         'in_behandeling' => 'In behandeling',
-        'afgewezen'   => 'Afgewezen',
         'ingepland'   => 'Ingepland',
         'uitgevoerd'  => 'Uitgevoerd',
         'geannuleerd' => 'Geannuleerd',
-        'goedgekeurd' => 'Goedgekeurd',
-        'betaald'     => 'Betaald (legacy)',
     );
 }
 
@@ -1669,9 +1666,9 @@ function ggr_mutaties_render_admin_page() {
                     update_post_meta( $mutatie_id, 'ggr_mutatie_betaalstatus', 'open' );
                     ggr_mutaties_update_status(
                         $mutatie_id,
-                        'IN_BEHANDELING',
+                        'VOORLOPIG_GEBOEKT',
                         array(
-                            'reason' => 'Handmatige beoordeling gestart',
+                            'reason' => 'Mutatie ingepland',
                         )
                     );
                     update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 1 );
@@ -1685,21 +1682,26 @@ function ggr_mutaties_render_admin_page() {
                         array(
                             'planned_date' => $planned_date,
                         )
-                    );                    
+                    );
+                    $scheduled++;                   
                     continue;
                 }
 
                 $schedule_enabled = (int) get_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', true );
                 if ( ! $schedule_enabled ) {
-                    update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', '' );
-                    ggr_mutaties_update_status(
+                    $planned_date = ggr_mutaties_get_next_run_date();
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_schedule_enabled', 1 );
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', $planned_date );
+                    update_post_meta( $mutatie_id, 'ggr_mutatie_publication_date', $planned_date );
+                    if ( $planned_date ) {
+                        update_post_meta( $mutatie_id, 'ggr_mutatie_nav_date', ggr_mutaties_get_nav_date_for_planned_date( $planned_date ) );
+                    }
+                    ggr_mutaties_sync_transaction_fields(
                         $mutatie_id,
-                        'IN_BEHANDELING',
                         array(
-                            'reason' => 'Wachten op verdere afhandeling',
+                            'planned_date' => $planned_date,
                         )
                     );
-                    continue;
                 }
                 
                 $planned_meta = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
@@ -1721,7 +1723,7 @@ function ggr_mutaties_render_admin_page() {
                     } else {
                         ggr_mutaties_update_status(
                             $mutatie_id,
-                            'IN_BEHANDELING',
+                            'VOORLOPIG_GEBOEKT',
                             array(
                                 'reason' => 'Verwerking mislukt',
                             )
@@ -1730,7 +1732,7 @@ function ggr_mutaties_render_admin_page() {
                 } else {
                     ggr_mutaties_update_status(
                         $mutatie_id,
-                        'IN_BEHANDELING',
+                        'VOORLOPIG_GEBOEKT',
                         array(
                             'reason' => 'Mutatie ingepland',
                         )
@@ -1758,7 +1760,7 @@ function ggr_mutaties_render_admin_page() {
         } elseif ( 'delete' === $action ) {
             $deleted = 0;
             foreach ( $action_ids as $mutatie_id ) {
-                if ( current_user_can( 'delete_post', $mutatie_id ) && wp_trash_post( $mutatie_id ) ) {
+                if ( wp_trash_post( $mutatie_id ) ) {
                     $deleted++;
                 }
             }
@@ -1776,7 +1778,7 @@ function ggr_mutaties_render_admin_page() {
             'relation' => 'OR',
             array(
                 'key'     => 'ggr_mutatie_status',
-                'value'   => array( 'goedgekeurd', 'ingepland', 'uitgevoerd', 'geannuleerd', 'afgewezen', 'betaald' ),
+                'value'   => array( 'ingepland', 'uitgevoerd', 'geannuleerd', 'goedgekeurd', 'afgewezen' ),
                 'compare' => 'NOT IN',
             ),
             array(
@@ -1794,7 +1796,7 @@ function ggr_mutaties_render_admin_page() {
         'meta_query'     => array(
             array(
                 'key'     => 'ggr_mutatie_status',
-                'value'   => array( 'goedgekeurd', 'ingepland', 'uitgevoerd', 'geannuleerd', 'afgewezen', 'betaald' ),
+                'value'   => array( 'ingepland', 'uitgevoerd', 'geannuleerd', 'goedgekeurd', 'afgewezen' ),
                 'compare' => 'IN',
             ),
         ),
@@ -1959,6 +1961,11 @@ function ggr_mutaties_render_admin_page() {
                             <?php
                             $mutatie_id = $mutatie->ID;
                             $status     = get_post_meta( $mutatie_id, 'ggr_mutatie_status', true );
+                            if ( 'goedgekeurd' === $status ) {
+                                $status = 'ingepland';
+                            } elseif ( 'afgewezen' === $status ) {
+                                $status = 'geannuleerd';
+                            }                            
                             $standard_status = ggr_mutaties_get_standard_status( $mutatie_id );
                             $standard_status_label = isset( $tx_statuses[ $standard_status ] ) ? $tx_statuses[ $standard_status ] : $standard_status;
                             $type       = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
@@ -2023,8 +2030,8 @@ function ggr_mutaties_render_admin_page() {
                             }
 
                             $is_executed = ( 'uitgevoerd' === $status );
-                            $can_schedule = in_array( $status, array( 'nieuw', 'goedgekeurd' ), true );
-                            $can_reject   = in_array( $status, array( 'nieuw', 'goedgekeurd', 'ingepland' ), true );
+                            $can_schedule = in_array( $status, array( 'nieuw', 'in_behandeling' ), true );
+                            $can_reject   = in_array( $status, array( 'nieuw', 'in_behandeling', 'ingepland' ), true );
 
                             $row_action_url = admin_url( 'admin.php?page=ggr-mutaties' );
                             $approve_url = add_query_arg(
@@ -2099,7 +2106,7 @@ function ggr_mutaties_render_admin_page() {
 
         <h2>Mutatie backlog</h2>
         <?php if ( empty( $backlog_mutaties ) ) : ?>
-            <p>Er zijn nog geen goedgekeurde of afgewezen mutaties.</p>
+            <p>Er zijn nog geen ingeplande, uitgevoerde of geannuleerde mutaties.</p>
         <?php else : ?>
             <table class="widefat striped">
                 <thead>
@@ -2124,6 +2131,11 @@ function ggr_mutaties_render_admin_page() {
                         <?php
                         $mutatie_id = $mutatie->ID;
                         $status     = get_post_meta( $mutatie_id, 'ggr_mutatie_status', true );
+                        if ( 'goedgekeurd' === $status ) {
+                            $status = 'ingepland';
+                        } elseif ( 'afgewezen' === $status ) {
+                            $status = 'geannuleerd';
+                        }                        
                         $standard_status = ggr_mutaties_get_standard_status( $mutatie_id );
                         $standard_status_label = isset( $tx_statuses[ $standard_status ] ) ? $tx_statuses[ $standard_status ] : $standard_status;                        
                         $type       = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
