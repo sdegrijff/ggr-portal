@@ -206,8 +206,8 @@ function ggrp_fe_get_mutatie_fallback_history( $user_id ) {
         if ( ! $effective && function_exists( 'ggr_mutaties_get_effective_date' ) ) {
             $effective = ggr_mutaties_get_effective_date( $mutatie_id, $planned );
         }
-        $post_date   = substr( (string) $mutatie->post_date, 0, 10 );
-        $entry_date  = $effective ? $effective : ( $planned ? $planned : $post_date );
+        $post_date  = substr( (string) $mutatie->post_date, 0, 10 );
+        $entry_date = $post_date ? $post_date : ( $effective ? $effective : $planned );
         $amount      = ggrp_fe_get_mutatie_amount_for_user( $mutatie_id, $user_id );
         $units_raw   = get_post_meta( $mutatie_id, 'ggr_mutatie_participaties', true );
         $units       = ggr_mutaties_parse_decimal( $units_raw );
@@ -227,8 +227,9 @@ function ggrp_fe_get_mutatie_fallback_history( $user_id ) {
             $units     = 0.0;
         }
 
-        if ( $needs_nav && $entry_date && function_exists( 'ggr_get_stock_price_for_date' ) && $units <= 0 && $amount > 0 ) {
-            $nav_price = ggr_get_stock_price_for_date( $entry_date );
+        $nav_date = $effective ? $effective : $planned;
+        if ( $needs_nav && $nav_date && function_exists( 'ggr_get_stock_price_for_date' ) && $units <= 0 && $amount > 0 ) {
+            $nav_price = ggr_get_stock_price_for_date( $nav_date );
             if ( $nav_price ) {
                 $units = round( $amount / $nav_price, 4 );
             }
@@ -304,13 +305,14 @@ function ggrp_fe_get_pending_mutatie_history_entries( $user_id ) {
             continue;
         }
 
-        $type        = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
-        $planned     = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
-        $effective   = get_post_meta( $mutatie_id, 'ggr_mutatie_effective_date', true );
+        $type       = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
+        $planned    = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
+        $effective  = get_post_meta( $mutatie_id, 'ggr_mutatie_effective_date', true );
         if ( ! $effective && function_exists( 'ggr_mutaties_get_effective_date' ) ) {
             $effective = ggr_mutaties_get_effective_date( $mutatie_id, $planned );
         }
-        $entry_date  = $effective ? $effective : ( $planned ? $planned : substr( (string) $mutatie->post_date, 0, 10 ) );
+        $post_date  = substr( (string) $mutatie->post_date, 0, 10 );
+        $entry_date = $post_date ? $post_date : ( $effective ? $effective : $planned );
         $amount      = ggrp_fe_get_mutatie_amount_for_user( $mutatie_id, $user_id );
         $units_raw   = get_post_meta( $mutatie_id, 'ggr_mutatie_participaties', true );
         $units       = ggr_mutaties_parse_decimal( $units_raw );
@@ -326,8 +328,9 @@ function ggrp_fe_get_pending_mutatie_history_entries( $user_id ) {
             $units     = 0.0;
         }
 
-        if ( $needs_nav && $entry_date && function_exists( 'ggr_get_stock_price_for_date' ) && $units <= 0 && $amount > 0 ) {
-            $nav_price = ggr_get_stock_price_for_date( $entry_date );
+        $nav_date = $effective ? $effective : $planned;
+        if ( $needs_nav && $nav_date && function_exists( 'ggr_get_stock_price_for_date' ) && $units <= 0 && $amount > 0 ) {
+            $nav_price = ggr_get_stock_price_for_date( $nav_date );
             if ( $nav_price ) {
                 $units = round( $amount / $nav_price, 4 );
             }
@@ -2043,7 +2046,8 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
                 if ( ! $effective && function_exists( 'ggr_mutaties_get_effective_date' ) ) {
                     $effective = ggr_mutaties_get_effective_date( $mutatie_id, $planned );
                 }
-                $entry_date  = $effective ? $effective : ( $planned ? $planned : substr( (string) $mutatie->post_date, 0, 10 ) );
+                $post_date  = substr( (string) $mutatie->post_date, 0, 10 );
+                $entry_date = $post_date ? $post_date : ( $effective ? $effective : $planned );
                 $amount      = ggrp_fe_get_mutatie_amount_for_user( $mutatie_id, $user_id );
 
                 if ( ! $entry_date ) {
@@ -2234,7 +2238,7 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
                         if ( $planned_date_raw ) {
                             $planned_dt   = DateTime::createFromFormat( 'Y-m-d', $planned_date_raw );
                             $planned_label = $planned_dt ? $planned_dt->format( 'd M Y' ) : $planned_date_raw;
-                        }                        
+                        }                      
 
                         $bedrag_fmt = '€' . number_format( $bedrag, 2, ',', '.' );
 
