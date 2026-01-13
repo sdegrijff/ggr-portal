@@ -121,13 +121,14 @@ function ggrp_fe_get_mutatie_amount_for_user( $mutatie_id, $user_id ) {
     $amount_raw = get_post_meta( $mutatie_id, 'ggr_mutatie_amount', true );
     $units_raw  = get_post_meta( $mutatie_id, 'ggr_mutatie_participaties', true );
     $planned    = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
-
+    $effective  = get_post_meta( $mutatie_id, 'ggr_mutatie_effective_date', true );
+    
     $amount = ggr_mutaties_parse_decimal( $amount_raw );
     $units  = ggr_mutaties_parse_decimal( $units_raw );
 
-    $effective_date = function_exists( 'ggr_mutaties_get_effective_date' )
+    $effective_date = $effective ? $effective : ( function_exists( 'ggr_mutaties_get_effective_date' )
         ? ggr_mutaties_get_effective_date( $mutatie_id, $planned )
-        : $planned;
+        : $planned );
 
     $needs_nav = in_array( $type, array( 'inleg', 'opname', 'dividend_herinvestering' ), true );
     $no_participations = (bool) get_post_meta( $mutatie_id, 'ggr_mutatie_no_participations', true );
@@ -201,7 +202,10 @@ function ggrp_fe_get_mutatie_fallback_history( $user_id ) {
 
         $type        = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
         $planned     = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
-        $effective   = function_exists( 'ggr_mutaties_get_effective_date' ) ? ggr_mutaties_get_effective_date( $mutatie_id, $planned ) : $planned;
+        $effective   = get_post_meta( $mutatie_id, 'ggr_mutatie_effective_date', true );
+        if ( ! $effective && function_exists( 'ggr_mutaties_get_effective_date' ) ) {
+            $effective = ggr_mutaties_get_effective_date( $mutatie_id, $planned );
+        }
         $post_date   = substr( (string) $mutatie->post_date, 0, 10 );
         $entry_date  = $effective ? $effective : ( $planned ? $planned : $post_date );
         $amount      = ggrp_fe_get_mutatie_amount_for_user( $mutatie_id, $user_id );
@@ -302,7 +306,10 @@ function ggrp_fe_get_pending_mutatie_history_entries( $user_id ) {
 
         $type        = get_post_meta( $mutatie_id, 'ggr_mutatie_type', true );
         $planned     = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
-        $effective   = function_exists( 'ggr_mutaties_get_effective_date' ) ? ggr_mutaties_get_effective_date( $mutatie_id, $planned ) : $planned;
+        $effective   = get_post_meta( $mutatie_id, 'ggr_mutatie_effective_date', true );
+        if ( ! $effective && function_exists( 'ggr_mutaties_get_effective_date' ) ) {
+            $effective = ggr_mutaties_get_effective_date( $mutatie_id, $planned );
+        }
         $entry_date  = $effective ? $effective : ( $planned ? $planned : substr( (string) $mutatie->post_date, 0, 10 ) );
         $amount      = ggrp_fe_get_mutatie_amount_for_user( $mutatie_id, $user_id );
         $units_raw   = get_post_meta( $mutatie_id, 'ggr_mutatie_participaties', true );
@@ -941,7 +948,8 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
                 'relation' => 'OR',
                 array(
                     'key'   => 'ggr_mutatie_tx_status',
-                    'value' => 'VOORLOPIG_GEBOEKT',
+                    'value' => array( 'AANGEMAAKT', 'IN_BEHANDELING', 'VOORLOPIG_GEBOEKT' ),
+                    'compare' => 'IN',
                 ),                
                 array(
                     'key'   => 'ggr_mutatie_status',
@@ -967,10 +975,8 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
                 continue;
             }
 
-            if ( 'inleg' === $type || 'dividend_herinvestering' === $type ) {
+            if ( 'inleg' === $type ) {
                 $scheduled_delta += $amount;
-            } elseif ( 'opname' === $type ) {
-                $scheduled_delta -= $amount;
             }
         }
     }
@@ -2033,7 +2039,10 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
                     ? ggr_mutaties_get_participant_status_label( $standard_status )
                     : $standard_status;
                 $planned     = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
-                $effective   = function_exists( 'ggr_mutaties_get_effective_date' ) ? ggr_mutaties_get_effective_date( $mutatie_id, $planned ) : $planned;
+                $effective   = get_post_meta( $mutatie_id, 'ggr_mutatie_effective_date', true );
+                if ( ! $effective && function_exists( 'ggr_mutaties_get_effective_date' ) ) {
+                    $effective = ggr_mutaties_get_effective_date( $mutatie_id, $planned );
+                }
                 $entry_date  = $effective ? $effective : ( $planned ? $planned : substr( (string) $mutatie->post_date, 0, 10 ) );
                 $amount      = ggrp_fe_get_mutatie_amount_for_user( $mutatie_id, $user_id );
 
@@ -2055,6 +2064,7 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
                     'status'                => $status_raw,
                     'transactie_code'       => 'Mutatie #' . $mutatie_id,
                     'is_mutatie'            => true,
+                    'planned_date'          => $planned,                    
                     'payment_status_label'  => $payment_status_label,
                 );
 
@@ -2219,6 +2229,12 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
 
                         $d = DateTime::createFromFormat( 'Y-m-d', $row->datum );
                         $datum_label = $d ? $d->format( 'd M Y' ) : $row->datum;
+                        $planned_date_raw = isset( $row->planned_date ) ? trim( (string) $row->planned_date ) : '';
+                        $planned_label    = '';
+                        if ( $planned_date_raw ) {
+                            $planned_dt   = DateTime::createFromFormat( 'Y-m-d', $planned_date_raw );
+                            $planned_label = $planned_dt ? $planned_dt->format( 'd M Y' ) : $planned_date_raw;
+                        }                        
 
                         $bedrag_fmt = '€' . number_format( $bedrag, 2, ',', '.' );
 
@@ -2241,7 +2257,7 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
                             ? ( $new_parts - $old_parts )
                             : null;
                         ?>
-                        <article class="ggrp-fe-trans-row">
+                        <article class="ggrp-fe-trans-row ggrp-fe-trans-row--<?php echo esc_attr( $status_slug ); ?>">
                             <!-- GESLOTEN REGEL (header) -->
                             <div class="ggrp-fe-trans-row-main" onclick="ggrTransRowToggle(event, this)">
                                 <div class="ggrp-fe-trans-col ggrp-fe-trans-col--type">
@@ -2284,6 +2300,9 @@ if ( ! function_exists( 'ggr_portal_format_participaties' ) ) {
                                             </div>
                                             <?php if ( ! empty( $row->is_mutatie ) && ! empty( $row->payment_status_label ) ) : ?>
                                                 <div>Betaalstatus: <?php echo esc_html( $row->payment_status_label ); ?></div>
+                                            <?php endif; ?>       
+                                            <?php if ( ! empty( $row->is_mutatie ) && $planned_label ) : ?>
+                                                <div>Geplande datum: <?php echo esc_html( $planned_label ); ?></div>
                                             <?php endif; ?>                                            
                                         <?php else : ?>
                                             Geen geldmutatie geregistreerd.
