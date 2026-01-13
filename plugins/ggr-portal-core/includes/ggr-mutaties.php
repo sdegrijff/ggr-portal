@@ -1864,10 +1864,17 @@ function ggr_mutaties_render_admin_page() {
     global $wpdb;
     $source_counts = array();
     $source_rows = $wpdb->get_results(
-        "SELECT meta_value AS source, COUNT(*) AS total
-         FROM {$wpdb->postmeta}
-         WHERE meta_key = 'ggr_mutatie_tx_source'
-         GROUP BY meta_value",
+        $wpdb->prepare(
+            "SELECT meta.meta_value AS source, COUNT(*) AS total
+             FROM {$wpdb->postmeta} AS meta
+             INNER JOIN {$wpdb->posts} AS posts ON posts.ID = meta.post_id
+             WHERE meta.meta_key = %s
+               AND posts.post_type = %s
+               AND posts.post_status IN ('publish', 'draft')
+             GROUP BY meta.meta_value",
+            'ggr_mutatie_tx_source',
+            'ggr_mutatie'
+        ),
         ARRAY_A
     );
     if ( $source_rows ) {
