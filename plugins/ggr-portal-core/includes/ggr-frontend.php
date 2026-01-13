@@ -984,6 +984,10 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
         }
     }
 
+    if ( $history_is_fallback || ! empty( $pending_entries ) ) {
+        $scheduled_delta = 0.0;
+    }
+
     $positie_total_display = $positie_total + $scheduled_delta;
     
     /**
@@ -1034,18 +1038,8 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
 
 
     // Chips: mutatie in de laatste transactie zelf voor participaties + dividend
-    $parts_delta_last_tx = null;
-    $div_delta_last_tx   = null;
-    if ( $last_tx_row ) {
-        $parts_delta_last_tx = (float) $last_tx_row->nieuwe_participaties - (float) $last_tx_row->verkochte_participaties;
-        $div_delta_last_tx   = (float) $last_tx_row->distributievergoeding;
-    }
-
-    // Chip-classes
-    $chip_pos_class   = ggrp_fe_get_chip_class( $positie_vs_last_tx_pct );
-    $chip_inv_class   = ggrp_fe_get_chip_class( $inv_vs_last_tx_delta );
-    $chip_part_class  = ggrp_fe_get_chip_class( $parts_delta_last_tx );
-    $chip_div_class   = ggrp_fe_get_chip_class( $div_delta_last_tx );
+    $parts_delta_prev_month = null;
+    $div_delta_prev_month   = null;
 
             // 6) Dividend per maand-arrays voor 2 onderste grafieken
     $month_keys          = array_keys( $monthly );
@@ -1067,6 +1061,34 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
 
         $prev_cumul_dividend = $cumul;
     }
+
+    $previous_month_key = null;
+    $previous_prev_key  = null;
+    $month_key_count    = count( $month_keys );
+    if ( $month_key_count >= 2 ) {
+        $previous_month_key = $month_keys[ $month_key_count - 2 ];
+        $previous_prev_key  = $month_key_count >= 3 ? $month_keys[ $month_key_count - 3 ] : null;
+    }
+
+    if ( $previous_month_key ) {
+        $prev_parts = (float) $monthly[ $previous_month_key ]['totaal_participaties'];
+        $prev_base  = $previous_prev_key ? (float) $monthly[ $previous_prev_key ]['totaal_participaties'] : 0.0;
+        $parts_delta_prev_month = $prev_parts - $prev_base;
+
+        $div_per_month_map = array();
+        foreach ( $divMonthKeys as $index => $mk ) {
+            $div_per_month_map[ $mk ] = $divPerMonthValues[ $index ];
+        }
+        if ( array_key_exists( $previous_month_key, $div_per_month_map ) ) {
+            $div_delta_prev_month = (float) $div_per_month_map[ $previous_month_key ];
+        }
+    }
+
+    // Chip-classes
+    $chip_pos_class   = ggrp_fe_get_chip_class( $positie_vs_last_tx_pct );
+    $chip_inv_class   = ggrp_fe_get_chip_class( $inv_vs_last_tx_delta );
+    $chip_part_class  = ggrp_fe_get_chip_class( $parts_delta_prev_month );
+    $chip_div_class   = ggrp_fe_get_chip_class( $div_delta_prev_month );
 
     $divCumulValuesDisplay    = $divCumulValues;
     $divPerMonthValuesDisplay = $divPerMonthValues;
@@ -1324,9 +1346,9 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
                 </div>
                 <div class="ggrp-fe-card-meta">
                     <span class="<?php echo esc_attr( $chip_part_class ); ?>">
-                        <?php echo esc_html( ggrp_fe_format_signed_number( $parts_delta_last_tx, 4 ) ); ?>
+                        <?php echo esc_html( ggrp_fe_format_signed_number( $parts_delta_prev_month, 4 ) ); ?>
                     </span>
-                    <span class="ggrp-fe-card-meta-text">participaties deze maand</span>
+                    <span class="ggrp-fe-card-meta-text">participaties vorige maand</span>
                 </div>
             </article>
 
@@ -1338,9 +1360,9 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
                 </div>
                 <div class="ggrp-fe-card-meta">
                     <span class="<?php echo esc_attr( $chip_div_class ); ?>">
-                        <?php echo esc_html( ggrp_fe_format_signed_money( $div_delta_last_tx ) ); ?>
+                        <?php echo esc_html( ggrp_fe_format_signed_money( $div_delta_prev_month ) ); ?>
                     </span>
-                    <span class="ggrp-fe-card-meta-text">dividend deze maand</span>
+                    <span class="ggrp-fe-card-meta-text">dividend vorige maand</span>
                 </div>
             </article>
         </div>
