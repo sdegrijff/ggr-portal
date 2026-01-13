@@ -7,6 +7,175 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+if ( ! defined( 'GGR_PORTAL_MUTATIES_DB_VERSION' ) ) {
+    define( 'GGR_PORTAL_MUTATIES_DB_VERSION', '1.0.0' );
+}
+
+function ggr_portal_get_mutaties_table_name() {
+    global $wpdb;
+
+    return $wpdb->prefix . 'ggr_mutaties';
+}
+
+function ggr_portal_create_mutaties_table() {
+    global $wpdb;
+
+    $table_name      = ggr_portal_get_mutaties_table_name();
+    $charset_collate = $wpdb->get_charset_collate();
+
+    $sql = "
+        CREATE TABLE {$table_name} (
+            id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            mutatie_id BIGINT(20) UNSIGNED NOT NULL,
+            user_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+            scope VARCHAR(20) NOT NULL DEFAULT '',
+            type VARCHAR(50) NOT NULL DEFAULT '',
+            status VARCHAR(50) NOT NULL DEFAULT '',
+            payment_status VARCHAR(50) NOT NULL DEFAULT '',
+            tx_status VARCHAR(50) NOT NULL DEFAULT '',
+            tx_source VARCHAR(50) NOT NULL DEFAULT '',
+            tx_type VARCHAR(50) NOT NULL DEFAULT '',
+            amount DECIMAL(20,4) NULL,
+            participaties DECIMAL(20,4) NULL,
+            planned_date DATE NULL,
+            effective_date DATE NULL,
+            booking_date DATE NULL,
+            admin_month DATE NULL,
+            post_status VARCHAR(20) NOT NULL DEFAULT 'publish',
+            post_date DATETIME NOT NULL DEFAULT '0000-00-00 00:00:00',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            deleted_at DATETIME NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY mutatie_id (mutatie_id),
+            KEY user_id (user_id),
+            KEY type (type),
+            KEY status (status),
+            KEY tx_status (tx_status),
+            KEY payment_status (payment_status),
+            KEY post_status (post_status),
+            KEY planned_date (planned_date),
+            KEY post_date (post_date)
+        ) {$charset_collate};
+    ";
+
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta( $sql );
+}
+
+function ggr_portal_maybe_create_mutaties_table() {
+    $installed_version = get_option( 'ggr_portal_mutaties_db_version' );
+
+    if ( $installed_version !== GGR_PORTAL_MUTATIES_DB_VERSION ) {
+        ggr_portal_create_mutaties_table();
+        update_option( 'ggr_portal_mutaties_db_version', GGR_PORTAL_MUTATIES_DB_VERSION );
+    }
+}
+add_action( 'plugins_loaded', 'ggr_portal_maybe_create_mutaties_table' );
+
+function ggr_mutaties_table_exists() {
+    global $wpdb;
+
+    $table_name = ggr_portal_get_mutaties_table_name();
+
+    return (bool) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) );
+}
+
+function ggr_mutaties_sync_table( $mutatie_id ) {
+    global $wpdb;
+
+    if ( ! ggr_mutaties_table_exists() ) {
+        return;
+    }
+
+    $mutatie_id = (int) $mutatie_id;
+    if ( $mutatie_id <= 0 ) {
+        return;
+    }
+
+    $post = get_post( $mutatie_id );
+    $table_name = ggr_portal_get_mutaties_table_name();
+
+    if ( ! $post ) {
+        $wpdb->delete( $table_name, array( 'mutatie_id' => $mutatie_id ), array( '%d' ) );
+        return;
+    }
+
+    $planned_date   = get_post_meta( $mutatie_id, 'ggr_mutatie_planned_date', true );
+    $effective_date = get_post_meta( $mutatie_id, 'ggr_mutatie_effective_date', true );
+    $booking_date   = get_post_meta( $mutatie_id, 'ggr_mutatie_publication_date', true );
+    $admin_month    = get_post_meta( $mutatie_id, 'ggr_mutatie_administratieve_maand', true );
+    $payment_status = get_post_meta( $mutatie_id, 'ggr_mutatie_payment_status', true );
+    if ( ! $payment_status ) {
+        $payment_status = get_post_meta( $mutatie_id, 'ggr_mutatie_betaalstatus', true );
+    }
+
+    $amount_raw = get_post_meta( $mutatie_id, 'ggr_mutatie_amount', true );
+    $units_raw  = get_post_meta( $mutatie_id, 'ggr_mutatie_participaties', true );
+    $amount     = function_exists( 'ggr_mutaties_parse_decimal' ) ? ggr_mutaties_parse_decimal( $amount_raw ) : ( $amount_raw !== '' ? (float) $amount_raw : null );
+    $units      = function_exists( 'ggr_mutaties_parse_decimal' ) ? ggr_mutaties_parse_decimal( $units_raw ) : ( $units_raw !== '' ? (float) $units_raw : null );
+
+    $post_status = $post->post_status;
+    $deleted_at  = 'trash' === $post_status ? current_time( 'mysql' ) : null;
+
+    $data = array(
+        'mutatie_id'      => $mutatie_id,
+        'user_id'         => (int) get_post_meta( $mutatie_id, 'ggr_mutatie_user_id', true ),
+        'scope'           => (string) get_post_meta( $mutatie_id, 'ggr_mutatie_scope', true ),
+        'type'            => (string) get_post_meta( $mutatie_id, 'ggr_mutatie_type', true ),
+        'status'          => (string) get_post_meta( $mutatie_id, 'ggr_mutatie_status', true ),
+        'payment_status'  => (string) $payment_status,
+        'tx_status'       => (string) get_post_meta( $mutatie_id, 'ggr_mutatie_tx_status', true ),
+        'tx_source'       => (string) get_post_meta( $mutatie_id, 'ggr_mutatie_tx_source', true ),
+        'tx_type'         => (string) get_post_meta( $mutatie_id, 'ggr_mutatie_tx_type', true ),
+        'amount'          => $amount,
+        'participaties'   => $units,
+        'planned_date'    => $planned_date ? $planned_date : null,
+        'effective_date'  => $effective_date ? $effective_date : null,
+        'booking_date'    => $booking_date ? $booking_date : null,
+        'admin_month'     => $admin_month ? $admin_month : null,
+        'post_status'     => $post_status,
+        'post_date'       => $post->post_date ? $post->post_date : $post->post_date_gmt,
+        'created_at'      => $post->post_date ? $post->post_date : current_time( 'mysql' ),
+        'updated_at'      => current_time( 'mysql' ),
+        'deleted_at'      => $deleted_at,
+    );
+
+    $formats = array(
+        '%d',
+        '%d',
+        '%s',
+        '%s',
+        '%s',
+        '%s',
+        '%s',
+        '%s',
+        '%s',
+        '%f',
+        '%f',
+        '%s',
+        '%s',
+        '%s',
+        '%s',
+        '%s',
+        '%s',
+        '%s',
+        '%s',
+        '%s',
+    );
+
+    $wpdb->replace( $table_name, $data, $formats );
+}
+
+function ggr_mutaties_sync_table_on_status_change( $new_status, $old_status, $post ) {
+    if ( ! $post || 'ggr_mutatie' !== $post->post_type ) {
+        return;
+    }
+
+    ggr_mutaties_sync_table( $post->ID );
+}
+add_action( 'transition_post_status', 'ggr_mutaties_sync_table_on_status_change', 10, 3 );
+
 add_action( 'init', 'ggr_register_mutaties_cpt' );
 add_action( 'init', 'ggr_mutaties_remove_post_support', 11 );
 
@@ -253,6 +422,10 @@ function ggr_mutaties_sync_transaction_fields( $mutatie_id, array $context = arr
     if ( $admin_month ) {
         update_post_meta( $mutatie_id, 'ggr_mutatie_administratieve_maand', $admin_month );
     }
+
+    if ( function_exists( 'ggr_mutaties_sync_table' ) ) {
+        ggr_mutaties_sync_table( $mutatie_id );
+    }    
 }
 
 function ggr_mutaties_log_status_change( $mutatie_id, $old_status, $new_status, $reason = '', array $context = array() ) {
@@ -314,6 +487,10 @@ function ggr_mutaties_update_status( $mutatie_id, $standard_status, array $conte
         isset( $context['reason'] ) ? $context['reason'] : '',
         $context
     );
+
+    if ( function_exists( 'ggr_mutaties_sync_table' ) ) {
+        ggr_mutaties_sync_table( $mutatie_id );
+    }    
 }
 
 /**
@@ -1083,6 +1260,10 @@ function ggr_mutaties_save_meta( $post_id ) {
             set_transient( 'ggr_mutatie_direct_apply_errors_' . $post_id, $errors, MINUTE_IN_SECONDS );
         }
     }
+
+    if ( function_exists( 'ggr_mutaties_sync_table' ) ) {
+        ggr_mutaties_sync_table( $post_id );
+    }    
 }
 
 function ggr_mutaties_sync_status_with_payment( $post_id, $type, $payment_status, $schedule_enabled ) {
