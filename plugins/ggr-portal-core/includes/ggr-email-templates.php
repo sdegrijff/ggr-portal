@@ -905,6 +905,10 @@ function ggr_portal_get_message_recipient_user_ids( $post ) {
     $target_id = absint( get_post_meta( $post->ID, '_ggr_message_user_id', true ) );
     $role      = get_post_meta( $post->ID, '_ggr_message_role', true );
 
+    if ( ! $audience && $target_id ) {
+        $audience = 'user';
+    }
+
     $user_ids = array();
 
     switch ( $audience ) {
