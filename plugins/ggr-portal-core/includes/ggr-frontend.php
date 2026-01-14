@@ -266,6 +266,25 @@ function ggrp_fe_get_mutatie_fallback_history( $user_id ) {
     return $entries;
 }
 
+function ggrp_fe_history_has_matching_entry( array $history, $entry ) {
+    $epsilon = 0.01;
+    foreach ( $history as $row ) {
+        if ( empty( $row->datum ) || $row->datum !== $entry->datum ) {
+            continue;
+        }
+
+        $inleg_match  = abs( (float) $row->inlegbedrag - (float) $entry->inlegbedrag ) <= $epsilon;
+        $opname_match = abs( (float) $row->opnamebedrag - (float) $entry->opnamebedrag ) <= $epsilon;
+        $div_match    = abs( (float) $row->distributievergoeding - (float) $entry->distributievergoeding ) <= $epsilon;
+
+        if ( $inleg_match && $opname_match && $div_match ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function ggrp_fe_get_pending_mutatie_history_entries( $user_id ) {
     if ( ! function_exists( 'ggr_mutaties_parse_decimal' ) ) {
         return array();
@@ -431,7 +450,7 @@ if ( ! function_exists( 'ggrp_fe_format_percent_signed' ) ) {
 function ggrp_fe_get_chip_class( $value ) {
     if ( $value === null ) {
         return 'ggrp-fe-chip'; // neutraal, geen waarde
-    }
+        }
 
     $v = (float) $value;
 
@@ -442,7 +461,7 @@ function ggrp_fe_get_chip_class( $value ) {
         return 'ggrp-fe-chip ggrp-fe-chip--down';
     }
 
-    return 'ggrp-fe-chip'; // 0 precies: neutraal
+    return 'ggrp-fe-chip ggrp-fe-chip--neutral'; // 0 precies: neutraal
 }
 
 function ggrp_fe_shift_month_key( $month_key, $delta_months = -1 ) {
@@ -697,7 +716,12 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
 
     $pending_entries = ggrp_fe_get_pending_mutatie_history_entries( $user_id );
     if ( $pending_entries ) {
-        $history_raw = array_merge( $history_raw, $pending_entries );
+        foreach ( $pending_entries as $entry ) {
+            if ( ggrp_fe_history_has_matching_entry( $history_raw, $entry ) ) {
+                continue;
+            }
+            $history_raw[] = $entry;
+        }
     }
 
     $today_date = current_time( 'Y-m-d' );
@@ -727,6 +751,21 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
     // Laatste transactie (hoogste datum)
     $last_tx_row = end( $history );
     reset( $history );
+
+    $fallback_mutatie_label = '';
+    if ( $history_is_fallback && $last_tx_row ) {
+        if ( $last_tx_row->inlegbedrag > 0 ) {
+            $fallback_mutatie_label = sprintf(
+                'Laatste mutatie: inleg van %s.',
+                ggrp_fe_format_money( $last_tx_row->inlegbedrag )
+            );
+        } elseif ( $last_tx_row->opnamebedrag > 0 ) {
+            $fallback_mutatie_label = sprintf(
+                'Laatste mutatie: opname van %s.',
+                ggrp_fe_format_money( $last_tx_row->opnamebedrag )
+            );
+        }
+    }
 
     // 1) Timeseries + dag- en maand-snapshots opbouwen
     global $wpdb;
@@ -1301,7 +1340,12 @@ $greeting_name = function_exists( 'ggr_portal_get_greeting_name' )
         </header>
         <?php if ( $history_is_fallback ) : ?>
             <div class="ggrp-fe-alert ggrp-fe-alert--info">
-                <p>We tonen je recente mutaties zolang de eerste transactie nog verwerkt wordt.</p>
+                <p>
+                    We tonen je recente mutaties zolang de eerste transactie nog verwerkt wordt.
+                    <?php if ( $fallback_mutatie_label ) : ?>
+                        <span><?php echo esc_html( $fallback_mutatie_label ); ?></span>
+                    <?php endif; ?>
+                </p>
             </div>
         <?php endif; ?>
         
