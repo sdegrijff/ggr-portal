@@ -202,6 +202,11 @@
     color: #ff2a2aab;
 }
 
+.ggrp-fe-chip--neutral {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
 .ggrp-fe-chip--up {
     background: #ecfdf3;
     color: #15803d;
