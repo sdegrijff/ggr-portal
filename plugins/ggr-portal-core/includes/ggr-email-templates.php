@@ -904,14 +904,18 @@ function ggr_portal_get_message_recipient_user_ids( $post ) {
     $audience  = get_post_meta( $post->ID, '_ggr_message_audience', true );
     $target_id = absint( get_post_meta( $post->ID, '_ggr_message_user_id', true ) );
     $role      = get_post_meta( $post->ID, '_ggr_message_role', true );
-
+    $is_single_tx = (bool) get_post_meta( $post->ID, '_ggr_message_single_transaction', true );
+    
     if ( ! $audience && $target_id ) {
         $audience = 'user';
     }
 
     $user_ids = array();
 
-    switch ( $audience ) {
+    if ( $is_single_tx && $target_id ) {
+        $user_ids = array( $target_id );
+    } else {
+        switch ( $audience ) {
         case 'user':
             if ( $target_id ) {
                 $user_ids[] = $target_id;
@@ -943,6 +947,7 @@ function ggr_portal_get_message_recipient_user_ids( $post ) {
             ) );
             $user_ids = $users ? $users : array();
             break;
+        }
     }
 
     if ( empty( $user_ids ) ) {
