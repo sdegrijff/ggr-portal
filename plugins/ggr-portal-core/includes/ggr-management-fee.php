@@ -232,6 +232,27 @@ function ggr_management_fee_calculate_month_totals( $month_end ) {
     );
 }
 
+function ggr_management_fee_calculate_mtd_totals( $date ) {
+    $date = sanitize_text_field( (string) $date );
+    if ( '' === $date ) {
+        return array(
+            'dividend_fee_total' => 0.0,
+            'nav_fee_total'      => 0.0,
+            'total_fee'          => 0.0,
+        );
+    }
+
+    $dividend_total = ggr_management_fee_calculate_dividend_fee_total( $date );
+    $nav_total      = ggr_management_fee_calculate_nav_fee_total( $date );
+    $total_fee      = $dividend_total + $nav_total;
+
+    return array(
+        'dividend_fee_total' => $dividend_total,
+        'nav_fee_total'      => $nav_total,
+        'total_fee'          => $total_fee,
+    );
+}
+
 function ggr_management_fee_format_money( $value ) {
     return '€ ' . number_format( (float) $value, 2, ',', '.' );
 }
@@ -398,7 +419,16 @@ function ggr_render_management_fee_page() {
 
     $computed_month = ggr_management_fee_normalize_month_end( $form_date );
     $computed_totals = $computed_month ? ggr_management_fee_calculate_month_totals( $computed_month ) : null;
-
+    $mtd_totals = null;
+    $today_date = current_time( 'Y-m-d' );
+    if ( $computed_month ) {
+        $computed_month_key = wp_date( 'Y-m', strtotime( $computed_month ) );
+        $current_month_key  = wp_date( 'Y-m', strtotime( $today_date ) );
+        if ( $computed_month_key === $current_month_key ) {
+            $mtd_totals = ggr_management_fee_calculate_mtd_totals( $today_date );
+        }
+    }
+    
     if ( ! $is_edit && $computed_totals ) {
         $form_dividend_fee = $form_dividend_fee !== '' ? $form_dividend_fee : number_format( $computed_totals['dividend_fee_total'], 2, ',', '' );
         $form_nav_fee      = $form_nav_fee !== '' ? $form_nav_fee : number_format( $computed_totals['nav_fee_total'], 2, ',', '' );
@@ -563,6 +593,12 @@ function ggr_render_management_fee_page() {
                     <p style="margin:0 0 6px;"><strong>Dividend fee (10%):</strong> <?php echo esc_html( ggr_management_fee_format_money( $computed_totals['dividend_fee_total'] ) ); ?></p>
                     <p style="margin:0 0 6px;"><strong>NAV fee:</strong> <?php echo esc_html( ggr_management_fee_format_money( $computed_totals['nav_fee_total'] ) ); ?></p>
                     <p style="margin:0;"><strong>Totaal:</strong> <?php echo esc_html( ggr_management_fee_format_money( $computed_totals['total_fee'] ) ); ?></p>
+                    <?php if ( $mtd_totals ) : ?>
+                        <hr style="margin:12px 0;">
+                        <p style="margin:0 0 6px;"><strong>MTD dividend fee (t/m vandaag):</strong> <?php echo esc_html( ggr_management_fee_format_money( $mtd_totals['dividend_fee_total'] ) ); ?></p>
+                        <p style="margin:0 0 6px;"><strong>MTD NAV fee (t/m vandaag):</strong> <?php echo esc_html( ggr_management_fee_format_money( $mtd_totals['nav_fee_total'] ) ); ?></p>
+                        <p style="margin:0;"><strong>MTD totaal (t/m vandaag):</strong> <?php echo esc_html( ggr_management_fee_format_money( $mtd_totals['total_fee'] ) ); ?></p>
+                    <?php endif; ?>                    
                 <?php else : ?>
                     <p style="margin:0;">Geen brondata beschikbaar voor deze maand.</p>
                 <?php endif; ?>
