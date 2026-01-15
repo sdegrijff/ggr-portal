@@ -145,6 +145,55 @@ function ggr_management_fee_calculate_dividend_fee_total( $month_end ) {
     return $total;
 }
 
+function ggr_management_fee_calculate_dividend_fee_mtd( $date ) {
+    global $wpdb;
+
+    $date = sanitize_text_field( (string) $date );
+    if ( '' === $date ) {
+        return 0.0;
+    }
+
+    $month_start = function_exists( 'ggr_dividend_accruals_get_month_start' )
+        ? ggr_dividend_accruals_get_month_start( $date )
+        : date( 'Y-m-01', strtotime( $date ) );
+
+    if ( ! $month_start ) {
+        return 0.0;
+    }
+
+    $table_name = $wpdb->prefix . 'ggr_dividend_accrual_history';
+
+    $rows = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT gross_value, currency, fx_rate_to_base
+             FROM {$table_name}
+             WHERE report_date BETWEEN %s AND %s",
+            $month_start,
+            $date
+        ),
+        ARRAY_A
+    );
+
+    if ( empty( $rows ) ) {
+        return 0.0;
+    }
+
+    $gross_total = 0.0;
+    foreach ( $rows as $row ) {
+        $gross = isset( $row['gross_value'] ) ? (float) $row['gross_value'] : 0.0;
+        $currency = isset( $row['currency'] ) ? strtoupper( (string) $row['currency'] ) : '';
+        $fx_rate = isset( $row['fx_rate_to_base'] ) ? (float) $row['fx_rate_to_base'] : null;
+
+        if ( $currency === 'USD' && $fx_rate !== null && $fx_rate > 0 ) {
+            $gross *= $fx_rate;
+        }
+
+        $gross_total += $gross;
+    }
+
+    return round( $gross_total * 0.1, 4 );
+}
+
 function ggr_management_fee_calculate_nav_fee_total( $month_end ) {
     global $wpdb;
 
@@ -221,8 +270,17 @@ function ggr_management_fee_calculate_month_totals( $month_end ) {
         );
     }
 
-    $dividend_total = ggr_management_fee_calculate_dividend_fee_total( $month_end );
-    $nav_total      = ggr_management_fee_calculate_nav_fee_total( $month_end );
+    $month_key         = wp_date( 'Y-m', strtotime( $month_end ) );
+    $current_month_key = wp_date( 'Y-m', current_time( 'timestamp' ) );
+
+    if ( $month_key === $current_month_key ) {
+        $mtd_date       = current_time( 'Y-m-d' );
+        $dividend_total = ggr_management_fee_calculate_dividend_fee_mtd( $mtd_date );
+        $nav_total      = ggr_management_fee_calculate_nav_fee_total( $mtd_date );
+    } else {
+        $dividend_total = ggr_management_fee_calculate_dividend_fee_total( $month_end );
+        $nav_total      = ggr_management_fee_calculate_nav_fee_total( $month_end );
+    }
     $total_fee      = $dividend_total + $nav_total;
 
     return array(
@@ -242,7 +300,7 @@ function ggr_management_fee_calculate_mtd_totals( $date ) {
         );
     }
 
-    $dividend_total = ggr_management_fee_calculate_dividend_fee_total( $date );
+    $dividend_total = ggr_management_fee_calculate_dividend_fee_mtd( $date );
     $nav_total      = ggr_management_fee_calculate_nav_fee_total( $date );
     $total_fee      = $dividend_total + $nav_total;
 
